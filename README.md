@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/dhmp-logo.webp" alt="DHMP logo" width="512">
+</p>
+
 # DHMP — Direct Headerless Message Protocol
 
 DHMP is an experimental fixed-contract application transport designed to keep repeated metadata, per-message allocation, and unnecessary application work out of the hot path.
