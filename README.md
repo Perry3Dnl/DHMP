@@ -115,6 +115,26 @@ Because retained history cannot grow forever, Verified ultimately requires async
 
 DHMPS does not invent custom cryptography. The current .NET prototype uses the platform TLS stack. TLS framing exists below DHMP, but DHMP itself still does not add a repeated application header to every logical frame.
 
+## Gen-2 processor-path results
+
+The current processor-path search is now organized as a **two-run screening matrix** rather than a collection of unrelated one-off tests.
+
+The retained anchor sizes are **16 B, 32 B, 256 B, and 1 KiB**. `Every` paths are measured with zero simulated application work; `Latest` paths are measured with **10 µs of consumer work** so we can see whether the network ingest path stays independent from an expensive consumer.
+
+![Every processor benchmark](benchmarks/results/charts/gen2-every-input-2026-09-22.svg)
+
+![Latest input benchmark](benchmarks/results/charts/gen2-latest-input-2026-09-22.svg)
+
+![Latest useful publication benchmark](benchmarks/results/charts/gen2-latest-published-2026-09-22.svg)
+
+At **32 B**, the current `Latest` baseline measured about **149.2 M input frames/s** and **69.5k useful publications/s**. The highest input-rate candidate in the retained two-run screen was **Ring8 Spin** at about **283.3 M input frames/s** and **82.4k publications/s**. A more publication-oriented **Slab6 Hybrid** reached about **223.8 M input frames/s** and **86.5k publications/s**.
+
+At **16 B**, the best retained `Every` candidate increased measured processing from about **269.5 M** to **448.0 M frames/s**. At **256 B**, the original `Latest` baseline still had the highest input rate among the retained candidates, while a Slab5 Spin path traded input throughput for a higher useful publication rate. At **1 KiB**, the best input-rate and best publication-rate candidates diverged again.
+
+That is the main Gen-2 conclusion so far: **the best processor path depends on the workload goal and frame size**. DHMP should keep `Every` and `Latest` as simple protocol semantics while the implementation chooses a suitable internal processor strategy after the handshake.
+
+These measurements come from the native Linux/C architecture lab, not the .NET implementation, so they are used to compare algorithms rather than as cross-platform product throughput claims. The consolidated CSV, raw two-run source data, and source lab archive are under [benchmarks/results](benchmarks/results) and [benchmarks/native-gen2](benchmarks/native-gen2).
+
 ## Latest benchmark results
 
 Raw CSV files and SVG charts are stored under [benchmarks/results](benchmarks/results).
@@ -188,7 +208,7 @@ What has been established so far:
 
 The next major protocol problem is **bounded Verified mode**: asynchronous verification/checkpoints must allow retained history to be released without adding ACK chatter to the normal data stream.
 
-The next benchmark problem is **sustained model-design throughput** using fixed wall-clock measurement windows rather than millisecond-sized burst runs.
+The current benchmark focus is the **processor/publication path**: selecting efficient internal strategies for `Every` and `Latest` without changing their protocol semantics.
 
 ## Intended use cases
 
@@ -215,4 +235,4 @@ It is not intended to reproduce every feature of HTTP, gRPC, Kafka, MQTT, QUIC, 
 
 ## Requirements
 
-The current benchmark prototype targets **.NET 10**.
+The main prototype targets **.NET 10**. A separate Linux/C native lab under `benchmarks/native-gen2` is used only for rapid processor-path architecture experiments.

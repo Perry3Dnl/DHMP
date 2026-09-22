@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="620" viewBox="0 0 1000 620">
+<rect width="100%" height="100%" fill="white"/>
+<text x="500" y="34" text-anchor="middle" font-family="sans-serif" font-size="24" font-weight="700">DHMP Gen-2 — Latest useful publication rate (10 µs work)</text>
+<text x="24" y="285" transform="rotate(-90 24 285)" text-anchor="middle" font-family="sans-serif" font-size="14">Thousand states / second</text>
+<line x1="100" y1="500.0" x2="970" y2="500.0" stroke="#ddd"/>
+<text x="90" y="505.0" text-anchor="end" font-family="sans-serif" font-size="12">0</text>
+<line x1="100" y1="414.0" x2="970" y2="414.0" stroke="#ddd"/>
+<text x="90" y="419.0" text-anchor="end" font-family="sans-serif" font-size="12">19</text>
+<line x1="100" y1="328.0" x2="970" y2="328.0" stroke="#ddd"/>
+<text x="90" y="333.0" text-anchor="end" font-family="sans-serif" font-size="12">39</text>
+<line x1="100" y1="242.0" x2="970" y2="242.0" stroke="#ddd"/>
+<text x="90" y="247.0" text-anchor="end" font-family="sans-serif" font-size="12">58</text>
+<line x1="100" y1="156.0" x2="970" y2="156.0" stroke="#ddd"/>
+<text x="90" y="161.0" text-anchor="end" font-family="sans-serif" font-size="12">77</text>
+<line x1="100" y1="70.0" x2="970" y2="70.0" stroke="#ddd"/>
+<text x="90" y="75.0" text-anchor="end" font-family="sans-serif" font-size="12">97</text>
+<rect x="130.4" y="146.0" width="49.2" height="354.0" fill="#2f6b9a"/>
+<rect x="182.6" y="139.9" width="49.2" height="360.1" fill="#6a9f58"/>
+<rect x="234.8" y="136.9" width="49.2" height="363.1" fill="#a76a3b"/>
+<text x="208.8" y="528" text-anchor="middle" font-family="sans-serif" font-size="14">16 B</text>
+<rect x="347.9" y="191.3" width="49.2" height="308.7" fill="#2f6b9a"/>
+<rect x="400.1" y="133.9" width="49.2" height="366.1" fill="#6a9f58"/>
+<rect x="452.3" y="116.1" width="49.2" height="383.9" fill="#a76a3b"/>
+<text x="426.3" y="528" text-anchor="middle" font-family="sans-serif" font-size="14">32 B</text>
+<rect x="565.5" y="181.9" width="49.2" height="318.1" fill="#2f6b9a"/>
+<rect x="617.7" y="181.9" width="49.2" height="318.1" fill="#6a9f58"/>
+<rect x="669.9" y="140.1" width="49.2" height="359.9" fill="#a76a3b"/>
+<text x="643.8" y="528" text-anchor="middle" font-family="sans-serif" font-size="14">256 B</text>
+<rect x="783.0" y="264.6" width="49.2" height="235.4" fill="#2f6b9a"/>
+<rect x="835.2" y="277.0" width="49.2" height="223.0" fill="#6a9f58"/>
+<rect x="887.4" y="206.5" width="49.2" height="293.5" fill="#a76a3b"/>
+<text x="861.3" y="528" text-anchor="middle" font-family="sans-serif" font-size="14">1 KiB</text>
+<rect x="100" y="560" width="14" height="14" fill="#2f6b9a"/>
+<text x="120" y="572" font-family="sans-serif" font-size="13">Baseline</text>
+<rect x="305" y="560" width="14" height="14" fill="#6a9f58"/>
+<text x="325" y="572" font-family="sans-serif" font-size="13">Max input</text>
+<rect x="510" y="560" width="14" height="14" fill="#a76a3b"/>
+<text x="530" y="572" font-family="sans-serif" font-size="13">Max publish</text>
+</svg>

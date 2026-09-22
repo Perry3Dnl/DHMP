@@ -60,6 +60,16 @@ The 32-byte quick run demonstrated the mechanism clearly: DHMP Latest received 8
 
 The exact burst throughput from this run is not yet treated as a sustained performance claim because the byte-budgeted timed regions can be only a few milliseconds long. The next performance step is a fixed-duration multi-second run; the important result so far is that DHMP can amortize one socket operation across thousands of logical frames while retaining constant-size reusable memory.
 
+### Processor-path Gen-2 search
+
+The transport/slab work has progressed far enough that processor/publication behavior is now a primary optimization target.
+
+A native Linux/C architecture lab is used for fast algorithm screening. The retained test format uses two runs per point at 16 B, 32 B, 256 B and 1 KiB. `Every` paths are measured with zero simulated consumer work; `Latest` paths use 10 µs of simulated work.
+
+The current result is not one universal winner. Tiny-frame, maximum-ingest, and maximum-publication paths differ. This points toward an implementation-level adaptive selector after handshake/contract negotiation, while the wire semantics remain simply `Every` or `Latest`.
+
+The Gen-2 native results are algorithm-comparison data only; they should not be compared numerically with the Windows/.NET benchmarks.
+
 ### No-ACK Verified recovery experiment
 
 Normal development run:
@@ -104,7 +114,7 @@ This is currently the next major protocol experiment.
 
 ## Next work
 
-1. Replace the short byte-budget model-design benchmark with fixed-duration multi-second passes and record sustained throughput, CPU time, socket calls and batching efficiency.
+1. Port the strongest Gen-2 processor candidates back into the .NET prototype and re-run them under the same Windows/.NET benchmark harness.
 2. Implement bounded Verified history with configurable/asynchronous checkpoints.
 3. Benchmark several checkpoint policies (time-based, byte-based and explicit application verification).
 4. Measure control bytes, retained memory, clean-stream throughput and failure recovery separately.

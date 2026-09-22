@@ -108,3 +108,47 @@ The current model-design run is an architecture-validation benchmark, not yet a 
 
 Therefore the multi-million-frame figures should currently be read as evidence that the implementation can amortize one socket operation across thousands of logical frames. The next performance run should use fixed wall-clock measurement windows (for example 2–5 seconds per pass) before quoting sustained message-rate ceilings.
 
+## Gen-2 processor-path screening — 2026-09-22
+
+The processor experiments have been consolidated into a two-run screening format.
+
+Retained anchor sizes:
+- 16 B
+- 32 B
+- 256 B
+- 1 KiB
+
+Test split:
+- **Every:** zero simulated consumer work; every complete frame must be processed.
+- **Latest:** 10 µs simulated consumer work; stale complete states may be conflated.
+- adaptive slab target: `clamp(frameSize * 512, 16 KiB, 1 MiB)`.
+- selected retained points reported zero validation errors.
+
+Consolidated medians: [gen2-processor-summary-2026-09-22.csv](../benchmarks/results/gen2-processor-summary-2026-09-22.csv)
+
+Raw retained two-run source data: [gen2-raw-2run-results-2026-09-22.zip](../benchmarks/results/gen2-raw-2run-results-2026-09-22.zip)
+
+Charts:
+- [Every input/processed rate](../benchmarks/results/charts/gen2-every-input-2026-09-22.svg)
+- [Latest input rate](../benchmarks/results/charts/gen2-latest-input-2026-09-22.svg)
+- [Latest useful publication rate](../benchmarks/results/charts/gen2-latest-published-2026-09-22.svg)
+
+Key retained results:
+
+| Frame | Every baseline | Best Every tested | Latest baseline input | Max Latest input | Latest baseline published | Max published |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 16 B | 269.5 M/s | 448.0 M/s | 349.2 M/s | 484.5 M/s | 79.7k/s | 81.8k/s |
+| 32 B | 196.5 M/s | 228.6 M/s | 149.2 M/s | 283.3 M/s | 69.5k/s | 86.5k/s |
+| 256 B | 43.2 M/s | 43.2 M/s | 36.1 M/s | 36.1 M/s | 71.6k/s | 81.0k/s |
+| 1 KiB | 8.06 M/s | 9.09 M/s | 8.22 M/s | 8.85 M/s | 53.0k/s | 66.1k/s |
+
+The winning implementation is not the same at every size or for every objective. For example, at 32 B Ring8 Spin maximized input rate, while Slab6 Hybrid produced more useful states. At 256 B the baseline retained the highest input rate while Slab5 Spin improved publication throughput at the cost of ingest rate.
+
+This supports an implementation-level adaptive strategy selected after the fixed contract is known, rather than adding a new per-frame protocol feature.
+
+### Native-lab caveat
+
+These Gen-2 results come from the Linux/C architecture lab. They are intended to compare processor-path algorithms under the same local conditions. They are **not directly comparable** to the Windows/.NET benchmark rates elsewhere in this document and are not production throughput claims.
+
+The source lab archive is stored at [benchmarks/native-gen2/DHMP-native-gen2-source.zip](../benchmarks/native-gen2/DHMP-native-gen2-source.zip).
+
