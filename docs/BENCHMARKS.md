@@ -152,3 +152,44 @@ These Gen-2 results come from the Linux/C architecture lab. They are intended to
 
 The source lab archive is stored at [benchmarks/native-gen2/DHMP-native-gen2-source.zip](../benchmarks/native-gen2/DHMP-native-gen2-source.zip).
 
+## Native showcase comparison — 2026-09-22
+
+This run places the two retained DHMP Latest processor models and a TLS-wrapped DHMPS variant beside five familiar wire/framing baselines in one native Linux/C harness.
+
+Configuration:
+- 32 B and 256 B application payloads
+- two measured runs per point
+- 1.5 s per run
+- 10 µs simulated consumer work
+- persistent localhost connections
+- setup/handshakes excluded from the timed region
+- no compression
+- Latest/conflating consumer semantics applied to every case
+- DHMP adaptive slab target: `clamp(frameSize * 512, 16 KiB, 1 MiB)`
+- zero validation errors in the retained runs
+
+Raw data: [showcase-raw-2run-2026-09-22.csv](../benchmarks/results/showcase-raw-2run-2026-09-22.csv)
+
+Summary: [showcase-summary-2run-2026-09-22.csv](../benchmarks/results/showcase-summary-2run-2026-09-22.csv)
+
+Charts:
+- [32 B input rate](../benchmarks/results/charts/showcase-32b-input-2026-09-22.svg)
+- [256 B input rate](../benchmarks/results/charts/showcase-256b-input-2026-09-22.svg)
+
+Two-run mean input rates:
+
+| Path | 32 B | 256 B |
+| --- | ---: | ---: |
+| DHMP Latest / Ring8 Spin | 92.63 M/s | 12.84 M/s |
+| DHMP Latest / Slab6 Hybrid | 100.35 M/s | 11.27 M/s |
+| DHMPS / TLS / Slab6 Hybrid | 66.51 M/s | 8.49 M/s |
+| Raw TCP / fixed-size | 93.94 M/s | 14.26 M/s |
+| TCP / 4-byte length | 107.79 M/s | 13.04 M/s |
+| UDP / batched datagrams | 0.626 M/s | 0.616 M/s |
+| WebSocket / binary framing | 33.50 M/s | 4.39 M/s |
+| HTTP/1.1 / chunk framing | 105.47 M/s | 10.80 M/s |
+
+Interpretation: the lean raw/length-prefixed stream baselines remain close to or above DHMP in parts of this microbenchmark, which is expected. DHMP's intended value is not an impossible speedup over raw TCP; it is retaining a very thin hot path while adding negotiated fixed contracts and explicit `Every`/`Latest` semantics. DHMPS shows the cost of standard TLS while retaining the same application framing model.
+
+The WebSocket and HTTP cases here are framing/parser microbenchmarks, not complete framework stacks. For actual ASP.NET Core/gRPC/WebSocket stack comparisons, use the .NET landscape sections above rather than mixing the two harnesses.
+

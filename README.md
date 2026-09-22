@@ -135,6 +135,39 @@ That is the main Gen-2 conclusion so far: **the best processor path depends on t
 
 These measurements come from the native Linux/C architecture lab, not the .NET implementation, so they are used to compare algorithms rather than as cross-platform product throughput claims. The consolidated CSV, raw two-run source data, and source lab archive are under [benchmarks/results](benchmarks/results) and [benchmarks/native-gen2](benchmarks/native-gen2).
 
+## Showcase: two DHMP models, DHMPS, and five familiar baselines
+
+The current showcase keeps the two strongest retained `Latest` designs in view:
+
+- **Ring8 Spin** — the max-rate/freshness-oriented processor path from the Gen-2 search.
+- **Slab6 Hybrid** — a more balanced path that trades some raw ingest for useful publication behavior.
+- **DHMPS / Slab6 Hybrid** — the same fixed-contract idea carried over standard TLS.
+
+They were run beside five familiar baselines: raw fixed-size TCP, 4-byte length-prefixed TCP, batched UDP datagrams, binary WebSocket framing, and HTTP/1.1 chunk framing.
+
+![32-byte showcase](benchmarks/results/charts/showcase-32b-input-2026-09-22.svg)
+
+![256-byte showcase](benchmarks/results/charts/showcase-256b-input-2026-09-22.svg)
+
+Two-run mean input rates:
+
+| Path | 32 B | 256 B |
+| --- | ---: | ---: |
+| DHMP Ring8 Spin | **92.6 M/s** | **12.84 M/s** |
+| DHMP Slab6 Hybrid | **100.3 M/s** | **11.27 M/s** |
+| DHMPS / TLS / Slab6 | **66.5 M/s** | **8.49 M/s** |
+| Raw TCP / fixed-size | 93.9 M/s | 14.26 M/s |
+| TCP / 4-byte length | 107.8 M/s | 13.04 M/s |
+| UDP / batched datagrams | 0.63 M/s | 0.62 M/s |
+| WebSocket / binary framing | 33.5 M/s | 4.39 M/s |
+| HTTP/1.1 / chunk framing | 105.5 M/s | 10.80 M/s |
+
+The result is intentionally not framed as “DHMP is magically faster than TCP.” The lean TCP/framing baselines remain extremely competitive, which is expected. The design target is to stay in that performance class while adding fixed-contract framing, `Every`/`Latest` semantics, reconnect/recovery behavior, and a secure DHMPS option without putting repeated DHMP metadata on every application frame.
+
+This is a **native Linux/C localhost wire/framing microbenchmark** with 10 µs simulated consumer work and Latest/conflating semantics in every case. The WebSocket and HTTP rows measure their framing/parsing paths in this lab, not complete server frameworks. Full .NET stack comparisons remain documented separately below.
+
+Source and raw results: [benchmarks/native-showcase](benchmarks/native-showcase) and [benchmarks/results/showcase-summary-2run-2026-09-22.csv](benchmarks/results/showcase-summary-2run-2026-09-22.csv).
+
 ## Latest benchmark results
 
 Raw CSV files and SVG charts are stored under [benchmarks/results](benchmarks/results).
