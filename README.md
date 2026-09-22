@@ -45,6 +45,8 @@ not:
 
 See [docs/PROTOCOL_DRAFT.md](docs/PROTOCOL_DRAFT.md) for the current protocol model and [docs/CURRENT_STATUS.md](docs/CURRENT_STATUS.md) for the development status and benchmark conclusions.
 
+Raw benchmark CSVs and comparison charts are kept under [benchmarks/results](benchmarks/results), with methodology and caveats in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
 ## Status
 
 This is experimental work, not a published interoperability specification yet. The next major design problem is **bounded Verified mode**: verification/checkpoint traffic must remain asynchronous and rare while allowing old retained history to be discarded.

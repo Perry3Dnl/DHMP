@@ -49,6 +49,17 @@ A quick persistent-localhost comparison using identical opaque request/response 
 
 This is promising for controlled backend-to-backend communication, but it is not by itself evidence that DHMP is a universal HTTP replacement. HTTP/2 and gRPC also provide multiplexing, routing/tooling and higher-level ecosystem features that the current benchmark does not reproduce.
 
+
+### Reusable-slab data-pump model
+
+A newer benchmark now matches the original DHMP model more closely than the frame-at-a-time socket experiments.
+
+The sender and receiver use reusable 256 KiB slabs so socket-operation boundaries do not have to match logical frame boundaries. In **Latest** mode, obsolete complete frames can be skipped by fixed-size arithmetic while only the newest complete state is published.
+
+The 32-byte quick run demonstrated the mechanism clearly: DHMP Latest received 8,192 logical frames per socket read and skipped 99.9878% of stale states instead of dispatching each one individually.
+
+The exact burst throughput from this run is not yet treated as a sustained performance claim because the byte-budgeted timed regions can be only a few milliseconds long. The next performance step is a fixed-duration multi-second run; the important result so far is that DHMP can amortize one socket operation across thousands of logical frames while retaining constant-size reusable memory.
+
 ### No-ACK Verified recovery experiment
 
 Normal development run:
@@ -93,14 +104,15 @@ This is currently the next major protocol experiment.
 
 ## Next work
 
-1. Implement bounded Verified history with configurable/asynchronous checkpoints.
-2. Benchmark several checkpoint policies (time-based, byte-based and explicit application verification).
-3. Measure control bytes, retained memory, clean-stream throughput and failure recovery separately.
-4. Exercise the same model over DHMPS/TLS.
-5. Separate protocol specification from the .NET implementation.
-6. Rename remaining experimental `FixedWire` namespaces/projects only after the protocol model is stable.
-7. Design higher-level .NET ergonomics (DI, typed clients, endpoint negotiation and ASP.NET-style hosting) without contaminating the DHMP data frame.
-8. Later add native streaming/concurrent comparisons for gRPC/HTTP2 instead of relying only on sequential request/reply benchmarks.
+1. Replace the short byte-budget model-design benchmark with fixed-duration multi-second passes and record sustained throughput, CPU time, socket calls and batching efficiency.
+2. Implement bounded Verified history with configurable/asynchronous checkpoints.
+3. Benchmark several checkpoint policies (time-based, byte-based and explicit application verification).
+4. Measure control bytes, retained memory, clean-stream throughput and failure recovery separately.
+5. Exercise the same model over DHMPS/TLS.
+6. Separate protocol specification from the .NET implementation.
+7. Rename remaining experimental `FixedWire` namespaces/projects only after the protocol model is stable.
+8. Design higher-level .NET ergonomics (DI, typed clients, endpoint negotiation and ASP.NET-style hosting) without contaminating the DHMP data frame.
+9. Continue native streaming/concurrent comparisons for gRPC/HTTP2 rather than relying only on sequential request/reply benchmarks.
 
 ## Positioning
 

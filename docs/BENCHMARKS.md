@@ -41,3 +41,70 @@ This quick test is directional only. The architecture and API/tooling difference
 The raw CSV is stored under `benchmarks/results/delivery-mode-results-2026-09-22.csv`.
 
 A benchmark bookkeeping issue currently reports retained-frame counters for Unconfirmed as well; those counters should not be interpreted as actual Unconfirmed protocol retention. The Verified replay/missing/recovery measurements are the relevant fields.
+
+## Continuous streaming landscape — 2026-09-22
+
+Raw data: [streaming-landscape-results-2026-09-22.csv](../benchmarks/results/streaming-landscape-results-2026-09-22.csv)
+
+Charts:
+
+- [grouped frames/sec](../benchmarks/results/charts/streaming-grouped-frames-2026-09-22.svg)
+- [performance relative to DHMP](../benchmarks/results/charts/streaming-relative-to-dhmp-2026-09-22.svg)
+- [frames/sec scaling](../benchmarks/results/charts/streaming-scaling-frames-2026-09-22.svg)
+- [payload MiB/sec scaling](../benchmarks/results/charts/streaming-scaling-mibps-2026-09-22.svg)
+
+This benchmark removed application request/reply waiting and continuously streamed fixed-size frames. It is a better view of frame-size scaling than the earlier unary round-trip test.
+
+DHMP end-to-end medians from the run:
+
+| Payload | Frames/sec | Payload MiB/sec |
+| ---: | ---: | ---: |
+| 16 B | 206,206 | 3.15 |
+| 32 B | 227,854 | 6.95 |
+| 64 B | 223,684 | 13.65 |
+| 128 B | 222,411 | 27.15 |
+| 256 B | 224,966 | 54.92 |
+| 512 B | 217,922 | 106.41 |
+| 1 KiB | 207,060 | 202.21 |
+| 2 KiB | 191,655 | 374.33 |
+| 4 KiB | 178,634 | 697.79 |
+| 8 KiB | 141,064 | 1,102.07 |
+| 16 KiB | 89,845 | 1,403.82 |
+| 32 KiB | 76,298 | 2,384.32 |
+| 64 KiB | 24,357 | 1,522.31 |
+
+The useful pattern is that DHMP stayed near roughly 206k–228k frames/sec from 16 B through 1 KiB while payload throughput rose from about 3.15 MiB/sec to 202 MiB/sec. This supports the design expectation that small/medium fixed frames are dominated by per-operation overhead until byte movement becomes the limiting factor.
+
+## Reusable-slab / model-design experiment — 2026-09-22
+
+Raw data: [model-design-results-2026-09-22.csv](../benchmarks/results/model-design-results-2026-09-22.csv)
+
+Charts:
+
+- [Every semantics](../benchmarks/results/charts/model-design-every-2026-09-22.svg)
+- [Latest semantics](../benchmarks/results/charts/model-design-latest-2026-09-22.svg)
+
+This experiment was changed to match the intended DHMP data-pump model more closely:
+
+- a reusable 256 KiB send slab and receive slab;
+- many logical fixed-size frames per socket I/O operation;
+- no per-frame queue or message allocation;
+- **Every** validates/exposes every complete logical frame;
+- **Latest** drains the byte stream but skips obsolete complete frames and publishes only the newest complete state from a receive batch;
+- trailing partial frames are preserved for the next read.
+
+The 32-byte run illustrates the mechanism:
+
+| Mode | Input frames/sec | Payload MiB/sec | Frames/socket read | Published | Skipped |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| DHMP Every | 17.20 M | 525.0 | 6,096 | 100% | 0% |
+| DHMP Latest | 195.67 M | 5,971.5 | 8,192 | 0.0122% | 99.9878% |
+
+The Latest number means logical frame-equivalents flowing through the fixed stream, **not 195 million application callbacks/sec**. In that run one 256 KiB receive contained 8,192 logical 32-byte frames and Latest only needed to publish the newest complete state.
+
+### Important timing caveat
+
+The current model-design run is an architecture-validation benchmark, not yet a sustained-throughput claim. Its byte-budgeted quick passes can be only a few milliseconds long; the 32-byte Latest timed region is roughly 1.3 ms at the observed throughput. Large differences between otherwise similar slab baselines show that socket batching, scheduling and short-run timing materially affect the absolute rates.
+
+Therefore the multi-million-frame figures should currently be read as evidence that the implementation can amortize one socket operation across thousands of logical frames. The next performance run should use fixed wall-clock measurement windows (for example 2–5 seconds per pass) before quoting sustained message-rate ceilings.
+
