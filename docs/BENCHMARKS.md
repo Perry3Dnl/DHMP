@@ -829,3 +829,34 @@ Source: [every_delivery_worker_ab.c](../benchmarks/native-showcase/every_deliver
 Raw results: [every-delivery-worker-ab-raw-7run-2026-09-23.csv](../benchmarks/results/every-delivery-worker-ab-raw-7run-2026-09-23.csv)
 
 Summary: [every-delivery-worker-ab-summary-7run-2026-09-23.csv](../benchmarks/results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
+
+
+## Borrowed receive-slab delivery for Every — 2026-09-23
+
+A native `Every` experiment tested removing the complete-frame input-to-output copy when the received wire representation can be exposed directly to downstream code.
+
+Two bounded paths were compared with 32-byte frames, an 8 × 12 KiB reusable slab pool, 30 million ordered frames per run, zero artificial consumer hold, and twelve alternating runs:
+
+- **copy:** receive into a transport workspace, copy all complete frames into the next public output slab, then publish that slab;
+- **borrow:** receive directly into the next reusable public slab, publish an `{offset,count}` view of the complete frames in that same slab, and return the slab to the pool only after the consumer releases it.
+
+Frames split across TCP receive boundaries are handled through a dedicated 32-byte carry area. Only those boundary fragments are copied; the complete-frame region in the borrowed path is never copied into a second application buffer.
+
+| Every delivery path | Median end-to-end frames/s | Logical payload rate | Receiver CPU/frame | Consumer CPU/frame |
+| --- | ---: | ---: | ---: | ---: |
+| Receive workspace → copy → public slab | 119.63 M/s | 3.83 GB/s | 6.305 ns | 8.356 ns |
+| **Receive directly into leased public slab** | **126.51 M/s** | **4.05 GB/s** | **6.184 ns** | **7.901 ns** |
+
+The borrowed receive-slab path measured about **+5.8% median end-to-end throughput**, about **1.9% lower receiver CPU/frame**, and about **5.5% lower consumer CPU/frame** on this shared localhost host. All retained runs delivered all 30 million frames with zero validation errors.
+
+The retained medians included roughly 3,066 boundary events and only about 65 KiB of total boundary-fragment copying in the borrowed path across 960 MB of logical payload, demonstrating that split-frame repair remained tiny compared with copying every complete frame.
+
+The environment remained noisy: the copy path ranged from 65.5–140.8 M/s and the borrowed path from 50.1–148.8 M/s. The direction is therefore retained as architectural evidence rather than a universal percentage.
+
+This optimization applies first to `Every` paths where the wire representation is already suitable for direct exposure or in-place interpretation. If conversion requires a different representation, an output slab is still required. `Latest` remains better served by copying only the newest useful state into compact retained storage so the larger receive workspace can be reused immediately.
+
+Source: [every_receive_slab_lease_ab.c](../benchmarks/native-showcase/every_receive_slab_lease_ab.c)
+
+Raw results: [every-receive-slab-lease-ab-raw-12run-2026-09-23.csv](../benchmarks/results/every-receive-slab-lease-ab-raw-12run-2026-09-23.csv)
+
+Summary: [every-receive-slab-lease-ab-summary-12run-2026-09-23.csv](../benchmarks/results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
