@@ -10,6 +10,17 @@ The retained model is no longer one showcase version. The current work is split 
 
 Historical v2/v3/v4 showcase files remain in the repository for reproducibility, but they are not the current architecture target.
 
+## README showcase figures
+
+The root project page now presents performance before architecture. The current showcase uses:
+
+- [DHMP vs familiar framing/transport baselines](../results/charts/showcase-current-protocol-throughput-2026-09-23.svg)
+- [receiver CPU per logical record](../results/charts/showcase-current-protocol-cpu-2026-09-23.svg)
+- [current Adaptive capability snapshot](../results/charts/showcase-current-capability-snapshot-2026-09-23.svg)
+- [capability summary CSV](../results/adaptive-showcase-capability-summary-2026-09-23.csv)
+
+The first two are the zero-hold `Latest` transport/framing harness. The capability snapshot then shows the latest retained `Every` and ComputeBlock results from their own controlled harnesses.
+
 ## Current retained labs
 
 | Lab | Purpose | Retained result |
