@@ -91,3 +91,20 @@ gcc -O3 -march=native -pthread ring3_triple_exchange_ab.c -o ring3-exchange-ab
 Seven alternating retained runs with a 10 µs zero-copy consumer hold produced a median **32.359 M producer publications/s** for the exchange path versus **30.281 M/s** for the per-slot baseline. Producer CPU cost fell from 33.023 ns to 30.900 ns/publication, and all retained runs reported zero validation errors.
 
 Raw results: [../results/ring3-triple-exchange-ab-2026-09-23.csv](../results/ring3-triple-exchange-ab-2026-09-23.csv)
+
+
+## Ring-3 CPU microbenchmarks
+
+The current processor sweep also includes:
+
+- `ring3_token_width_ab.c` — 8/16/32/64-bit publication-token widths;
+- `ring3_contract_specialize_ab.c` — runtime-size processor versus a negotiated 32-byte specialized path;
+- `ring3_carry32_ab.c` — variable-size carry `memmove` versus fixed 32-byte vector carry handling.
+
+Retained conclusions:
+
+- 32-bit token remains the default;
+- negotiated specialization provides a small but measurable CPU win;
+- fixed-width 32-byte carry handling removes most of the isolated variable-size carry-copy cost.
+
+See [../../docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) for raw-result links and interpretation.
