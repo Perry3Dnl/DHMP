@@ -742,3 +742,52 @@ Source: [every_output_slab_v1.c](../benchmarks/native-showcase/every_output_slab
 Raw results: [every-output-slab-e2e-32b-raw-9run-2026-09-23.csv](../benchmarks/results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv)
 
 Summary: [every-output-slab-e2e-32b-summary-9run-2026-09-23.csv](../benchmarks/results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
+
+
+## Direct output-slab forwarding — 2026-09-23
+
+A forwarding-path experiment extends the bounded `Every` output-slab model across the next service boundary.
+
+Pipeline:
+
+```text
+ingress TCP
+    ↓
+processor writes negotiated wire-ready results
+    ↓
+bounded 8 × 12 KiB output slabs
+    ↓
+forward sender
+    ↓
+egress TCP
+    ↓
+validating sink
+```
+
+Two variants were compared:
+
+- **copy:** processor publishes a populated output slab; the forward sender copies the populated bytes into a separate 12 KiB sender scratch buffer, then sends that buffer;
+- **direct:** the published output slab itself becomes the sender buffer. The sender retains ownership until all bytes from that population have been accepted by the blocking socket, then returns the slab to the processor.
+
+Both paths process, forward, receive, and validate 12 million 32-byte results per run. The processor writes the final fixed wire layout directly, so this A/B isolates the intermediate application-level copy. It does not include a second serialization pass in the copy baseline.
+
+Twelve alternating runs were retained:
+
+| Forwarding path | Median end-to-end results/s | Processor CPU/result | Forward-sender CPU/result | Sink CPU/result |
+| --- | ---: | ---: | ---: | ---: |
+| Copy slab → sender scratch | 41.93 M/s | 23.238 ns | 23.798 ns | 7.216 ns |
+| **Send published slab directly** | **43.98 M/s** | **21.111 ns** | **22.689 ns** | **6.805 ns** |
+
+The direct-slab path measured about **+4.9% median end-to-end throughput**, **-9.2% processor CPU/result**, and **-4.7% forward-sender CPU/result** on this shared localhost host. All retained runs completed with zero validation errors and exact processed/forwarded/received counts.
+
+The run-to-run variance remained substantial: copy ranged from 22.35–61.47 M results/s and direct ranged from 39.49–63.51 M/s. Treat the gain as promising architectural evidence rather than a universal percentage.
+
+The sender implementation maintains a byte offset and does not return slab ownership until the entire populated region has been sent. In the retained blocking-loopback runs, Linux accepted each 12 KiB slab send without a short successful send, so the partial-send branch was not exercised by the measured dataset. For asynchronous or kernel zero-copy APIs, ownership must instead remain with the sender until the API's completion event guarantees the transport no longer references the user buffer.
+
+This benchmark does **not** claim elimination of kernel copies or TLS copies. It removes only the application-level output-slab → sender-buffer copy. If a future implementation already sends directly from the processor's output slab, this optimization has no additional benefit.
+
+Source: [every_forward_direct_slab_ab.c](../benchmarks/native-showcase/every_forward_direct_slab_ab.c)
+
+Raw results: [every-forward-direct-slab-ab-raw-12run-2026-09-23.csv](../benchmarks/results/every-forward-direct-slab-ab-raw-12run-2026-09-23.csv)
+
+Summary: [every-forward-direct-slab-ab-summary-12run-2026-09-23.csv](../benchmarks/results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
