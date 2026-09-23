@@ -108,3 +108,12 @@ Retained conclusions:
 - fixed-width 32-byte carry handling removes most of the isolated variable-size carry-copy cost.
 
 See [../../docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) for raw-result links and interpretation.
+
+
+## Fixed output-slab processor batching
+
+`processor_output_slab_ab.c` compares per-result Ring-3 ownership transfers with a processor that writes 384 fixed 32-byte results into one 12 KiB output slab and publishes the completed slab once.
+
+The retained seven-run medians were **2.251 ns/result** for per-result publication versus **0.887 ns/result** for the output-slab path. The consumer validates every frame of acquired slabs; all retained runs completed with zero validation errors.
+
+Raw results: [../results/processor-output-slab-ab-2026-09-23.csv](../results/processor-output-slab-ab-2026-09-23.csv)
