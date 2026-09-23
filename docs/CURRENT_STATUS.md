@@ -110,6 +110,21 @@ Across seven alternating retained runs, the single-atomic design increased media
 
 This preserves the three-slot semantic advantage while removing most of the ownership bookkeeping from the hot path. It is now the preferred Ring-3 CPU ownership strategy for integration into the fixed-slab receive engine.
 
+
+### Ring-3 CPU micro-optimizations
+
+The single-atomic triple exchange has now been followed by a CPU-side micro-optimization sweep.
+
+The current retained choices are:
+
+- keep the shared middle token at **32 bits**; 8- and 16-bit atomic RMW operations were substantially slower, while 32 and 64 bits were effectively tied in a longer follow-up;
+- use the weakest correct memory ordering, but do not count it as an x86 speedup because the generated locked RMW instructions are effectively unchanged;
+- select a **contract-specialized 32-byte processor** after negotiation, which reduced isolated processor batch cost by about **1.5%** versus runtime division/runtime-size copy;
+- replace variable-size carry `memmove` with a **conditional fixed 32-byte vector carry copy**, reducing isolated carry housekeeping from 4.794 ns to 1.739 ns per batch (~63.7%);
+- reject direct tagged-pointer publication tokens, which regressed the retained index-token path.
+
+These changes are next in line to be folded into the integrated Ring-3 fixed-slab showcase before another end-to-end comparison is published.
+
 ### Native 32-byte showcase v2
 
 Ring-3 Fixed-Slab Latest is now integrated into the same native Linux/C comparison harness as Ring8, Slab6, DHMPS/TLS, raw fixed TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP.
