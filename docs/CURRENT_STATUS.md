@@ -1,3 +1,14 @@
+
+### Consumer CAS vs exchange
+
+A single-exchange consumer acquisition was tested as an alternative to the current compare-and-swap acquisition. It is ownership-correct for the SPSC Ring-3 token model and eliminates consumer retry loops entirely.
+
+The retained high-contention benchmark did not show a CPU advantage: exchange measured a median 12.412 ns producer cost versus 11.790 ns with CAS, and 83.661 ns consumer CPU per acquisition versus 74.482 ns with CAS. Both paths completed with zero validation errors.
+
+The likely reason is coherence traffic: the current real network path already sees very few CAS failures, so unconditional exchange removes almost no practical retries while forcing an immediate RMW ownership transfer whenever dirty state is observed.
+
+**Current default remains consumer CAS.**
+
 # Current development status
 
 ### Zero-hold maximum-speed showcase v4
