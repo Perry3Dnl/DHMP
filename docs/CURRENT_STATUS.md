@@ -26,6 +26,18 @@ Localhost scheduling variance is still substantial, so v4 publishes complete run
 
 Updated: 2026-09-23
 
+
+### CPU/cache topology placement
+
+The current native showcase pins sender/receiver/consumer to fixed CPU numbers, but host topology was not previously part of the selection logic.
+
+The available benchmark host reports all five CPUs in one NUMA node and one shared LLC, so the existing `0/1/2` placement already meets the broad same-LLC / distinct-core target. A direct Ring-3 ownership microbenchmark nevertheless showed a modest improvement when the producer/consumer used one reported shared lower-cache pair: CPU 2→3 measured 11.770 ns producer CPU/publication and 71.443 ns consumer CPU/acquisition versus 12.081 ns and 77.331 ns for the LLC-only CPU 1→2 pair.
+
+The end-to-end zero-hold TCP loopback benchmark did not reproduce that advantage; the existing `sender=0 / receiver=1 / consumer=2` placement retained the highest median logical input rate on this host.
+
+**Status:** topology awareness is promising but hardware-dependent. Do not change the default yet. Revisit with physical hardware, hardware counters, and the future AutoTune/runtime transport work.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
