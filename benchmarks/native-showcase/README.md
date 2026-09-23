@@ -77,3 +77,24 @@ The localhost run-to-run ranges are intentionally retained in the summary CSV. T
 ## Historical showcase v2
 
 The older v2 source archive remains at [DHMP-native-showcase-source.zip](DHMP-native-showcase-source.zip). v2 predates the single-atomic triple exchange, the current fixed-width carry path, and the current v3 sender/publication model. Its absolute rates should not be treated as directly comparable to v3 because the harness changed.
+
+
+## Every output-slab pipeline
+
+`every_output_slab_v1.c` integrates batched result publication into a bounded `Every` TCP processing path.
+
+Both A/B variants retain 96 KiB of bounded output payload capacity. The per-result variant publishes every transformed 32-byte result individually. The output-slab variant owns eight reusable 12 KiB result slabs, writes transformed results directly into the next free slab, publishes the actual populated count immediately after each receive batch, and applies backpressure rather than overwriting unread results.
+
+Nine-run medians:
+
+| Path | End-to-end results/s | Receiver/processor CPU/result | Consumer CPU/result | Results/publication |
+| --- | ---: | ---: | ---: | ---: |
+| Per-result | 33.35 M/s | 29.933 ns | 29.978 ns | 1.0 |
+| **Output slab** | **129.80 M/s** | **6.988 ns** | **7.699 ns** | **372.3** |
+
+All retained runs processed and consumed all 30 million results with zero validation errors.
+
+Results:
+
+- [raw nine-run CSV](../results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv)
+- [nine-run median summary](../results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
