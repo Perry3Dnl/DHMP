@@ -81,6 +81,15 @@ For a 32-byte contract, the retained state payload is only 96 bytes. A five-pass
 
 The design lesson is that **retained state capacity and socket I/O batch size should be independent**: a tiny Ring-3 state window can coexist with a larger fixed transport workspace without introducing an unbounded queue.
 
+
+### Ring-3 cache-line layout check
+
+A cache-line isolation experiment tested whether expanding the three 32-byte retained slots from a packed 96-byte block to three dedicated 64-byte cache lines would improve producer/consumer behavior.
+
+It did not. In a fixed-iteration two-core test matching the full three-state tail update, the current packed layout measured a median **8.215 ns per three-state update**, versus **14.662 ns** for fully isolated slots.
+
+The packed layout is therefore retained. With 64-byte alignment, the current 96-byte Ring-3 touches only two cache lines for a complete three-state refresh; padding each slot would force three cache-line writes and double the physical slot area to 192 bytes.
+
 ### Native 32-byte showcase v2
 
 Ring-3 Fixed-Slab Latest is now integrated into the same native Linux/C comparison harness as Ring8, Slab6, DHMPS/TLS, raw fixed TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP.
