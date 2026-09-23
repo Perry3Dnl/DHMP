@@ -271,3 +271,50 @@ The important implementation result is that forcing TCP to receive directly into
 
 An earlier tuned native exploration of this slab-to-Ring-3 shape reached about 160 M 32-byte logical frames/s (~5.12 GB/s) in a short local run. Because that figure was more environment-sensitive and was not reproduced by the standalone reference harness above, it is retained only as an architecture-exploration observation rather than the published sustained reference value.
 
+
+
+## Native showcase v2 — Ring-3 integrated — 2026-09-23
+
+Ring-3 Fixed-Slab Latest has now been moved from a standalone architecture test into the same native comparison harness as the existing DHMP and baseline paths.
+
+Configuration:
+
+- native Linux/C localhost;
+- 32-byte logical payloads;
+- fixed 12 KiB receive workspace;
+- 500 ms warmup;
+- 1.5 second measured interval;
+- three runs per path;
+- 10 µs simulated consumer work;
+- sender/receiver/consumer CPU pinning when available;
+- TLS 1.3 for DHMPS;
+- zero validation errors in all retained runs.
+
+Raw data: [showcase-v2-32b-raw-3run-2026-09-23.csv](../benchmarks/results/showcase-v2-32b-raw-3run-2026-09-23.csv)
+
+Summary: [showcase-v2-32b-summary-3run-2026-09-23.csv](../benchmarks/results/showcase-v2-32b-summary-3run-2026-09-23.csv)
+
+Charts:
+
+- [logical input rate](../benchmarks/results/charts/showcase-v2-32b-input-2026-09-23.svg)
+- [useful publication rate](../benchmarks/results/charts/showcase-v2-32b-published-2026-09-23.svg)
+
+Three-run medians:
+
+| Path | Logical input frames/s | Useful publications/s | Payload GB/s | Retained state |
+| --- | ---: | ---: | ---: | ---: |
+| DHMP Slab6 | **179.2 M** | **78.2k** | **5.73** | 192 B |
+| **DHMP Ring-3 Fixed-Slab** | **174.2 M** | **74.1k** | **5.58** | **96 B** |
+| DHMP Ring8 | 150.0 M | 72.8k | 4.80 | 256 B |
+| HTTP/1.1 / chunk framing | 123.7 M | 75.0k | 3.96 | harness state |
+| TCP / 4-byte length | 119.5 M | 72.0k | 3.82 | harness state |
+| WebSocket / binary framing | 104.7 M | 60.8k | 3.35 | harness state |
+| Raw TCP / fixed frame | 73.0 M | 52.6k | 2.33 | harness state |
+| DHMPS / TLS / Ring-3 | 65.1 M | 71.6k | 2.08 | 96 B |
+| UDP / datagram | 0.37 M | 86.1k | 0.012 | harness state |
+
+The important comparison is Ring-3 versus the other DHMP `Latest` paths under the same harness. Ring-3 is within about 3% of Slab6's median input rate and about 5% of its useful publication rate in this run, while using **96 B rather than 192 B** of retained 32-byte application-state payload. It also exceeds Ring8's median input rate while using substantially less retained state.
+
+The v2 WebSocket and HTTP rows remain framing/parser microbenchmarks rather than complete framework stacks. UDP is an unbatched datagram path in v2 and should not be interpreted as a general UDP performance ceiling. Logical payload GB/s is a local hot-path/loopback measurement, not physical NIC throughput.
+
+The source archive at [benchmarks/native-showcase/DHMP-native-showcase-source.zip](../benchmarks/native-showcase/DHMP-native-showcase-source.zip) has been replaced with the integrated v2 harness.
