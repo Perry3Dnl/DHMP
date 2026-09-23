@@ -177,3 +177,33 @@ Results:
 
 - [raw twelve-run CSV](../results/every-fused-vector-processing-ab-raw-12run-2026-09-23.csv)
 - [twelve-run summary](../results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
+
+
+## Negotiated computation-ready blocks
+
+`negotiated_block_layout_ab.c` compares an ordinary 12 KiB AoS record block with an equal-size SoA field-major block that travels over the wire in computation-ready form.
+
+Integrated nine-run medians:
+
+| Path | End-to-end | Payload |
+| --- | ---: | ---: |
+| AoS AVX2 | 35.25 M/s | 1.128 GB/s |
+| **SoA AVX2** | **35.85 M/s** | **1.147 GB/s** |
+
+The integrated gain is modest (~1.7%) because other stages dominate. The processor-only microbenchmark exposes the layout effect directly:
+
+| Path | Processor CPU/result | CPU result rate |
+| --- | ---: | ---: |
+| AoS AVX2 | 1.080 ns | 925.9 M/s |
+| **SoA AVX2** | **0.621 ns** | **1.610 B/s** |
+
+That is about **42.5% lower isolated compute cost** for the field-major negotiated block.
+
+This is an optional contract specialization for numerical `Every` workloads, not a replacement for ordinary fixed records.
+
+Results:
+
+- [wire raw](../results/block-layout-wire-ab-raw-9run-2026-09-23.csv)
+- [wire summary](../results/block-layout-wire-ab-summary-9run-2026-09-23.csv)
+- [processor raw](../results/block-layout-processor-micro-raw-7run-2026-09-23.csv)
+- [processor summary](../results/block-layout-processor-micro-summary-7run-2026-09-23.csv)
