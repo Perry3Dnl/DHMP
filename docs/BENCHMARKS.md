@@ -318,3 +318,32 @@ The important comparison is Ring-3 versus the other DHMP `Latest` paths under th
 The v2 WebSocket and HTTP rows remain framing/parser microbenchmarks rather than complete framework stacks. UDP is an unbatched datagram path in v2 and should not be interpreted as a general UDP performance ceiling. Logical payload GB/s is a local hot-path/loopback measurement, not physical NIC throughput.
 
 The source archive at [benchmarks/native-showcase/DHMP-native-showcase-source.zip](../benchmarks/native-showcase/DHMP-native-showcase-source.zip) has been replaced with the integrated v2 harness.
+
+
+## Ring-3 cache-line layout A/B — 2026-09-23
+
+A follow-up test checked whether padding each 32-byte Ring-3 slot to a dedicated 64-byte cache line would reduce producer/consumer cache-line contention.
+
+Two layouts were compared:
+
+- **packed:** three 32-byte slots in one 96-byte aligned block;
+- **isolated:** three 32-byte slots each beginning on a separate 64-byte cache line (192 bytes physical slot area).
+
+The test reproduces the actual full-tail update pattern used by Ring-3: the producer writes all three retained states, publishes once, and the consumer samples the newest state. Producer and consumer are pinned to separate CPUs. Each pass executes 50 million three-state producer updates and reports thread CPU time, avoiding wall-clock scheduling noise as much as possible.
+
+Source: [ring3_cacheline_ab.c](../benchmarks/native-gen2/ring3_cacheline_ab.c)
+
+Raw data: [ring3-cacheline-ab-2026-09-23.csv](../benchmarks/results/ring3-cacheline-ab-2026-09-23.csv)
+
+| Layout | Physical slot area | Median ns / 3-state update | Equivalent ns / retained frame |
+| --- | ---: | ---: | ---: |
+| **Packed 96 B** | **96 B** | **8.215 ns** | **2.738 ns** |
+| 64 B isolated slots | 192 B | 14.662 ns | 4.887 ns |
+
+The fully isolated layout was therefore a regression in this access pattern: the median producer CPU cost per three-state update was about **78% higher**.
+
+The reason is consistent with the memory layout. With a 64-byte-aligned packed Ring-3, slot 0 and slot 1 share the first cache line while slot 2 begins on the second cache line. A full three-state tail update therefore touches only two cache lines. Padding every slot to 64 bytes forces the producer to dirty three cache lines for the same 96 bytes of logical state.
+
+This also explains why the earlier synthetic false-sharing experiment looked more favorable to padding: that microtest deliberately had one core repeatedly write one half of a cache line while another core repeatedly read the other half. The actual Ring-3 batch pattern is different. In the real full-tail path, compact packing reduces cache-line traffic and the newest slot is already naturally separated when the ring begins at a 64-byte boundary.
+
+**Decision:** retain the current compact 96-byte Ring-3 slot layout. Full 64-byte slot padding is not adopted.
