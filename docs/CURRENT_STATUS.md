@@ -115,11 +115,9 @@ Tracked in [TRANSPORT_TUNING_TODO.md](TRANSPORT_TUNING_TODO.md).
 
 ## Cross-protocol benchmark status
 
-The last common cross-protocol native benchmark is showcase v4 for **Latest / Ring-3**, with zero artificial consumer hold.
+The current common native framing benchmark is **showcase v6**, audited and rerun with one 32-byte logical message per framing unit.
 
-It remains valid for that measured path but **predates the newer Every/ComputeBlock optimizations**. It must not be relabeled as the current Adaptive engine.
-
-The root README therefore no longer uses the old v4 chart as the main model graph. A fresh cross-protocol run should be generated only after the current Adaptive code is integrated into one common harness.
+v6 remains a framing-kernel comparison rather than a full production-stack benchmark. Raw fixed TCP is slightly faster than DHMP in the retained v6 medians, which is the expected transport-floor sanity check.
 
 ## Verified delivery
 
