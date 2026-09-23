@@ -20,6 +20,31 @@ Capability snapshot data: [adaptive-showcase-capability-summary-2026-09-23.csv](
 
 Logical GB/s means logical application payload represented by the benchmark records. It is not physical NIC throughput.
 
+## Cross-generation comparison rule
+
+Protocol rows are only comparable **inside the same showcase generation**.
+
+The 32-byte HTTP/1.1 framing row demonstrates why:
+
+| Generation | HTTP/1.1 logical input | Approx. logical payload |
+| --- | ---: | ---: |
+| 2026-09-22 showcase | 105.47 M/s | 3.38 GB/s |
+| early 2026-09-23 showcase | 29.40 M/s | 0.94 GB/s |
+| showcase v2 | 123.69 M/s | 3.96 GB/s |
+| showcase v3 | 120.66 M/s | 3.86 GB/s |
+| showcase v4 | 108.03 M/s | 3.46 GB/s |
+
+These are **not successive HTTP optimizations**. The harness changed between generations. Changes included receive-workspace choices, sender/publication machinery, benchmark duration/run count/order, and the v4 removal of the artificial 10 µs consumer hold. v2→v3 was already documented as not being a controlled optimization A/B.
+
+Going forward:
+
+1. freeze the current cross-protocol generation;
+2. do DHMP implementation optimization in separate matched A/B tests;
+3. replace the headline protocol comparison only after rerunning **all** rows together from one common harness;
+4. retain raw ranges, not just medians.
+
+This prevents an improvement in the benchmark harness itself from being mistaken for a change in HTTP, WebSocket, DHMP, or another protocol.
+
 # Benchmark notes and reference results
 
 These are experimental localhost results from the current .NET 10 prototype. They are useful for comparing revisions on the same machine; they are not universal performance claims.
