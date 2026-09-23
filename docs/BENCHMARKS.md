@@ -222,3 +222,52 @@ All retained runs completed with zero validation errors.
 
 This is a hot-path framing/ingestion/conflation microbenchmark, not a universal protocol ranking. The WebSocket and HTTP rows measure their framing/parsing path rather than complete application-server stacks. The TCP baselines are intentionally lean and should be expected to remain extremely competitive. DHMPS uses normal TLS 1.3; TLS handshake time is outside the measured steady-state interval.
 
+
+## Ring-3 Fixed-Slab Latest reference — 2026-09-23
+
+This experiment separates **I/O workspace** from **retained application state**.
+
+The receiver uses:
+
+- a negotiated fixed frame size;
+- one fixed reusable contiguous receive workspace;
+- exactly three permanent retained frame slots;
+- overwrite-oldest semantics when newer state arrives;
+- no per-frame allocation;
+- no queue growth;
+- no shifting of retained frames;
+- no clearing of old frame memory;
+- fixed-size arithmetic to skip obsolete complete frames before publication.
+
+The three retained slots are the semantic state window. The receive slab is transport workspace only and is overwritten by the next socket read.
+
+For the retained 32-byte reference:
+
+- frame size: 32 B
+- retained Ring-3 payload memory: 96 B
+- receive workspace: 12 KiB
+- transport: TCP loopback
+- language/runtime: native C on Linux
+- compiler profile used for the reference executable: `-O3 -march=native -pthread`
+- measured interval: 2 seconds
+- retained passes: 5
+
+Raw data: [ring3-fixed-slab-latest-32b-2026-09-23.csv](../benchmarks/results/ring3-fixed-slab-latest-32b-2026-09-23.csv)
+
+Reference source: [ring3_fixed_slab_latest.c](../benchmarks/native-gen2/ring3_fixed_slab_latest.c)
+
+| Run | Frames/s | Payload GB/s | Receiver CPU ns/frame | Obsolete skipped/overwritten |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 109.09 M | 3.49 | 3.59 | 99.2015% |
+| 2 | 86.18 M | 2.76 | 3.68 | 99.1973% |
+| 3 | 90.70 M | 2.90 | 3.71 | 99.2025% |
+| 4 | 78.01 M | 2.50 | 4.21 | 99.1934% |
+| 5 | 63.02 M | 2.02 | 4.82 | 99.1840% |
+| **Median** | **86.18 M** | **2.76** | **3.71** | **99.1973%** |
+
+The run-to-run range is intentionally shown. This benchmark was executed in a shared/containerized environment where scheduling and loopback behavior varied materially between passes. The result is therefore useful as a reproducible architecture reference, not as a universal throughput ceiling.
+
+The important implementation result is that forcing TCP to receive directly into only three tiny state slots is not necessarily optimal. A small fixed contiguous I/O workspace allows the kernel to amortize socket work efficiently, while DHMP still retains only three logical state frames. In other words, **bounded semantic state and efficient I/O batch size do not have to be the same thing**.
+
+An earlier tuned native exploration of this slab-to-Ring-3 shape reached about 160 M 32-byte logical frames/s (~5.12 GB/s) in a short local run. Because that figure was more environment-sensitive and was not reproduced by the standalone reference harness above, it is retained only as an architecture-exploration observation rather than the published sustained reference value.
+
