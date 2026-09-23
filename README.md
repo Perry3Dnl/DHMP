@@ -34,7 +34,27 @@ Headline transport/framing setup:
 
 The comparison includes raw fixed TCP, varint-length TCP, 4-byte-length TCP, WebSocket binary framing, HTTP/1.1 chunk framing, HTTP/2 DATA framing, gRPC/HTTP2 framing, MQTT QoS0 PUBLISH, NATS PUB, and batched UDP.
 
-The WebSocket/HTTP/gRPC/MQTT/NATS rows are **framing/parser hot-path shapes in the same native harness**, not full production server/framework stacks. Logical GB/s below means application payload represented by logical records; it is **not physical NIC throughput**.
+**Exactly what each row measures:**
+
+| README row | What is actually benchmarked | Full production implementation? |
+| --- | --- | --- |
+| **DHMP Adaptive / Latest** | Native C DHMP fixed-contract + Ring-3 Latest receive path over TCP | Native DHMP architecture path; not the .NET application stack |
+| Raw TCP / fixed frame | Native C TCP stream + fixed 32-byte record interpretation | No higher protocol |
+| TCP / varint length | Native C TCP + one-byte length prefix | No |
+| TCP / 4-byte length | Native C TCP + four-byte big-endian length prefix | No |
+| WebSocket / binary framing | Native C WebSocket binary-frame hot path, unmasked server-to-client shape | **No** |
+| HTTP/1.1 / chunk framing | Native C HTTP/1.1 chunk-framing/parser hot path | **No** |
+| HTTP/2 / DATA framing | Native C HTTP/2 DATA-frame framing hot path | **No** |
+| gRPC / HTTP/2 framing | Native C gRPC message envelope carried in an HTTP/2 DATA-frame shape | **No** |
+| MQTT QoS0 / PUBLISH | Native C QoS0 PUBLISH framing with a fixed one-byte topic | **No** |
+| NATS / PUB framing | Native C NATS PUB framing with a fixed subject | **No** |
+| UDP / batched datagrams | Native C batched UDP datagrams | No application protocol |
+
+So this table is a **framing/transport hot-path comparison**, not a claim that DHMP has already beaten full Kestrel HTTP/2, grpc-dotnet, an MQTT broker, NATS server, or a complete WebSocket framework.
+
+Logical GB/s below means application payload represented by logical records; it is **not physical NIC throughput**.
+
+Full benchmark rules: [Benchmark fairness policy](docs/BENCHMARK_FAIRNESS.md).
 
 ## How many records can it handle?
 
@@ -100,6 +120,23 @@ The DHMP `Latest` path measured **2.704 ns of receiver-thread CPU per logical 32
 That metric counts receiver-thread processing time per logical input frame. It is not total system CPU and does not include application work performed later.
 
 [Showcase methodology](benchmarks/native-showcase/V4_ZERO_HOLD.md) · [Raw/summary results](benchmarks/results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
+
+## Full-stack comparison status
+
+The current native framing table above is **not** the final real-world protocol comparison. The fair full-stack table will only be populated after the current Adaptive .NET implementation is run against version-pinned real implementations under one frozen harness.
+
+| Real comparison target | Status |
+| --- | --- |
+| .NET Raw TCP | **Pending current Adaptive .NET rerun** |
+| ASP.NET Core HTTP/1.1 | **Not yet benchmarked against current Adaptive engine** |
+| ASP.NET Core HTTP/2 | **Not yet benchmarked against current Adaptive engine** |
+| grpc-dotnet / ASP.NET Core | **Not yet benchmarked against current Adaptive engine** |
+| System.Net.WebSockets / ASP.NET Core | **Not yet benchmarked against current Adaptive engine** |
+| Real MQTT client/broker | **Not yet benchmarked** |
+| Official/version-pinned NATS .NET client + NATS server | **Not yet benchmarked** |
+| DHMPS vs HTTPS/TLS | **Needs fresh same-generation secure comparison** |
+
+Those rows stay **unmeasured** until we actually run them. If a fair full-stack test shows DHMP is slower, that result belongs in the README.
 
 ## What can the latest Adaptive engine process?
 
