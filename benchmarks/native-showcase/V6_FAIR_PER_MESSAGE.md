@@ -92,3 +92,25 @@ HTTP/1.1 chunks and HTTP/2 DATA frames are transport/framing constructs rather t
 The loopback host remains noisy. The throughput chart therefore publishes median **and min-max range**. Processor-only CPU is included as a second cross-check.
 
 Raw TCP is expected to be the floor. In v6 it is indeed slightly faster than DHMP in the medians, which is a healthy sanity check rather than a problem to hide.
+
+
+## Exact retained source
+
+The exact audited source used for the retained v6 run is published as:
+
+[showcase_v6_fair.c.gz.b64](showcase_v6_fair.c.gz.b64)
+
+Reconstruct it with:
+
+```sh
+base64 -d showcase_v6_fair.c.gz.b64 | gzip -dc > showcase_v6_fair.c
+sha256sum showcase_v6_fair.c
+```
+
+Expected SHA-256:
+
+```text
+4d78196ea02634da97d43966a6a510d54d6779f11b377b59a692cf757aca99b2
+```
+
+This is the exact source snapshot audited and used for the retained measurements above.
