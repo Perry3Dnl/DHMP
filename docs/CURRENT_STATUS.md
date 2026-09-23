@@ -125,6 +125,19 @@ The current retained choices are:
 
 These changes are next in line to be folded into the integrated Ring-3 fixed-slab showcase before another end-to-end comparison is published.
 
+
+### Native 32-byte showcase v3
+
+The retained Ring-3 CPU optimizations are now integrated into a complete native transport/framing harness.
+
+The v3 DHMP path uses the single-atomic `FRONT / MIDDLE / BACK` ownership exchange, a 32-bit middle token, specialized 32-byte frame arithmetic/copying, and fixed-width carry handling. With a 12 KiB receive workspace, 256 KiB reusable sender batch, and 10 µs zero-copy consumer hold, the three-run DHMP median was **118.45 M logical frames/s**, **73.67k useful publications/s**, and **2.736 ns of receiver CPU per logical frame**.
+
+DHMPS/TLS 1.3 measured a median **59.66 M logical frames/s** and **82.78k useful publications/s** in the same harness.
+
+All retained v3 paths reported zero validation errors. Run-to-run localhost variability remains material; the DHMP input runs ranged from 97.93 M/s to 127.90 M/s. Therefore v3 is treated as an integrated architecture result rather than a universal throughput ceiling.
+
+The raw fixed-TCP baseline remains very competitive, as expected. The value of the current DHMP path is combining near-transport-floor processing with fixed-contract Latest semantics rather than claiming to make TCP itself intrinsically faster.
+
 ### Native 32-byte showcase v2
 
 Ring-3 Fixed-Slab Latest is now integrated into the same native Linux/C comparison harness as Ring8, Slab6, DHMPS/TLS, raw fixed TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP.
@@ -177,7 +190,7 @@ This is currently the next major protocol experiment.
 
 ## Next work
 
-1. Port Ring-3 Fixed-Slab Latest and the strongest Gen-2 processor candidates back into the .NET prototype and re-run them under the same Windows/.NET benchmark harness.
+1. Port Ring-3 Fixed-Slab Latest, including the single-atomic triple exchange and retained v3 CPU fast paths, back into the .NET prototype and re-run them under the same Windows/.NET benchmark harness.
 2. Tune fixed receive-workspace sizing for Ring-3 across frame sizes and sustained LAN tests.
 3. Implement bounded Verified history with configurable/asynchronous checkpoints.
 4. Benchmark several checkpoint policies (time-based, byte-based and explicit application verification).
