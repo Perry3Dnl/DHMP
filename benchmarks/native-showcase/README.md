@@ -154,7 +154,7 @@ The current design uses:
 - fixed-width carry handling;
 - early conflation before expensive work.
 
-The old v4 zero-hold cross-protocol comparison is retained only as the latest **controlled cross-protocol benchmark for the Ring-3 Latest path**. It does not measure the newer Every/ComputeBlock architecture and should not be relabeled as Adaptive.
+The retained native cross-protocol framing comparison is now **showcase v6**, which was audited and rerun with one 32-byte logical message per framing unit. v4 remains historical only.
 
 See:
 
@@ -180,3 +180,17 @@ The native architecture is mature enough that the highest-value work is now:
 3. rerun cross-protocol comparisons with the current code rather than old labels;
 4. tune transport/runtime settings;
 5. repeat on physical LAN hardware.
+
+
+## Showcase v6 fair framing rerun
+
+The current native framing comparison is [V6_FAIR_PER_MESSAGE.md](V6_FAIR_PER_MESSAGE.md).
+
+It uses one 32-byte logical message per framing unit, five rotated loopback runs, full ordered-payload validation, and a processor-only cross-check. Raw fixed TCP is slightly faster than DHMP in both retained medians, which is the expected transport-floor sanity check.
+
+Current graphs:
+
+- [loopback throughput](../results/charts/showcase-v6-fair-throughput-32b-2026-09-23.svg)
+- [receiver CPU](../results/charts/showcase-v6-fair-receiver-cpu-32b-2026-09-23.svg)
+- [processor-only framing CPU](../results/charts/showcase-v6-fair-micro-cpu-32b-2026-09-23.svg)
+- [wire bytes per logical message](../results/charts/showcase-v6-fair-wire-bytes-32b-2026-09-23.svg)
