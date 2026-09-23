@@ -699,3 +699,46 @@ Source: [ring3_cpu_topology_ab.c](../benchmarks/native-gen2/ring3_cpu_topology_a
 Isolated results: [ring3-cpu-topology-ab-2026-09-23.csv](../benchmarks/results/ring3-cpu-topology-ab-2026-09-23.csv)
 
 Network placement results: [ring3-cpu-topology-network-ab-2026-09-23.csv](../benchmarks/results/ring3-cpu-topology-network-ab-2026-09-23.csv)
+
+
+## Every output-slab integration — 2026-09-23
+
+The earlier isolated output-slab experiment was integrated into a real TCP loopback `Every` processing pipeline.
+
+The test preserves every processed result. It does not use Latest-style overwriting.
+
+Configuration:
+
+- fixed 32-byte input and 32-byte transformed output;
+- 12 KiB receive workspace, up to 384 input frames per receive batch;
+- 30 million logical frames per run;
+- sender / receiver-processor / consumer pinned to CPUs 0 / 1 / 2;
+- zero artificial consumer hold;
+- fixed-width 32-byte carry path;
+- full ordered output validation;
+- nine alternating runs;
+- zero errors in all retained runs.
+
+The two paths have equal bounded output payload capacity:
+
+- per-result path: 3,072 × 32-byte output entries = **96 KiB**;
+- batched path: 8 × 12 KiB output slabs = **96 KiB**.
+
+The batched processor claims the next free output slab, writes transformed results directly into it, stores the actual populated result count, and publishes it immediately after that receive batch. It does **not** wait to fill the slab. If all output slabs are still unread, the producer waits; unread `Every` results are never overwritten.
+
+| Every output handoff | Median end-to-end result rate | Receiver/processor CPU / result | Consumer CPU / result | Median output publications | Results / publication |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Per-result bounded ring | 33.35 M/s | 29.933 ns | 29.978 ns | 30.0 M | 1.0 |
+| **Bounded output slabs** | **129.80 M/s** | **6.988 ns** | **7.699 ns** | **80.6k** | **372.3** |
+
+The output-slab path measured about **3.89× higher median end-to-end result throughput**, about **76.7% lower receiver/processor CPU per result**, and about **74.3% lower consumer CPU per result**. Atomic/publication frequency fell by roughly **372×** at the retained median.
+
+The shared localhost host was noisy: per-result end-to-end runs ranged from 9.82–49.87 M/s and output-slab runs ranged from 47.15–147.71 M/s. The direction and size of the CPU-cost reduction are nevertheless much stronger than the earlier isolated handoff-only result, but this remains a native architecture benchmark rather than a production-stack claim.
+
+This optimization is specific to `Every`-style processing where all results matter. `Latest` should continue conflating obsolete states and publishing only the newest useful state instead of materializing every output.
+
+Source: [every_output_slab_v1.c](../benchmarks/native-showcase/every_output_slab_v1.c)
+
+Raw results: [every-output-slab-e2e-32b-raw-9run-2026-09-23.csv](../benchmarks/results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv)
+
+Summary: [every-output-slab-e2e-32b-summary-9run-2026-09-23.csv](../benchmarks/results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
