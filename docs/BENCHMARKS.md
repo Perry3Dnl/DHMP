@@ -657,3 +657,45 @@ The integrated zero-hold v4 network A/B also showed zero validation errors and z
 Architecturally, the likely trade-off is cache-line ownership: an exchange always completes the ownership transfer immediately, while a failed CAS can defer the consumer transfer when the producer wins the race. Under heavy producer/consumer overlap, the unconditional exchange can create more cache-line bouncing even though it removes the retry branch.
 
 **Decision:** retain the consumer CAS for the current default. The exchange form is correct and remains a useful alternative, but it is not promoted as a performance optimization on the retained x86-64 results.
+
+
+## Ring-3 CPU topology / cache placement — 2026-09-23
+
+Thread placement was tested because the Ring-3 producer and consumer repeatedly transfer ownership through the shared `MIDDLE` token.
+
+The available host reported five logical CPUs. All were on NUMA node 0 and all shared one L3/LLC. CPU 0-1 and CPU 2-3 were additionally reported as shared lower-cache groups; CPU 4 had its own lower-cache group. All five CPUs reported distinct core IDs and no SMT siblings. Because this is a virtualized/shared benchmark environment, the topology should be treated as host-reported topology rather than proof of physical silicon layout.
+
+The existing showcase placement `sender=0 / receiver=1 / consumer=2` already satisfies the broad target of distinct reported cores in one NUMA node and one shared LLC.
+
+### Isolated Ring-3 handoff
+
+A fixed 20-million-publication test compared the current LLC-only producer/consumer relationship with the two reported shared lower-cache groups. Fifteen rotated runs were retained.
+
+| Producer / consumer placement | Median producer CPU / publication | Median consumer CPU / acquisition | Median useful acquisitions | Validation errors |
+| --- | ---: | ---: | ---: | ---: |
+| CPU 1 → 2, shared LLC only | 12.081 ns | 77.331 ns | 2.970 M | 0 |
+| CPU 0 → 1, reported shared lower caches | 12.512 ns | 74.726 ns | 3.229 M | 0 |
+| **CPU 2 → 3, reported shared lower caches** | **11.770 ns** | **71.443 ns** | **3.439 M** | **0** |
+
+Relative to the LLC-only median, the CPU 2→3 placement reduced producer cost by about **2.6%**, reduced consumer CPU per acquisition by about **7.6%**, and increased useful acquisitions by about **15.8%**. The CPU 0→1 pair was mixed: consumer acquisition cost improved, but producer cost did not.
+
+### End-to-end loopback placement A/B
+
+A separate seven-run TCP loopback test used the same 32-byte Ring-3 Latest receive path with zero artificial consumer hold.
+
+| Placement | Median logical input |
+| --- | ---: |
+| **Current: sender 0 / receiver 1 / consumer 2** | **130.77 M/s** |
+| Sender 4 / receiver 0 / consumer 1 | 126.68 M/s |
+| Sender 4 / receiver 1 / consumer 2 | 116.49 M/s |
+| Sender 4 / receiver 2 / consumer 3 | 109.64 M/s |
+
+The network runs were highly variable and did **not** confirm an end-to-end speedup from placing receiver and consumer in the same reported lower-cache group. The current placement retained the highest median on this host.
+
+**Decision:** do not hard-code a new placement based on this machine. Keep topology-aware placement as a runtime/AutoTune optimization candidate and retest on physical multi-core/NUMA hardware. The isolated handoff result says cache proximity can matter; the end-to-end result says the best placement depends on the whole sender/receiver/consumer topology and host scheduling.
+
+Source: [ring3_cpu_topology_ab.c](../benchmarks/native-gen2/ring3_cpu_topology_ab.c)
+
+Isolated results: [ring3-cpu-topology-ab-2026-09-23.csv](../benchmarks/results/ring3-cpu-topology-ab-2026-09-23.csv)
+
+Network placement results: [ring3-cpu-topology-network-ab-2026-09-23.csv](../benchmarks/results/ring3-cpu-topology-network-ab-2026-09-23.csv)
