@@ -10,7 +10,7 @@ The design goal is simple: **negotiate what can be known once, then keep repeate
 
 DHMP is currently being developed as a protocol design plus reference implementations and benchmark labs. The main implementation target is .NET; native C labs are used to explore receive-path architectures before promising ideas are ported back into the .NET prototype.
 
-> **Current highlighted `Latest` implementation:** Ring-3 Fixed-Slab Latest — three permanently retained state slots, overwrite-oldest semantics, and one fixed reusable I/O workspace.
+> **Current highlighted `Latest` implementation:** Ring-3 Fixed-Slab Latest with a single-atomic `FRONT / MIDDLE / BACK` ownership exchange — three permanently retained state slots and one fixed reusable I/O workspace.
 
 ## At a glance
 
@@ -169,6 +169,37 @@ This is a localhost architecture benchmark, not a claim that a physical network 
 
 Source: [`benchmarks/native-gen2/ring3_fixed_slab_latest.c`](benchmarks/native-gen2/ring3_fixed_slab_latest.c)  
 Raw results: [`ring3-fixed-slab-latest-32b-2026-09-23.csv`](benchmarks/results/ring3-fixed-slab-latest-32b-2026-09-23.csv)
+
+### Latest Ring-3 CPU optimization results
+
+The Ring-3 ownership path has now been reduced from a per-slot atomic state machine to a classic SPSC triple-buffer exchange. The producer owns `BACK`, the consumer owns `FRONT`, and one 32-bit atomic `MIDDLE` token transfers ownership.
+
+Seven alternating native CPU runs with 32-byte state and a 10 µs zero-copy consumer hold:
+
+| Ring-3 ownership engine | Producer publications/s | Producer CPU / publication | Producer claim retries | Useful consumer publications/s | Validation errors |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Per-slot state machine | 30.281 M | 33.023 ns | ~30.11 M | 89.745k | 0 |
+| **Single-atomic triple exchange** | **32.359 M** | **30.900 ns** | **0** | 89.308k | **0** |
+
+That is about **+6.9% producer publication throughput** and **-6.4% producer CPU cost** while removing the producer-side slot-claim retry loop.
+
+Two additional retained CPU-path improvements are ready for integration:
+
+| Processor detail | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| 32-byte negotiated contract processing | 4.809 ns/batch | **4.738 ns/batch** | **~1.5% lower** |
+| Partial-frame carry handling | 4.794 ns/batch | **1.739 ns/batch** | **~63.7% lower** |
+
+The contract-specialized path replaces runtime division/runtime-size copy with fixed 32-byte arithmetic/copy. The carry fast path replaces variable-size `memmove` with one fixed 32-byte vector transfer while retaining the actual valid carry count separately.
+
+These are **processor-path microbenchmarks**, not new end-to-end TCP throughput figures. The native showcase v2 results below still represent the last integrated transport run; the next showcase revision will combine the single-atomic exchange, 32-byte specialization, and fixed-width carry path before new network numbers are published.
+
+Source/results:
+
+- [single-atomic triple exchange source](benchmarks/native-gen2/ring3_triple_exchange_ab.c)
+- [single-atomic raw results](benchmarks/results/ring3-triple-exchange-ab-2026-09-23.csv)
+- [contract specialization raw results](benchmarks/results/ring3-contract-specialize-ab-2026-09-23.csv)
+- [fixed carry raw results](benchmarks/results/ring3-carry32-ab-2026-09-23.csv)
 
 ## Performance comparisons
 
@@ -341,6 +372,7 @@ Established so far:
 - arbitrary negotiated fixed frame sizes;
 - `Every` and `Latest` receive semantics;
 - Ring-3 bounded newest-state implementation experiments;
+- single-atomic `FRONT / MIDDLE / BACK` Ring-3 ownership exchange;
 - overwrite-oldest Latest behavior;
 - fixed reusable I/O workspace;
 - plain DHMP and TLS-wrapped DHMPS;
@@ -352,13 +384,14 @@ Established so far:
 
 Current engineering priorities:
 
-1. port Ring-3 Fixed-Slab Latest into the .NET prototype;
-2. extend the integrated Ring-3 showcase across more frame sizes;
-3. run fixed-duration LAN tests across physical machines;
-4. tune receive-workspace sizing across negotiated frame sizes;
-5. implement bounded Verified checkpoints;
-6. continue separating protocol specification from implementation details;
-7. build ergonomic .NET/Unity-facing APIs without adding per-frame wire overhead.
+1. integrate the retained Ring-3 CPU wins into the native TCP showcase and publish a new combined run;
+2. port Ring-3 Fixed-Slab Latest and the single-atomic ownership path into the .NET prototype;
+3. extend the integrated Ring-3 showcase across more frame sizes;
+4. run fixed-duration LAN tests across physical machines;
+5. tune receive-workspace sizing across negotiated frame sizes;
+6. implement bounded Verified checkpoints;
+7. continue separating protocol specification from implementation details;
+8. build ergonomic .NET/Unity-facing APIs without adding per-frame wire overhead.
 
 ## Documentation
 
