@@ -1,6 +1,6 @@
 # DHMP protocol draft
 
-This document captures the protocol model as of 2026-09-22. It is a working draft, not yet a frozen interoperability specification.
+This document captures the protocol model as of 2026-09-23. It is a working draft, not yet a frozen interoperability specification.
 
 ## 1. Purpose
 
@@ -109,6 +109,10 @@ Latest may skip 1–4, expose 5, and retain the partial bytes for 6.
 
 This is intended for state such as current position, RPM, telemetry snapshots, UI/device state or other data where a newer complete state can make older queued states obsolete.
 
+A receiver implementation may also retain a very small bounded newest-state window rather than exactly one frame. The current experimental Ring-3 fast path retains at most the newest three complete states and always overwrites the oldest retained state when necessary. This is currently an implementation strategy for `Latest`, not an additional per-frame wire encoding.
+
+The implementation is allowed to use a separate fixed reusable I/O workspace to amortize socket operations. Such workspace is not a logical message queue: its contents may be overwritten immediately after complete-frame boundaries have been identified and the newest useful state has been published.
+
 ## 6. Security
 
 Two first-class deployment modes are intended:
@@ -141,3 +145,5 @@ The prototype currently assumes trusted peers and trusted contracts. The final p
 3. Reliability above TCP should address logical DHMP acceptance/session recovery.
 4. Sending should not become synchronous merely because a caller wants delivery verification.
 5. Latest-state applications should not be forced to spend CPU reconstructing obsolete states.
+6. Retained state capacity should be bounded independently from transport I/O batch size.
+7. Steady-state receive paths should prefer fixed reusable memory over per-frame allocation, shifting, or clearing.
