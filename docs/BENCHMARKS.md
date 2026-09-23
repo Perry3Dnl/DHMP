@@ -564,3 +564,35 @@ The raw fixed-TCP baseline is intentionally minimal. It is expected to remain ex
 The HTTP and WebSocket cases are framing/parser microbenchmarks, not complete ASP.NET Core or browser stacks. Logical payload GB/s is not physical NIC throughput.
 
 Showcase v3 also changes the harness relative to v2 (including the sender batch and publication engine), so v2-to-v3 absolute numbers are not a controlled optimization A/B. The separate Ring-3 CPU experiments are the controlled evidence for the single-atomic, specialization, and carry-path gains.
+
+
+## Processor output-slab batching — 2026-09-23
+
+A CPU-side experiment tested the idea of writing processed results into a fixed contiguous output array and publishing the array once, rather than performing a shared ownership transfer for every processed result.
+
+Configuration:
+
+- 32-byte input and 32-byte output result;
+- 384 results per output slab (12 KiB);
+- three permanent output slabs using the same `FRONT / MIDDLE / BACK` ownership exchange;
+- 10 µs zero-copy consumer hold;
+- producer and consumer pinned to separate CPUs;
+- deterministic per-frame transform;
+- consumer validates every frame in every acquired output slab for coherent batch identity;
+- seven alternating runs;
+- zero validation errors in all retained runs.
+
+Source: [processor_output_slab_ab.c](../benchmarks/native-gen2/processor_output_slab_ab.c)
+
+Raw data: [processor-output-slab-ab-2026-09-23.csv](../benchmarks/results/processor-output-slab-ab-2026-09-23.csv)
+
+| Processor handoff | Median producer CPU / result | Median CPU result rate |
+| --- | ---: | ---: |
+| Per-result triple exchange | 2.251 ns | 444.3 M results/s |
+| **384-result fixed output slab + one exchange** | **0.887 ns** | **1.127 B results/s** |
+
+The output-slab path reduced producer/handoff CPU cost by about **60.6%** and increased the measured CPU-side result rate by about **2.54×** for this transform.
+
+This does not mean every DHMP mode should retain every processed result. For `Latest`, processing or storing obsolete results can be wasted work; the strongest path remains to conflate before expensive processing whenever semantics allow. The fixed output-slab model is most useful when a processing stage genuinely needs to emit many results, or when a downstream stage can consume results efficiently in contiguous batches.
+
+For strict `Every` semantics, an overwriteable three-slab exchange is not sufficient by itself because an overloaded consumer could miss whole output slabs. `Every` requires bounded backpressure or a non-overwriting fixed queue of output slabs. The benchmark here measures the batching/handoff cost rather than defining the final `Every` queue policy.
