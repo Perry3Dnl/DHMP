@@ -1,205 +1,125 @@
-# DHMP native showcase benchmark
+# DHMP native showcase / Adaptive architecture labs
 
-This directory contains the native Linux/C comparison harness used to put DHMP receive strategies and familiar framing/transport baselines under one local workload.
+This directory contains the native Linux/C integration benchmarks used to validate the **current DHMP Adaptive Fixed-Contract architecture** before selected paths are ported into .NET.
 
-## Current showcase v3
+The retained model is no longer one showcase version. The current work is split by semantics and workload:
 
-Showcase v3 integrates the latest retained Ring-3 CPU architecture directly into the transport benchmark:
+- **Latest:** compact Ring-3 newest-state path;
+- **Every / records:** bounded reusable slab ownership;
+- **Every / ComputeBlock:** optional computation-ready field-major blocks for numerical workloads.
 
-- fixed 32-byte negotiated contract;
-- 12 KiB reusable receive workspace;
-- 256 KiB reusable sender batch;
-- three permanent 32-byte payload buffers;
-- SPSC `FRONT / MIDDLE / BACK` ownership;
-- one shared 32-bit atomic `MIDDLE` token;
-- fixed 32-byte vector publication copy;
-- fixed-width carry handling for partial frames;
-- 10 µs zero-copy consumer hold;
-- TLS 1.3 for DHMPS;
-- Linux `sendmmsg/recvmmsg` batching for UDP.
+Historical v2/v3/v4 showcase files remain in the repository for reproducibility, but they are not the current architecture target.
 
-Compared paths:
+## Current retained labs
 
-- **DHMP Latest / Ring-3 v3**
-- **DHMPS / TLS 1.3 / Ring-3**
-- raw TCP / fixed frame
-- TCP / 4-byte length prefix
-- WebSocket binary framing
-- HTTP/1.1 chunk framing
-- UDP / batched datagrams
+| Lab | Purpose | Retained result |
+| --- | --- | --- |
+| `every_output_slab_v1.c` | Batch Every ownership instead of per-result publication | 33.35 → **129.80 M results/s** |
+| `every_receive_slab_lease_ab.c` | Receive directly into a public leased slab | 119.63 → **126.51 M/s** |
+| `every_forward_direct_slab_ab.c` | Send directly from the owned output slab | 41.93 → **43.98 M/s** |
+| `every_delivery_worker_ab.c` | Move real batch conversion/delivery work to another core | **+18.7% to +48.5%** in tested workloads |
+| `every_fused_vector_processing_ab.c` | Fuse developer-facing processing across whole batches | 30.82 → **35.92 M/s** |
+| `negotiated_block_layout_ab.c` | Compare AoS record blocks with SoA computation-ready wire blocks | integrated gain modest; processor gain large |
+| `showcase_v4.c` / v4 material | Historical Latest cross-protocol zero-hold comparison | still valid for Ring-3 v4 only |
 
-The framing baselines use the same Latest publication/consumer model. WebSocket and HTTP remain framing/parser microbenchmarks rather than complete server-stack tests.
+## Adaptive Every: bounded output slabs
 
-### Build
+The largest integrated Every gain came from publishing one **populated output slab** rather than one ownership update per processed result.
 
-```bash
-gcc -O3 -march=native -pthread -Wall -Wextra -Wpedantic \
-    showcase_v3.c -o showcase_v3 -lssl -lcrypto
-```
-
-Generate a local test certificate for the DHMPS row:
-
-```bash
-openssl req -x509 -newkey rsa:2048 \
-    -keyout key.pem -out cert.pem -sha256 -days 1 -nodes \
-    -subj '/CN=localhost'
-```
-
-Then run the retained three-pass suite:
-
-```bash
-python run_showcase_v3.py
-```
-
-### v3 retained medians
-
-| Path | Logical input | Useful publications | Receiver CPU / logical frame |
-| --- | ---: | ---: | ---: |
-| **DHMP Latest / Ring-3 v3** | **118.45 M/s** | **73.67k/s** | **2.736 ns** |
-| DHMPS / TLS 1.3 / Ring-3 | 59.66 M/s | 82.78k/s | 10.861 ns |
-| Raw TCP / fixed frame | 145.88 M/s | 80.54k/s | 2.489 ns |
-| TCP / 4-byte length | 71.22 M/s | 59.06k/s | 4.399 ns |
-| WebSocket / binary framing | 104.36 M/s | 69.51k/s | 3.925 ns |
-| HTTP/1.1 / chunk framing | 120.66 M/s | 83.42k/s | 4.202 ns |
-| UDP / batched datagrams | 0.574 M/s | 81.56k/s | 690.13 ns |
-
-All retained runs reported zero payload-validation and framing-validation errors.
-
-Results:
-
-- [raw three-run CSV](../results/showcase-v3-32b-raw-3run-2026-09-23.csv)
-- [three-run median summary](../results/showcase-v3-32b-summary-3run-2026-09-23.csv)
-- [logical input-rate chart](../results/charts/showcase-v3-32b-input-2026-09-23.svg)
-- [useful-publication chart](../results/charts/showcase-v3-32b-published-2026-09-23.svg)
-
-The localhost run-to-run ranges are intentionally retained in the summary CSV. These rates are architecture-lab measurements, not physical-network throughput claims.
-
-## Historical showcase v2
-
-The older v2 source archive remains at [DHMP-native-showcase-source.zip](DHMP-native-showcase-source.zip). v2 predates the single-atomic triple exchange, the current fixed-width carry path, and the current v3 sender/publication model. Its absolute rates should not be treated as directly comparable to v3 because the harness changed.
-
-
-## Every output-slab pipeline
-
-`every_output_slab_v1.c` integrates batched result publication into a bounded `Every` TCP processing path.
-
-Both A/B variants retain 96 KiB of bounded output payload capacity. The per-result variant publishes every transformed 32-byte result individually. The output-slab variant owns eight reusable 12 KiB result slabs, writes transformed results directly into the next free slab, publishes the actual populated count immediately after each receive batch, and applies backpressure rather than overwriting unread results.
-
-Nine-run medians:
+Both A/B paths retained **96 KiB of output payload capacity**.
 
 | Path | End-to-end results/s | Receiver/processor CPU/result | Consumer CPU/result | Results/publication |
 | --- | ---: | ---: | ---: | ---: |
-| Per-result | 33.35 M/s | 29.933 ns | 29.978 ns | 1.0 |
-| **Output slab** | **129.80 M/s** | **6.988 ns** | **7.699 ns** | **372.3** |
+| Per-result publication | 33.35 M/s | 29.933 ns | 29.978 ns | 1.0 |
+| **Output-slab publication** | **129.80 M/s** | **6.988 ns** | **7.699 ns** | **372.3** |
 
 All retained runs processed and consumed all 30 million results with zero validation errors.
 
 Results:
 
 - [raw nine-run CSV](../results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv)
-- [nine-run median summary](../results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
+- [summary](../results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
 
+## Borrowed receive slabs
 
-## Direct output-slab forwarding
-
-`every_forward_direct_slab_ab.c` extends the bounded `Every` output-slab pipeline into an egress TCP sender.
-
-The processor emits fixed wire-ready 32-byte results into one of eight reusable 12 KiB slabs. The A/B compares copying each populated slab into a separate sender scratch buffer against sending directly from the owned slab and releasing that slab only after the entire populated byte range has been accepted.
-
-Twelve-run medians:
-
-| Path | End-to-end results/s | Processor CPU/result | Forward-sender CPU/result |
-| --- | ---: | ---: | ---: |
-| Slab → copy → send | 41.93 M/s | 23.238 ns | 23.798 ns |
-| **Slab → send directly** | **43.98 M/s** | **21.111 ns** | **22.689 ns** |
-
-The direct path was about **4.9% faster** at the median on this noisy localhost host. All retained runs processed, forwarded, received, and validated all 12 million results with zero errors.
-
-Results:
-
-- [raw twelve-run CSV](../results/every-forward-direct-slab-ab-raw-12run-2026-09-23.csv)
-- [twelve-run median summary](../results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
-
-
-## Dedicated batch delivery worker
-
-`every_delivery_worker_ab.c` compares inline conversion/delivery with a dedicated worker that receives ownership of the same bounded output slabs.
-
-The protocol thread publishes one populated slab and immediately returns to receive processing. The delivery worker performs the actual conversion in-place, invokes a batch adapter once per slab, and returns ownership after the batch has been consumed.
-
-With sender/protocol/worker pinned to CPUs 4/2/3, seven alternating runs per synthetic conversion weight showed a median end-to-end throughput improvement ranging from **+18.7% to +48.5%** for the worker configuration. Adapter calls remained at roughly one per 384 logical records and all runs validated with zero errors.
-
-The worker uses more aggregate CPU because it parallelizes work across cores; the improvement is wall-clock throughput. Placement matters, so this is a candidate for runtime selection/AutoTune rather than an unconditional default.
-
-Results:
-
-- [raw seven-run sweep](../results/every-delivery-worker-ab-raw-7run-2026-09-23.csv)
-- [sweep summary](../results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
-
-
-## Borrowed receive-slab Every delivery
-
-`every_receive_slab_lease_ab.c` tests removing the full complete-frame copy between the receive workspace and the public `Every` output slab.
-
-The direct path receives into one of eight reusable 12 KiB public slabs, publishes an `offset/count` view of the complete frames, and returns that slab to the pool only after the consumer releases it. TCP split-frame tails are repaired through a 32-byte carry area, so only boundary fragments move.
-
-Twelve-run medians:
+When the received wire representation is already directly usable, the receive slab itself can become the public Every batch.
 
 | Path | End-to-end frames/s | Logical payload GB/s | Receiver CPU/frame |
 | --- | ---: | ---: | ---: |
 | Receive → copy → public slab | 119.63 M/s | 3.83 | 6.305 ns |
-| **Receive slab becomes public slab** | **126.51 M/s** | **4.05** | **6.184 ns** |
+| **Borrow receive slab directly** | **126.51 M/s** | **4.05** | **6.184 ns** |
 
-All retained runs delivered all 30 million frames with zero validation errors.
+Only split-frame boundary fragments are copied. Complete frames remain in the leased slab until downstream code releases it.
 
 Results:
 
 - [raw twelve-run CSV](../results/every-receive-slab-lease-ab-raw-12run-2026-09-23.csv)
-- [twelve-run summary](../results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
+- [summary](../results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
 
+## Direct slab-to-send forwarding
 
-## Fused batch processing / SIMD
+A service that produces wire-ready Every results can transfer ownership of the populated output slab directly to the sender instead of copying it into another sender batch.
 
-`every_fused_vector_processing_ab.c` tests batching the actual developer-facing conversion/calculation work inside the existing bounded `Every` slab pipeline.
+| Path | End-to-end results/s | Processor CPU/result | Forward-sender CPU/result |
+| --- | ---: | ---: | ---: |
+| Slab → copy → sender scratch | 41.93 M/s | 23.238 ns | 23.798 ns |
+| **Slab → send directly** | **43.98 M/s** | **21.111 ns** | **22.689 ns** |
 
-Twelve-run medians:
+The sender retains slab ownership until the entire populated byte range has been accepted. Async/zero-copy APIs would require retaining ownership until their completion notification.
+
+Results:
+
+- [raw twelve-run CSV](../results/every-forward-direct-slab-ab-raw-12run-2026-09-23.csv)
+- [summary](../results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
+
+## Dedicated batch delivery worker
+
+The protocol processor can publish a whole slab and return to receive work while a dedicated worker performs conversion and one batch adapter call.
+
+With cache-aware sender/protocol/worker placement, the worker improved median wall-clock throughput by **+18.7% to +48.5%** across the tested synthetic conversion weights.
+
+This is a throughput optimization, not an aggregate-CPU reduction. The extra core and cross-core handoff can make a very light worker worse on unsuitable topology, so worker selection belongs in runtime configuration/AutoTune.
+
+Results:
+
+- [raw seven-run sweep](../results/every-delivery-worker-ab-raw-7run-2026-09-23.csv)
+- [summary](../results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
+
+## Fused batch processing
+
+The processing path now batches the actual computation, not just storage and handoff.
 
 | Routine | End-to-end results/s | Processor CPU/result |
 | --- | ---: | ---: |
 | Per-message scalar | 30.82 M/s | 32.451 ns |
 | **Fused scalar batch** | **35.92 M/s** | **27.771 ns** |
-| Fused AVX2 (8 records) | 35.81 M/s | 27.872 ns |
-| Fused AVX-512 (16 records) | 34.34 M/s | 29.061 ns |
+| Fused AVX2 | 35.81 M/s | 27.872 ns |
+| Fused AVX-512 gather/scatter | 34.34 M/s | 29.061 ns |
 
-Batch fusion itself produced the strongest retained improvement: about **+16.5% throughput** and **-14.4% processor CPU/result**. Wider SIMD did not automatically improve this 32-byte AoS schema, so the runtime should select a contract-specific routine rather than enabling the widest available ISA unconditionally.
+The retained rule is **fuse first, then choose SIMD by negotiated layout and CPU**. The widest available vector ISA is not automatically the fastest implementation.
 
 Results:
 
 - [raw twelve-run CSV](../results/every-fused-vector-processing-ab-raw-12run-2026-09-23.csv)
-- [twelve-run summary](../results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
-
+- [summary](../results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
 
 ## Negotiated computation-ready blocks
 
-`negotiated_block_layout_ab.c` compares an ordinary 12 KiB AoS record block with an equal-size SoA field-major block that travels over the wire in computation-ready form.
+`negotiated_block_layout_ab.c` compares two equal-size 12 KiB wire blocks:
 
-Integrated nine-run medians:
+- ordinary **AoS**: 384 × 32-byte records;
+- computation-ready **SoA**: eight contiguous arrays of 384 floats.
 
-| Path | End-to-end | Payload |
+The integrated pipeline gain is small because transport/handoff dominate, but the processor-only result isolates the layout effect:
+
+| Path | Processor CPU/result | CPU-side result rate |
 | --- | ---: | ---: |
-| AoS AVX2 | 35.25 M/s | 1.128 GB/s |
-| **SoA AVX2** | **35.85 M/s** | **1.147 GB/s** |
+| AoS + AVX2 transpose | 1.080 ns | 925.9 M/s |
+| **SoA + AVX2 contiguous fields** | **0.621 ns** | **1.610 B/s** |
 
-The integrated gain is modest (~1.7%) because other stages dominate. The processor-only microbenchmark exposes the layout effect directly:
+This is about **42.5% lower isolated compute cost** and **1.74× processor throughput**.
 
-| Path | Processor CPU/result | CPU result rate |
-| --- | ---: | ---: |
-| AoS AVX2 | 1.080 ns | 925.9 M/s |
-| **SoA AVX2** | **0.621 ns** | **1.610 B/s** |
-
-That is about **42.5% lower isolated compute cost** for the field-major negotiated block.
-
-This is an optional contract specialization for numerical `Every` workloads, not a replacement for ordinary fixed records.
+ComputeBlock is therefore retained as an **optional negotiated contract** for array-native numerical workloads rather than the default record layout.
 
 Results:
 
@@ -207,3 +127,45 @@ Results:
 - [wire summary](../results/block-layout-wire-ab-summary-9run-2026-09-23.csv)
 - [processor raw](../results/block-layout-processor-micro-raw-7run-2026-09-23.csv)
 - [processor summary](../results/block-layout-processor-micro-summary-7run-2026-09-23.csv)
+
+## Latest / Ring-3
+
+Latest remains a separate retained path because its correctness semantics permit obsolete states to be conflated.
+
+The current design uses:
+
+- 12 KiB reusable receive workspace in the 32-byte reference path;
+- three permanent 32-byte retained state slots;
+- one shared 32-bit MIDDLE token;
+- producer atomic exchange;
+- consumer CAS acquisition;
+- contract-specialized framing;
+- fixed-width carry handling;
+- early conflation before expensive work.
+
+The old v4 zero-hold cross-protocol comparison is retained only as the latest **controlled cross-protocol benchmark for the Ring-3 Latest path**. It does not measure the newer Every/ComputeBlock architecture and should not be relabeled as Adaptive.
+
+See:
+
+- [V4_ZERO_HOLD.md](V4_ZERO_HOLD.md)
+- [v4 summary](../results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
+- [full benchmark history](../../docs/BENCHMARKS.md)
+
+## Benchmark rules
+
+- Do not add percentage gains from different A/B experiments.
+- Do not compare processor-only rates directly with socket end-to-end rates.
+- Logical localhost GB/s is not physical NIC throughput.
+- Publish raw data and validation counts alongside summaries.
+- Keep Every and Latest correctness semantics explicit.
+- New headline protocol-comparison graphs must be generated from a fresh common harness using the current retained code.
+
+## Current next step
+
+The native architecture is mature enough that the highest-value work is now:
+
+1. port the retained Adaptive paths into .NET;
+2. build one fresh integrated Adaptive comparison harness;
+3. rerun cross-protocol comparisons with the current code rather than old labels;
+4. tune transport/runtime settings;
+5. repeat on physical LAN hardware.
