@@ -860,3 +860,46 @@ Source: [every_receive_slab_lease_ab.c](../benchmarks/native-showcase/every_rece
 Raw results: [every-receive-slab-lease-ab-raw-12run-2026-09-23.csv](../benchmarks/results/every-receive-slab-lease-ab-raw-12run-2026-09-23.csv)
 
 Summary: [every-receive-slab-lease-ab-summary-12run-2026-09-23.csv](../benchmarks/results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
+
+
+## Fused batch processing / SIMD contract routine — 2026-09-23
+
+A native `Every` experiment tested batching the **actual developer-facing computation**, not just storage, copying, or ownership transfer.
+
+The negotiated test schema is one 32-byte input record containing eight `float` fields (position, velocity, temperature, scale). Each record is converted into a 32-byte output containing transformed coordinates and several derived values. The same bounded 8 × 12 KiB output-slab pipeline is used in every variant, with roughly 384 messages per populated slab.
+
+Four processor implementations were compared:
+
+- **per-message scalar:** one non-inlined scalar transform call per logical message;
+- **fused scalar:** one batch routine per populated slab, deliberately compiled without auto-vectorization;
+- **fused AVX2:** eight records at a time using an explicit 8×8 AoS transpose, vector arithmetic, inverse transpose, and contiguous stores;
+- **fused AVX-512:** sixteen records at a time using gather/vector arithmetic/scatter.
+
+Remainders are processed scalar; the processor never waits for a full vector group. The benchmark uses 12 million ordered records per run, twelve rotated runs, sender/protocol/consumer on CPUs 4/2/3, zero artificial consumer hold, and complete result validation.
+
+| Processing routine | Median end-to-end results/s | Logical payload GB/s | Processor CPU/result | Change vs per-message |
+| --- | ---: | ---: | ---: | ---: |
+| Per-message scalar | 30.82 M/s | 0.986 | 32.451 ns | baseline |
+| **Fused scalar batch** | **35.92 M/s** | **1.149** | **27.771 ns** | **+16.5% throughput / -14.4% CPU** |
+| Fused AVX2 transpose | 35.81 M/s | 1.146 | 27.872 ns | +16.2% / -14.1% |
+| Fused AVX-512 gather/scatter | 34.34 M/s | 1.099 | 29.061 ns | +11.4% / -10.4% |
+
+All retained runs completed with zero validation errors.
+
+The strongest result is therefore **batch fusion itself**, not blindly choosing the widest SIMD instruction set. Removing one processing-call/layout-interpretation boundary per record produced the largest retained gain. AVX2 essentially tied the fused scalar routine for this 32-byte AoS schema, while AVX-512 gather/scatter regressed relative to the fused scalar path because the extra gather/scatter/layout cost was not repaid by the arithmetic intensity.
+
+This supports selecting a processing routine after contract negotiation:
+
+```text
+schema + frame size + CPU features
+          ↓
+per-message / fused scalar / SIMD-specialized routine
+```
+
+The SIMD choice should depend on data layout and actual work. A structure-of-arrays-friendly or more arithmetic-heavy contract may benefit more from vectorization; opaque forwarding should not invoke this machinery at all.
+
+Source: [every_fused_vector_processing_ab.c](../benchmarks/native-showcase/every_fused_vector_processing_ab.c)
+
+Raw results: [every-fused-vector-processing-ab-raw-12run-2026-09-23.csv](../benchmarks/results/every-fused-vector-processing-ab-raw-12run-2026-09-23.csv)
+
+Summary: [every-fused-vector-processing-ab-summary-12run-2026-09-23.csv](../benchmarks/results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
