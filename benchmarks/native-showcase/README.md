@@ -119,3 +119,19 @@ Results:
 
 - [raw twelve-run CSV](../results/every-forward-direct-slab-ab-raw-12run-2026-09-23.csv)
 - [twelve-run median summary](../results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
+
+
+## Dedicated batch delivery worker
+
+`every_delivery_worker_ab.c` compares inline conversion/delivery with a dedicated worker that receives ownership of the same bounded output slabs.
+
+The protocol thread publishes one populated slab and immediately returns to receive processing. The delivery worker performs the actual conversion in-place, invokes a batch adapter once per slab, and returns ownership after the batch has been consumed.
+
+With sender/protocol/worker pinned to CPUs 4/2/3, seven alternating runs per synthetic conversion weight showed a median end-to-end throughput improvement ranging from **+18.7% to +48.5%** for the worker configuration. Adapter calls remained at roughly one per 384 logical records and all runs validated with zero errors.
+
+The worker uses more aggregate CPU because it parallelizes work across cores; the improvement is wall-clock throughput. Placement matters, so this is a candidate for runtime selection/AutoTune rather than an unconditional default.
+
+Results:
+
+- [raw seven-run sweep](../results/every-delivery-worker-ab-raw-7run-2026-09-23.csv)
+- [sweep summary](../results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
