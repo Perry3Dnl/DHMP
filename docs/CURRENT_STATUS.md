@@ -1,6 +1,6 @@
 # Current development status
 
-Updated: 2026-09-22
+Updated: 2026-09-23
 
 ## What has been established
 
@@ -70,6 +70,17 @@ The current result is not one universal winner. Tiny-frame, maximum-ingest, and 
 
 The Gen-2 native results are algorithm-comparison data only; they should not be compared numerically with the Windows/.NET benchmarks.
 
+
+### Ring-3 Fixed-Slab Latest fast path
+
+A new native receive experiment now separates the memory required for efficient socket I/O from the memory retained as application-visible state.
+
+The implementation uses a fixed reusable receive slab plus exactly three permanent state slots. On each receive batch, obsolete complete frames are skipped by fixed-size arithmetic and only the newest three complete frames are copied into the state ring. When the ring is full, the oldest retained state is overwritten; frame memory is never shifted or cleared.
+
+For a 32-byte contract, the retained state payload is only 96 bytes. A five-pass, 2-second native localhost reference run measured a median 86.2 M logical frames/s, 2.76 GB/s of logical payload, and 3.71 ns of receiver CPU per logical frame, while skipping/overwriting about 99.20% of obsolete frames. The individual runs ranged from about 63 M/s to 109 M/s, so these figures remain architecture-lab measurements rather than production throughput claims.
+
+The design lesson is that **retained state capacity and socket I/O batch size should be independent**: a tiny Ring-3 state window can coexist with a larger fixed transport workspace without introducing an unbounded queue.
+
 ### Native 32-byte showcase
 
 A consolidated native showcase now compares the retained Ring8 Spin and Slab6 Hybrid Latest paths, DHMPS/TLS, and five familiar framing/transport baselines in one Linux/C localhost harness. In the retained two-run 32-byte test, Slab6 Hybrid measured 124.7 M logical input frames/s, Ring8 Spin 111.8 M/s, and DHMPS/TLS 58.6 M/s. Raw fixed TCP measured 125.9 M/s and 4-byte length-prefixed TCP 141.7 M/s. The point of the test is to keep DHMP in the lean-TCP performance class while adding DHMP semantics, not to claim that DHMP makes TCP intrinsically faster.
@@ -118,15 +129,16 @@ This is currently the next major protocol experiment.
 
 ## Next work
 
-1. Port the strongest Gen-2 processor candidates back into the .NET prototype and re-run them under the same Windows/.NET benchmark harness.
-2. Implement bounded Verified history with configurable/asynchronous checkpoints.
-3. Benchmark several checkpoint policies (time-based, byte-based and explicit application verification).
-4. Measure control bytes, retained memory, clean-stream throughput and failure recovery separately.
-5. Exercise the same model over DHMPS/TLS.
-6. Separate protocol specification from the .NET implementation.
-7. Rename remaining experimental `FixedWire` namespaces/projects only after the protocol model is stable.
-8. Design higher-level .NET ergonomics (DI, typed clients, endpoint negotiation and ASP.NET-style hosting) without contaminating the DHMP data frame.
-9. Continue native streaming/concurrent comparisons for gRPC/HTTP2 rather than relying only on sequential request/reply benchmarks.
+1. Port Ring-3 Fixed-Slab Latest and the strongest Gen-2 processor candidates back into the .NET prototype and re-run them under the same Windows/.NET benchmark harness.
+2. Tune fixed receive-workspace sizing for Ring-3 across frame sizes and sustained LAN tests.
+3. Implement bounded Verified history with configurable/asynchronous checkpoints.
+4. Benchmark several checkpoint policies (time-based, byte-based and explicit application verification).
+5. Measure control bytes, retained memory, clean-stream throughput and failure recovery separately.
+6. Exercise the same model over DHMPS/TLS.
+7. Separate protocol specification from the .NET implementation.
+8. Rename remaining experimental `FixedWire` namespaces/projects only after the protocol model is stable.
+9. Design higher-level .NET ergonomics (DI, typed clients, endpoint negotiation and ASP.NET-style hosting) without contaminating the DHMP data frame.
+10. Continue native streaming/concurrent comparisons for gRPC/HTTP2 rather than relying only on sequential request/reply benchmarks.
 
 ## Positioning
 
