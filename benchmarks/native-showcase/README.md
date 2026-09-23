@@ -135,3 +135,24 @@ Results:
 
 - [raw seven-run sweep](../results/every-delivery-worker-ab-raw-7run-2026-09-23.csv)
 - [sweep summary](../results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
+
+
+## Borrowed receive-slab Every delivery
+
+`every_receive_slab_lease_ab.c` tests removing the full complete-frame copy between the receive workspace and the public `Every` output slab.
+
+The direct path receives into one of eight reusable 12 KiB public slabs, publishes an `offset/count` view of the complete frames, and returns that slab to the pool only after the consumer releases it. TCP split-frame tails are repaired through a 32-byte carry area, so only boundary fragments move.
+
+Twelve-run medians:
+
+| Path | End-to-end frames/s | Logical payload GB/s | Receiver CPU/frame |
+| --- | ---: | ---: | ---: |
+| Receive → copy → public slab | 119.63 M/s | 3.83 | 6.305 ns |
+| **Receive slab becomes public slab** | **126.51 M/s** | **4.05** | **6.184 ns** |
+
+All retained runs delivered all 30 million frames with zero validation errors.
+
+Results:
+
+- [raw twelve-run CSV](../results/every-receive-slab-lease-ab-raw-12run-2026-09-23.csv)
+- [twelve-run summary](../results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
