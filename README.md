@@ -129,6 +129,14 @@ The secure comparison keeps connection/TLS setup outside the steady-state timing
 
 These charts are intended as a clear implementation-level comparison, not a claim that DHMP makes TCP itself faster. Native processor-path experiments, wire/framing microbenchmarks, raw CSV files, methodology, and caveats remain documented in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [benchmarks/results](benchmarks/results).
 
+### Newest native Latest fast path
+
+The latest repository update adds the **Ring-3 Fixed-Slab Latest** reference path. It keeps only three permanent application-state frames while using a separate fixed receive workspace for efficient socket I/O.
+
+![Ring-3 Fixed-Slab Latest sustained benchmark](benchmarks/results/charts/ring3-fixed-slab-32b-2026-09-23.svg)
+
+The five 2-second passes measured **63.02–109.09 M logical 32-byte frames/s**, with a **median of 86.18 M/s** (2.76 GB/s payload), **3.71 ns receiver CPU per logical frame**, and only **96 B of retained application-state payload**. This native/Linux architecture result is shown separately from the .NET protocol charts above because the harnesses are not directly comparable.
+
 ## Latest benchmark results
 
 Raw CSV files and SVG charts are stored under [benchmarks/results](benchmarks/results).
@@ -192,6 +200,8 @@ At a 32-byte fixed contract:
 - steady-state frame storage is reused indefinitely.
 
 A standalone Linux/C localhost reference run added on 2026-09-23 used five 2-second passes. The median was:
+
+
 
 | Metric | Ring-3 Fixed-Slab Latest |
 | --- | ---: |
