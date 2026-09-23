@@ -255,74 +255,9 @@ Runner: [`run_showcase_v3.py`](benchmarks/native-showcase/run_showcase_v3.py)
 Raw results: [`showcase-v3-32b-raw-3run-2026-09-23.csv`](benchmarks/results/showcase-v3-32b-raw-3run-2026-09-23.csv)  
 Summary: [`showcase-v3-32b-summary-3run-2026-09-23.csv`](benchmarks/results/showcase-v3-32b-summary-3run-2026-09-23.csv)
 
-### Historical .NET request/reply comparison — pre-Ring-3 CPU engine
+### Historical results
 
-Persistent localhost connection, same opaque payload sizes, no TLS, sequential request/reply. These numbers remain valid for that earlier .NET implementation, but **they do not use the current Ring-3 single-atomic ownership engine or today's CPU fast paths**.
-
-![DHMP vs common protocols](benchmarks/results/charts/readme-dhmp-vs-common-protocols.svg)
-
-Median round trips per second:
-
-| Payload | DHMP | TCP + 4-byte length | MessagePack/TCP | HTTP/1.1 | HTTP/2 | gRPC/Protobuf |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 32 B | **42,565** | 38,046 | 24,168 | 20,535 | 12,806 | 11,460 |
-| 64 B | **53,433** | 50,496 | 45,625 | 23,393 | 10,742 | 11,357 |
-| 128 B | 44,022 | **44,101** | 32,159 | 18,973 | 12,134 | 10,235 |
-| 256 B | **43,794** | 43,014 | 39,797 | 22,910 | 15,578 | 10,625 |
-| 512 B | **56,336** | 51,670 | 44,455 | 23,035 | 15,236 | 11,006 |
-| 1 KiB | **56,239** | 51,858 | 44,465 | 22,795 | 15,369 | 13,887 |
-
-The important baseline is lean binary TCP. DHMP should not be presented as magically making TCP itself faster; the goal is to remain close to the lean transport floor while adding fixed-contract and receive/delivery semantics.
-
-### Historical DHMPS vs HTTPS — pre-Ring-3 CPU engine
-
-DHMPS is DHMP wrapped in normal platform TLS. This chart is an earlier .NET secure request/reply benchmark; **it does not use the current Ring-3 `FRONT / MIDDLE / BACK` engine or the latest 32-byte CPU optimizations**.
-
-![DHMPS vs HTTPS](benchmarks/results/charts/readme-dhmps-vs-https.svg)
-
-Secure median round trips per second:
-
-| Payload | DHMPS | HTTPS/1.1 | HTTPS/2 |
-| ---: | ---: | ---: | ---: |
-| 32 B | **16,712** | 6,219 | 6,419 |
-| 64 B | **35,605** | 10,909 | 10,284 |
-| 128 B | **42,763** | 11,567 | 15,128 |
-| 256 B | **35,124** | 14,377 | 11,728 |
-| 512 B | **38,932** | 12,830 | 13,255 |
-| 1 KiB | **38,133** | 12,974 | 11,999 |
-
-TLS setup is outside the steady-state timing in this comparison.
-
-### Historical native showcase v2 — pre-latest CPU sweep
-
-This is the most recent retained **integrated network** comparison, but it predates the single-atomic triple exchange, contract-specialized 32-byte processor, and fixed-width carry fast path shown above. Ring-3 is implemented inside the same native showcase harness as Ring8, Slab6, DHMPS, raw TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP. All rows below therefore use the same timing model and workload.
-
-Test profile: 32-byte logical payloads, 12 KiB fixed receive workspace, 500 ms warmup, 1.5 s measured interval, three runs per path, 10 µs simulated consumer work, CPU pinning when available, and TLS 1.3 for DHMPS.
-
-![Native 32 B input rate — showcase v2](benchmarks/results/charts/showcase-v2-32b-input-2026-09-23.svg)
-
-![Native 32 B useful publication rate — showcase v2](benchmarks/results/charts/showcase-v2-32b-published-2026-09-23.svg)
-
-| Path | Logical input frames/s | Useful publications/s | Retained state |
-| --- | ---: | ---: | ---: |
-| DHMP Slab6 | **179.2 M** | **78.2k** | 192 B |
-| **DHMP Ring-3 Fixed-Slab** | **174.2 M** | **74.1k** | **96 B** |
-| DHMP Ring8 | 150.0 M | 72.8k | 256 B |
-| HTTP/1.1 / chunk framing | 123.7 M | 75.0k | 64 B* |
-| TCP / 4-byte length | 119.5 M | 72.0k | 64 B* |
-| WebSocket / binary framing | 104.7 M | 60.8k | 64 B* |
-| Raw TCP / fixed frame | 73.0 M | 52.6k | 64 B* |
-| DHMPS / TLS / Ring-3 | 65.1 M | 71.6k | 96 B |
-| UDP / datagram | 0.37 M | 86.1k | 64 B* |
-
-`*` The non-DHMP rows use the harness's small publication state storage; those bytes are not protocol-level retention guarantees.
-
-The key Ring-3 result is the trade-off: it lands very close to Slab6 on both ingest and useful publication rate while retaining only **three 32-byte states = 96 B**, half the retained state of Slab6 and substantially less than Ring8.
-
-The WebSocket and HTTP rows are framing/parser microbenchmarks, **not full ASP.NET Core server stacks**. UDP in showcase v2 is an unbatched datagram path, so it should not be read as a general UDP ceiling. All retained runs reported zero validation errors.
-
-Raw data: [showcase-v2-32b-raw-3run-2026-09-23.csv](benchmarks/results/showcase-v2-32b-raw-3run-2026-09-23.csv)  
-Summary: [showcase-v2-32b-summary-3run-2026-09-23.csv](benchmarks/results/showcase-v2-32b-summary-3run-2026-09-23.csv)
+Older .NET request/reply, DHMPS/HTTPS, and native showcase v2 measurements are retained in [the detailed benchmark history](docs/BENCHMARKS.md) for reproducibility, but are intentionally omitted from the main README so this page reflects the current Ring-3 engine.
 
 ## Continuous streaming results
 
