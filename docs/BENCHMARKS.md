@@ -1026,3 +1026,43 @@ Wire summary: [block-layout-wire-ab-summary-9run-2026-09-23.csv](../benchmarks/r
 Processor raw results: [block-layout-processor-micro-raw-7run-2026-09-23.csv](../benchmarks/results/block-layout-processor-micro-raw-7run-2026-09-23.csv)
 
 Processor summary: [block-layout-processor-micro-summary-7run-2026-09-23.csv](../benchmarks/results/block-layout-processor-micro-summary-7run-2026-09-23.csv)
+
+
+## Showcase v6 — audited one-message-per-framing-unit rerun
+
+Showcase v6 replaces v4 as the retained native framing comparison.
+
+The benchmark was changed only after an audit identified that older generations did not use equal framing granularity: WebSocket/HTTP1/HTTP2 could amortize one frame/chunk header across roughly 8 KiB while several other paths paid framing per 32-byte logical record.
+
+v6 normalizes the native framing comparison to **one 32-byte logical message per framing unit** and reruns every row together.
+
+Key five-run medians:
+
+| Path | Logical messages/s | Logical payload | Receiver CPU/message |
+| --- | ---: | ---: | ---: |
+| Raw TCP fixed32 | **141.90 M/s** | **4.54 GB/s** | 4.315 ns |
+| DHMP fixed contract | **135.78 M/s** | **4.34 GB/s** | **4.102 ns** |
+| TCP len4 | 123.25 M/s | 3.94 GB/s | 5.207 ns |
+| TCP varint | 107.73 M/s | 3.45 GB/s | 6.118 ns |
+| WebSocket 32 B binary frame | 87.51 M/s | 2.80 GB/s | 6.067 ns |
+| MQTT QoS0 | 79.60 M/s | 2.55 GB/s | 8.619 ns |
+| gRPC/H2 shape | 73.59 M/s | 2.35 GB/s | 10.754 ns |
+| HTTP/1.1 32 B chunk | 70.25 M/s | 2.25 GB/s | 11.689 ns |
+| HTTP/2 32 B DATA | 68.62 M/s | 2.20 GB/s | 10.384 ns |
+| NATS PUB | 46.27 M/s | 1.48 GB/s | 21.372 ns |
+
+Raw fixed TCP is faster than DHMP at the median, as expected.
+
+A processor-only cross-check using the same audited parsers also places raw fixed TCP first: **1.584 ns/message** versus **1.748 ns/message** for DHMP.
+
+All retained v6 runs had zero framing, payload-sequence, consumer-validation, UDP-payload, and configuration errors.
+
+Methodology: [V6_FAIR_PER_MESSAGE.md](../benchmarks/native-showcase/V6_FAIR_PER_MESSAGE.md)
+
+Raw loopback: [showcase-v6-fair-32b-raw-5run-2026-09-23.csv](../benchmarks/results/showcase-v6-fair-32b-raw-5run-2026-09-23.csv)
+
+Loopback summary: [showcase-v6-fair-32b-summary-5run-2026-09-23.csv](../benchmarks/results/showcase-v6-fair-32b-summary-5run-2026-09-23.csv)
+
+Processor raw: [showcase-v6-fair-micro-raw-5run-2026-09-23.csv](../benchmarks/results/showcase-v6-fair-micro-raw-5run-2026-09-23.csv)
+
+Processor summary: [showcase-v6-fair-micro-summary-5run-2026-09-23.csv](../benchmarks/results/showcase-v6-fair-micro-summary-5run-2026-09-23.csv)
