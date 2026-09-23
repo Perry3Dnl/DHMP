@@ -115,65 +115,19 @@ Because retained history cannot grow forever, Verified ultimately requires async
 
 DHMPS does not invent custom cryptography. The current .NET prototype uses the platform TLS stack. TLS framing exists below DHMP, but DHMP itself still does not add a repeated application header to every logical frame.
 
-## Gen-2 processor-path results
+## Performance at a glance
 
-The current processor-path search is now organized as a **two-run screening matrix** rather than a collection of unrelated one-off tests.
+The front-page comparison focuses on the current **.NET localhost protocol benchmarks**, where DHMP and DHMPS are measured against familiar application-protocol stacks using the same payload sizes.
 
-The retained anchor sizes are **16 B, 32 B, 256 B, and 1 KiB**. `Every` paths are measured with zero simulated application work; `Latest` paths are measured with **10 µs of consumer work** so we can see whether the network ingest path stays independent from an expensive consumer.
+![DHMP vs common protocols](benchmarks/results/charts/readme-dhmp-vs-common-protocols.svg)
 
-![Every processor benchmark](benchmarks/results/charts/gen2-every-input-2026-09-22.svg)
+In the full persistent request/reply benchmark, DHMP is compared with length-prefixed TCP, MessagePack/TCP, HTTP/1.1, HTTP/2, and gRPC/Protobuf. These are **round trips per second**, not raw network bandwidth.
 
-![Latest input benchmark](benchmarks/results/charts/gen2-latest-input-2026-09-22.svg)
+![DHMPS vs HTTPS](benchmarks/results/charts/readme-dhmps-vs-https.svg)
 
-![Latest useful publication benchmark](benchmarks/results/charts/gen2-latest-published-2026-09-22.svg)
+The secure comparison keeps connection/TLS setup outside the steady-state timing and compares DHMPS with HTTPS/1.1 and HTTPS/2 using the same opaque payload sizes.
 
-At **32 B**, the current `Latest` baseline measured about **149.2 M input frames/s** and **69.5k useful publications/s**. The highest input-rate candidate in the retained two-run screen was **Ring8 Spin** at about **283.3 M input frames/s** and **82.4k publications/s**. A more publication-oriented **Slab6 Hybrid** reached about **223.8 M input frames/s** and **86.5k publications/s**.
-
-At **16 B**, the best retained `Every` candidate increased measured processing from about **269.5 M** to **448.0 M frames/s**. At **256 B**, the original `Latest` baseline still had the highest input rate among the retained candidates, while a Slab5 Spin path traded input throughput for a higher useful publication rate. At **1 KiB**, the best input-rate and best publication-rate candidates diverged again.
-
-That is the main Gen-2 conclusion so far: **the best processor path depends on the workload goal and frame size**. DHMP should keep `Every` and `Latest` as simple protocol semantics while the implementation chooses a suitable internal processor strategy after the handshake.
-
-These measurements come from the native Linux/C architecture lab, not the .NET implementation, so they are used to compare algorithms rather than as cross-platform product throughput claims. The consolidated CSV, raw two-run source data, and source lab archive are under [benchmarks/results](benchmarks/results) and [benchmarks/native-gen2](benchmarks/native-gen2).
-
-## Showcase: two DHMP models, DHMPS, and five familiar baselines
-
-This showcase puts the two retained Gen-2 `Latest` processor models beside **DHMPS/TLS** and five familiar transport/framing baselines in one native harness:
-
-- **DHMP Ring8 Spin** — freshness/rate-oriented, 8 reusable slots with a spinning consumer.
-- **DHMP Slab6 Hybrid** — balanced path, 6 reusable slots with short spin + sleep behavior.
-- **DHMPS / TLS 1.3 / Slab6** — the Slab6 model carried over standard TLS 1.3.
-- **Raw TCP / fixed frame**, **TCP + 4-byte length**, **UDP batched datagrams**, **WebSocket binary framing**, and **HTTP/1.1 chunk framing**.
-
-![32-byte showcase input rate](benchmarks/results/charts/showcase-32b-input-2026-09-23.svg)
-
-![32-byte showcase useful publications](benchmarks/results/charts/showcase-32b-published-2026-09-23.svg)
-
-Two-run means for **32-byte logical payloads**:
-
-| Path | Input frames/s | Useful publications/s |
-| --- | ---: | ---: |
-| DHMP Ring8 Spin | **111.8 M** | **59.1k** |
-| DHMP Slab6 Hybrid | **124.7 M** | 28.3k |
-| DHMPS / TLS / Slab6 | **58.6 M** | 37.4k |
-| Raw TCP / fixed frame | 125.9 M | 29.2k |
-| TCP / 4-byte length | 141.7 M | 18.4k |
-| UDP / batched datagrams | 0.46 M | 6.8k |
-| WebSocket / binary framing | 107.3 M | 43.7k |
-| HTTP/1.1 / chunk framing | 29.4 M | 11.2k |
-
-The main result is not that DHMP somehow beats raw TCP at being TCP. The lean TCP baselines remain extremely strong. The useful result is that the current DHMP models remain in that performance class while carrying DHMP's fixed-contract semantics, `Every`/`Latest` behavior, and — for DHMPS — standard TLS encryption without adding a repeated DHMP application header to every logical frame.
-
-The publication chart measures how often the test consumer observed a newest stable state while doing **10 µs of simulated work**. It is therefore a `Latest`/conflation metric, not a generic protocol guarantee.
-
-Test profile: native Linux/C localhost, adaptive slab target `clamp(frameSize × 512, 16 KiB, 1 MiB)`, 500 ms warmup, 1.5 s measured interval, **2 runs per path**, sender/receiver/consumer pinned to separate CPUs when available, TLS 1.3 for DHMPS. All retained runs completed with **zero validation errors**.
-
-The WebSocket and HTTP rows measure binary/chunk framing and parsing in this native lab, not full application-server frameworks. This avoids mixing the current Linux/C processor experiments with the separate Windows/.NET ecosystem benchmark.
-
-Source and raw data:
-
-- [native showcase lab](benchmarks/native-showcase)
-- [raw two-run CSV](benchmarks/results/showcase-32b-raw-2run-2026-09-23.csv)
-- [two-run summary CSV](benchmarks/results/showcase-32b-summary-2run-2026-09-23.csv)
+These charts are intended as a clear implementation-level comparison, not a claim that DHMP makes TCP itself faster. Native processor-path experiments, wire/framing microbenchmarks, raw CSV files, methodology, and caveats remain documented in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [benchmarks/results](benchmarks/results).
 
 ## Latest benchmark results
 
