@@ -70,6 +70,20 @@ This is now a preferred forwarding architecture when the processor can emit the 
 For blocking sockets, slab ownership can return after all bytes have been accepted by `send()`. Async/zero-copy transports require holding ownership through the transport completion notification.
 
 
+
+### Dedicated delivery worker / batch adapter
+
+A dedicated delivery-worker architecture has now been tested for `Every`.
+
+The protocol processor publishes whole populated slabs from the existing 8 × 12 KiB bounded pool. The delivery worker acquires slab ownership, performs the actual decode/conversion workload, invokes the adapter once for the whole batch, and only then returns the slab.
+
+With cache-aware placement and seven alternating runs per synthetic conversion weight, the worker improved median end-to-end throughput at every tested workload: **+48.5%, +34.0%, +22.1%, +22.0%, and +18.7%** from the lightest through heaviest conversion sweeps. All retained runs had zero validation errors.
+
+This is a parallel-throughput optimization rather than an aggregate-CPU optimization: two cores do useful work simultaneously, and total CPU per result can rise. A preliminary non-cache-aware placement also showed that the extra handoff can regress performance, so the worker should be a configurable/AutoTune implementation choice rather than a protocol requirement.
+
+The high-performance adapter contract should therefore be batch-first. Per-message APIs belong above that batch surface as convenience wrappers.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
