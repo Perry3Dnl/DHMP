@@ -98,3 +98,24 @@ Results:
 
 - [raw nine-run CSV](../results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv)
 - [nine-run median summary](../results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
+
+
+## Direct output-slab forwarding
+
+`every_forward_direct_slab_ab.c` extends the bounded `Every` output-slab pipeline into an egress TCP sender.
+
+The processor emits fixed wire-ready 32-byte results into one of eight reusable 12 KiB slabs. The A/B compares copying each populated slab into a separate sender scratch buffer against sending directly from the owned slab and releasing that slab only after the entire populated byte range has been accepted.
+
+Twelve-run medians:
+
+| Path | End-to-end results/s | Processor CPU/result | Forward-sender CPU/result |
+| --- | ---: | ---: | ---: |
+| Slab → copy → send | 41.93 M/s | 23.238 ns | 23.798 ns |
+| **Slab → send directly** | **43.98 M/s** | **21.111 ns** | **22.689 ns** |
+
+The direct path was about **4.9% faster** at the median on this noisy localhost host. All retained runs processed, forwarded, received, and validated all 12 million results with zero errors.
+
+Results:
+
+- [raw twelve-run CSV](../results/every-forward-direct-slab-ab-raw-12run-2026-09-23.csv)
+- [twelve-run median summary](../results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
