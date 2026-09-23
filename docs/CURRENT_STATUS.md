@@ -58,6 +58,18 @@ That is about **3.89× the median end-to-end result rate** and **76.7% lower rec
 This is now the preferred implementation direction for `Every`. `Latest` remains separate and should continue avoiding obsolete-result materialization.
 
 
+
+### Direct slab-to-send forwarding
+
+The bounded `Every` output slab has also been tested as the next stage's send buffer directly.
+
+A native service-pipeline A/B compared copying each populated 12 KiB output slab into a separate sender scratch buffer versus retaining ownership of the populated slab and passing its bytes directly to `send()`. Across twelve alternating 12-million-result runs, the direct path measured **43.98 M results/s** median end-to-end versus **41.93 M/s** for the copy path, about a **4.9% median improvement**. Forward-sender CPU/result fell from **23.798 ns to 22.689 ns** and all retained runs validated with zero errors.
+
+This is now a preferred forwarding architecture when the processor can emit the final negotiated wire layout directly. It does not remove kernel/TLS copies; it removes the intermediate application copy and any redundant serialization stage that would otherwise exist.
+
+For blocking sockets, slab ownership can return after all bytes have been accepted by `send()`. Async/zero-copy transports require holding ownership through the transport completion notification.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
