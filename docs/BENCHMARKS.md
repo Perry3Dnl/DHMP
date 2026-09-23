@@ -596,3 +596,38 @@ The output-slab path reduced producer/handoff CPU cost by about **60.6%** and in
 This does not mean every DHMP mode should retain every processed result. For `Latest`, processing or storing obsolete results can be wasted work; the strongest path remains to conflate before expensive processing whenever semantics allow. The fixed output-slab model is most useful when a processing stage genuinely needs to emit many results, or when a downstream stage can consume results efficiently in contiguous batches.
 
 For strict `Every` semantics, an overwriteable three-slab exchange is not sufficient by itself because an overloaded consumer could miss whole output slabs. `Every` requires bounded backpressure or a non-overwriting fixed queue of output slabs. The benchmark here measures the batching/handoff cost rather than defining the final `Every` queue policy.
+
+
+## Native showcase v4 — zero-hold maximum-speed suite — 2026-09-23
+
+The v4 headline suite removes the previously simulated 10 µs application hold entirely. The consumer validates the acquired Latest state and releases it immediately; no clock-based delay exists in the hot consumer loop.
+
+Profile: 32-byte logical payload, 12 KiB receive workspace, 256 KiB sender batch, Ring-3 FRONT/MIDDLE/BACK publication, 500 ms warmup, 1.2 s measured interval, five rotated runs per path, CPU pinning when available, and full retained payload/framing validation.
+
+DHMP is compared with ten established transport/framing baselines: raw fixed TCP, one-byte-varint TCP framing, 4-byte-length TCP framing, WebSocket binary framing, HTTP/1.1 chunk framing, HTTP/2 DATA framing, gRPC/HTTP2 framing, MQTT QoS 0 PUBLISH framing, NATS PUB framing, and batched UDP datagrams.
+
+| Path | Median logical input | Median zero-hold publications | Median receiver CPU / logical frame |
+| --- | ---: | ---: | ---: |
+| DHMP Latest / Ring-3 v4 | 130.62 M/s | 359.36k/s | 2.704 ns |
+| Raw TCP / fixed frame | 111.73 M/s | 297.88k/s | 3.120 ns |
+| TCP / varint length | 132.30 M/s | 364.60k/s | 3.676 ns |
+| TCP / 4-byte length | 108.08 M/s | 327.63k/s | 3.969 ns |
+| WebSocket / binary framing | 119.32 M/s | 341.47k/s | 3.474 ns |
+| HTTP/1.1 / chunk framing | 108.03 M/s | 356.19k/s | 4.527 ns |
+| HTTP/2 / DATA framing | 105.57 M/s | 356.20k/s | 5.608 ns |
+| gRPC / HTTP/2 framing | 98.92 M/s | 382.60k/s | 6.498 ns |
+| MQTT QoS 0 / PUBLISH | 91.79 M/s | 298.73k/s | 4.542 ns |
+| NATS / PUB framing | 96.38 M/s | 341.67k/s | 5.153 ns |
+| UDP / batched datagrams | 0.466 M/s | 107.64k/s | 910.50 ns |
+
+All retained v4 runs reported zero payload-validation and framing-validation errors.
+
+The localhost environment remains noisy. DHMP itself ranged from 51.48 M/s to 154.97 M/s across the five rotated passes, so the medians should not be treated as precise universal rankings. Raw fixed TCP and DHMP have essentially the same fixed-record wire work in this harness; small differences are measurement variance. The framing rows are hot-path framing/parser comparisons rather than complete production application stacks.
+
+Removing the artificial 10 µs hold raised DHMP's visible useful-publication median from the old ~74k/s stress-test range to 359k/s. The old hold suite remains useful only as a slow-consumer / conflation stress test.
+
+Methodology: [V4_ZERO_HOLD.md](../benchmarks/native-showcase/V4_ZERO_HOLD.md)
+
+Raw data: [showcase-v4-zero-hold-32b-raw-5run-2026-09-23.csv](../benchmarks/results/showcase-v4-zero-hold-32b-raw-5run-2026-09-23.csv)
+
+Summary: [showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv](../benchmarks/results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
