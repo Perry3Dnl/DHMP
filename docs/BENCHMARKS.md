@@ -383,3 +383,66 @@ The important result is that Ring-2's smaller 64-byte payload footprint did **no
 This makes Ring-3 the stronger default for `Latest` zero-copy semantics: it preserves a separate reader-held state while the producer continues publishing, without showing a throughput penalty in this test.
 
 An earlier aggressively minimized lock-free prototype produced occasional torn-state validation failures and is not retained as a valid result. Only zero-error runs are published.
+
+
+## Ring-3 single-atomic triple exchange — 2026-09-23
+
+The safe Ring-3 ownership path was simplified from a per-slot atomic state machine to a classic SPSC triple-buffer exchange.
+
+The baseline uses:
+
+- three per-slot ownership states (`FREE / WRITING / PUBLISHED / READING`);
+- slot-claim CAS loops;
+- a shared published index;
+- release/free transitions after publication and consumption.
+
+The new design keeps ownership roles local where possible:
+
+- `FRONT` is consumer-owned;
+- `BACK` is producer-owned;
+- one shared atomic `MIDDLE` token stores the middle-slot index plus a dirty bit.
+
+Producer publication is one atomic exchange:
+
+```text
+write BACK
+atomic_exchange(MIDDLE, BACK | DIRTY)
+returned MIDDLE index becomes new BACK
+```
+
+Consumer acquisition is one load plus a CAS only when a newer state exists:
+
+```text
+load MIDDLE
+if DIRTY:
+    CAS(MIDDLE, FRONT)
+    old MIDDLE becomes new FRONT
+```
+
+Configuration:
+
+- native Linux/C;
+- 32-byte state;
+- 10 µs zero-copy consumer hold;
+- producer and consumer pinned to separate CPUs;
+- 2-second measured interval;
+- seven alternating runs per variant;
+- payload integrity validation on every consumed state;
+- zero validation errors in all retained runs.
+
+Source: [ring3_triple_exchange_ab.c](../benchmarks/native-gen2/ring3_triple_exchange_ab.c)
+
+Raw data: [ring3-triple-exchange-ab-2026-09-23.csv](../benchmarks/results/ring3-triple-exchange-ab-2026-09-23.csv)
+
+Median results:
+
+| Ring-3 ownership engine | Producer publications/s | Producer CPU ns/publication | Producer claim retries | Consumer useful publications/s | Consumer CAS retries | Validation errors |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Per-slot state machine | 30.281 M | 33.023 ns | 30.11 M | 89.745k | 2.61 M | 0 |
+| **Single-atomic triple exchange** | **32.359 M** | **30.900 ns** | **0** | 89.308k | **12** | 0 |
+
+The new ownership engine improved median producer publication throughput by about **6.9%** and reduced producer CPU cost per publication by about **6.4%**.
+
+Its larger architectural benefit is removing contention machinery from the producer hot path. The producer no longer scans/claims slots or retries CAS operations; it owns `BACK` outright and performs one atomic ownership transfer per publication. Consumer useful-publication rate stayed essentially unchanged in this 10 µs-hold workload, while consumer CAS retries dropped by more than five orders of magnitude.
+
+**Decision:** retain three slots, but prefer the single-atomic `FRONT / MIDDLE / BACK` exchange as the current Ring-3 ownership model for the next integrated benchmark.
