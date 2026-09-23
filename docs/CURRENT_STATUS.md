@@ -99,6 +99,17 @@ Using the same atomic `FREE / WRITING / PUBLISHED / READING` ownership protocol,
 
 The conclusion is that Ring-2's smaller 64-byte payload footprint does not provide a practical throughput advantage once safe zero-copy ownership is required. Ring-3 remains the preferred `Latest` default because the third slot provides independent reader/latest/writer roles without costing measurable producer throughput in this test.
 
+
+### Ring-3 single-atomic ownership exchange
+
+The per-slot `FREE / WRITING / PUBLISHED / READING` state machine is no longer the preferred Ring-3 ownership model.
+
+A classic SPSC triple-buffer exchange was tested with the same 32-byte state and 10 µs zero-copy consumer hold. The producer keeps `BACK` locally, the consumer keeps `FRONT` locally, and only one atomic `MIDDLE` token is shared.
+
+Across seven alternating retained runs, the single-atomic design increased median producer publication rate from **30.281 M/s to 32.359 M/s** (+6.9%) and reduced producer CPU cost from **33.023 ns to 30.900 ns/publication** (-6.4%). Producer claim retries fell from roughly 30.1 million per run to zero. All retained runs completed with zero torn-state validation errors.
+
+This preserves the three-slot semantic advantage while removing most of the ownership bookkeeping from the hot path. It is now the preferred Ring-3 CPU ownership strategy for integration into the fixed-slab receive engine.
+
 ### Native 32-byte showcase v2
 
 Ring-3 Fixed-Slab Latest is now integrated into the same native Linux/C comparison harness as Ring8, Slab6, DHMPS/TLS, raw fixed TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP.
