@@ -117,3 +117,12 @@ See [../../docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) for raw-result links an
 The retained seven-run medians were **2.251 ns/result** for per-result publication versus **0.887 ns/result** for the output-slab path. The consumer validates every frame of acquired slabs; all retained runs completed with zero validation errors.
 
 Raw results: [../results/processor-output-slab-ab-2026-09-23.csv](../results/processor-output-slab-ab-2026-09-23.csv)
+
+
+## Consumer CAS vs exchange
+
+`ring3_consumer_cas_vs_exchange.c` tests replacing the consumer's compare-and-swap acquisition with a single atomic exchange after observing the dirty bit.
+
+The exchange version is ownership-correct and eliminates retries, but the retained x86-64 benchmark did not show a speed win. CAS remains the preferred default because the real receive-batch path already has very few CAS failures and the unconditional exchange can increase cache-line ownership traffic.
+
+Raw results: [../results/ring3-consumer-cas-vs-exchange-2026-09-23.csv](../results/ring3-consumer-cas-vs-exchange-2026-09-23.csv)
