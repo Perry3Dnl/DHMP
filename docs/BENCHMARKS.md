@@ -631,3 +631,29 @@ Methodology: [V4_ZERO_HOLD.md](../benchmarks/native-showcase/V4_ZERO_HOLD.md)
 Raw data: [showcase-v4-zero-hold-32b-raw-5run-2026-09-23.csv](../benchmarks/results/showcase-v4-zero-hold-32b-raw-5run-2026-09-23.csv)
 
 Summary: [showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv](../benchmarks/results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
+
+
+## Ring-3 consumer CAS vs atomic exchange — 2026-09-23
+
+A proposed simplification replaced the consumer's dirty-token compare-and-swap with a single atomic exchange after the consumer observes `DIRTY`.
+
+The ownership argument is valid for this SPSC triple-buffer state machine: once the single consumer has observed a dirty `MIDDLE`, producer publications can only replace dirty-with-dirty until that consumer returns its old `FRONT` as a clean middle token. Therefore an atomic exchange can safely acquire whichever dirty slot is newest at the RMW linearization point.
+
+Source: [ring3_consumer_cas_vs_exchange.c](../benchmarks/native-gen2/ring3_consumer_cas_vs_exchange.c)
+
+Raw data: [ring3-consumer-cas-vs-exchange-2026-09-23.csv](../benchmarks/results/ring3-consumer-cas-vs-exchange-2026-09-23.csv)
+
+A fixed-count high-contention test used 10 million producer publications per run and 12 alternating runs.
+
+| Consumer acquisition | Median producer CPU / pub | Median consumer acquisitions | Median consumer CPU / acquisition | Median CAS retries | Validation errors |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **CAS** | **11.790 ns** | 1.465 M | **74.482 ns** | 120 | 0 |
+| Atomic exchange | 12.412 ns | 1.347 M | 83.661 ns | **0** | 0 |
+
+The exchange variant completely removes consumer retries, but it did **not** produce a reliable CPU win. Separate medians show about **+5.3% producer CPU cost** and **+12.3% consumer CPU per acquisition** for exchange. The shared-host runs remain noisy, so these percentages are directional rather than universal.
+
+The integrated zero-hold v4 network A/B also showed zero validation errors and zero exchange retries, but paired throughput differences were small and inconsistent. The current CAS path already retries extremely rarely under the real receive-batch publication rate, so removing those retries has little opportunity to help.
+
+Architecturally, the likely trade-off is cache-line ownership: an exchange always completes the ownership transfer immediately, while a failed CAS can defer the consumer transfer when the producer wins the race. Under heavy producer/consumer overlap, the unconditional exchange can create more cache-line bouncing even though it removes the retry branch.
+
+**Decision:** retain the consumer CAS for the current default. The exchange form is correct and remains a useful alternative, but it is not promoted as a performance optimization on the retained x86-64 results.
