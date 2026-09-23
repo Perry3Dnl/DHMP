@@ -38,3 +38,18 @@ gcc -O3 -march=native -pthread ring3_fixed_slab_latest.c -o ring3bench
 Arguments are `frame_bytes`, `seconds`, and `slab_bytes`.
 
 The retained five-pass 32-byte reference results are stored in [../results/ring3-fixed-slab-latest-32b-2026-09-23.csv](../results/ring3-fixed-slab-latest-32b-2026-09-23.csv). See [../../docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) for interpretation and caveats.
+
+
+## Ring-3 cache-line layout A/B
+
+`ring3_cacheline_ab.c` compares the current packed 96-byte Ring-3 state block with a version that puts each 32-byte state on its own 64-byte cache line.
+
+Build:
+
+```bash
+gcc -O3 -march=native -pthread ring3_cacheline_ab.c -o ring3-cache-ab
+./ring3-cache-ab packed
+./ring3-cache-ab isolated
+```
+
+The retained result favors the compact layout: median producer CPU cost was 8.215 ns per complete three-state update for packed 96 B versus 14.662 ns for 64-byte-isolated slots. See [../../docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) for details.
