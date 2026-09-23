@@ -96,6 +96,18 @@ Across twelve alternating 30-million-frame runs, the borrowed path measured **12
 This should be the preferred `Every` fast path for wire-compatible payloads. Transformed representations still require output storage; `Latest` keeps its compact newest-state retention model.
 
 
+
+### Contract-selected fused batch processing
+
+The processor has now been tested with batch fusion applied to the actual conversion/calculation work.
+
+For the 32-byte floating-point test contract, replacing one scalar transform call per message with one fused scalar routine per populated slab improved median end-to-end throughput from **30.82 M/s to 35.92 M/s (+16.5%)** and reduced processor CPU from **32.451 ns to 27.771 ns/result (-14.4%)**.
+
+Explicit AVX2 processing of eight records at a time essentially tied the fused scalar result, while an AVX-512 gather/scatter implementation was slower than fused scalar for this AoS layout. The retained rule is therefore **fuse first, then select SIMD only when the negotiated schema/layout and CPU justify it**.
+
+All retained runs validated with zero errors. This is an implementation/runtime specialization and does not change DHMP wire semantics.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
