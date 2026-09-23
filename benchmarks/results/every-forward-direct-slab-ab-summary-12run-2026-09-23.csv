@@ -1,0 +1,3 @@
+mode,median_e2e_fps,median_processor_cpu_ns_result,median_sender_cpu_ns_result,median_sink_cpu_ns_result,median_send_calls,median_partial_sends,min_e2e_fps,max_e2e_fps,errors
+copy,41929488.953,23.238480,23.797983,7.216053,31251,0,22351826.598,61469680.434,0
+direct,43977682.618,21.110893,22.689441,6.805352,31251,0,39493426.117,63510109.436,0
