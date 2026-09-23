@@ -903,3 +903,77 @@ Source: [every_fused_vector_processing_ab.c](../benchmarks/native-showcase/every
 Raw results: [every-fused-vector-processing-ab-raw-12run-2026-09-23.csv](../benchmarks/results/every-fused-vector-processing-ab-raw-12run-2026-09-23.csv)
 
 Summary: [every-fused-vector-processing-ab-summary-12run-2026-09-23.csv](../benchmarks/results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
+
+
+## Negotiated computation-ready block layout — 2026-09-23
+
+A larger wire-contract experiment tested negotiating the layout of an entire fixed computation block rather than only the layout of one repeated record.
+
+The test keeps the total wire bytes identical:
+
+- **AoS record block:** 384 × 32-byte records = 12 KiB, each record laid out as `x,y,z,vx,vy,vz,temp,scale`;
+- **SoA computation block:** eight contiguous arrays of 384 floats = 12 KiB, one array per field.
+
+The block size and layout are fixed by the negotiated contract. TCP still exposes a byte stream; the receiver accumulates exactly one 12 KiB logical block before invoking the selected block routine.
+
+The same numeric transform, output representation, bounded 8 × 12 KiB output-slab handoff, sender/protocol/consumer placement, and validation are used for all variants.
+
+### End-to-end wire/block A/B
+
+Nine rotated runs of 12 million logical records:
+
+| Wire layout / routine | Median end-to-end | Logical payload | Processor-thread CPU/frame |
+| --- | ---: | ---: | ---: |
+| AoS fused scalar | 35.22 M/s | 1.127 GB/s | 28.357 ns |
+| AoS AVX2 + transpose | 35.25 M/s | 1.128 GB/s | 27.769 ns |
+| SoA fused scalar | 35.71 M/s | 1.143 GB/s | 27.965 ns |
+| **SoA AVX2 contiguous fields** | **35.85 M/s** | **1.147 GB/s** | **27.820 ns** |
+
+The full pipeline shows only about **+1.7% median end-to-end throughput** for SoA+AVX2 versus AoS+AVX2. In this harness the measured processor-thread CPU includes receive and slab-wait time, so it does not isolate the arithmetic/layout cost.
+
+All retained runs completed with zero validation errors.
+
+### Processor-only block A/B
+
+A fixed-count processor microbenchmark removes TCP, output-slab waiting, and consumer validation while retaining the exact same 384-message blocks and transform.
+
+| Layout / routine | Median processor CPU / result | CPU-side result rate |
+| --- | ---: | ---: |
+| AoS scalar | 2.434 ns | 410.9 M/s |
+| AoS AVX2 + transpose | 1.080 ns | 925.9 M/s |
+| SoA scalar | 2.370 ns | 421.9 M/s |
+| **SoA AVX2 contiguous fields** | **0.621 ns** | **1.610 B/s** |
+
+Relative to the AVX2 AoS processor, the computation-ready SoA block reduces isolated compute cost by about **42.5%** and raises CPU-side transform rate by about **1.74×**.
+
+The scalar AoS/SoA paths are nearly tied. The benefit therefore comes primarily from making the negotiated wire representation directly SIMD-friendly, avoiding the per-batch AoS-to-vector transpose/gather work.
+
+### Interpretation
+
+This should **not** replace ordinary fixed-record DHMP globally.
+
+It is strongest when:
+
+- `Every` semantics apply;
+- the source naturally produces arrays/batches;
+- the destination performs numerical work across many records;
+- block accumulation latency is acceptable;
+- the application can retain field-array views rather than constructing message objects.
+
+It is weaker for commands, sparse unrelated messages, latency-sensitive single records, and sources that would need an expensive AoS→SoA rearrangement before every send.
+
+The sender-side numbers in this synthetic test reflect direct generation into each negotiated layout; they do not measure the cost of repacking an existing AoS object graph into SoA.
+
+**Retained direction:** support computation-ready fixed block layouts as an optional negotiated contract family, with block size/layout chosen once during session establishment. This is a wire-level optimization and must therefore be documented distinctly from implementation-only SIMD/runtime choices.
+
+Source: [negotiated_block_layout_ab.c](../benchmarks/native-showcase/negotiated_block_layout_ab.c)
+
+Processor micro source: [block_layout_processor_micro.c](../benchmarks/native-gen2/block_layout_processor_micro.c)
+
+Wire raw results: [block-layout-wire-ab-raw-9run-2026-09-23.csv](../benchmarks/results/block-layout-wire-ab-raw-9run-2026-09-23.csv)
+
+Wire summary: [block-layout-wire-ab-summary-9run-2026-09-23.csv](../benchmarks/results/block-layout-wire-ab-summary-9run-2026-09-23.csv)
+
+Processor raw results: [block-layout-processor-micro-raw-7run-2026-09-23.csv](../benchmarks/results/block-layout-processor-micro-raw-7run-2026-09-23.csv)
+
+Processor summary: [block-layout-processor-micro-summary-7run-2026-09-23.csv](../benchmarks/results/block-layout-processor-micro-summary-7run-2026-09-23.csv)
