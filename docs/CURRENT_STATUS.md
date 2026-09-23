@@ -126,6 +126,17 @@ The current retained choices are:
 These changes are next in line to be folded into the integrated Ring-3 fixed-slab showcase before another end-to-end comparison is published.
 
 
+
+### Fixed output-slab processor batching
+
+A processor-stage experiment now confirms that result handoff itself can be amortized in the same way as socket I/O.
+
+Instead of publishing one processed 32-byte result at a time, the processor writes 384 results contiguously into a fixed 12 KiB output slab and performs one `FRONT / MIDDLE / BACK` ownership exchange for the completed slab.
+
+Across seven validated runs, per-result publication measured a median **2.251 ns/result (444.3 M results/s)**, while output-slab publication measured **0.887 ns/result (1.127 B results/s)**. That is about **60.6% less producer/handoff CPU cost** and **2.54× the CPU-side result rate** for the test transform, with zero torn-batch validation errors.
+
+This is an implementation strategy rather than a wire-protocol change. `Latest` should still avoid processing obsolete states when possible; batched output arrays are most useful for processor stages that genuinely produce multiple useful results.
+
 ### Native 32-byte showcase v3
 
 The retained Ring-3 CPU optimizations are now integrated into a complete native transport/framing harness.
