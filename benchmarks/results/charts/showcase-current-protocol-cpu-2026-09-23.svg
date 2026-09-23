@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="920" viewBox="0 0 1500 920">
+<rect width="100%" height="100%" fill="#fff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#172b4d}
+.title{font-size:36px;font-weight:700}.sub{font-size:19px;fill:#53627a}.label{font-size:18px}.value{font-size:18px;font-weight:700}.tick{font-size:14px;fill:#667085}.foot{font-size:16px;fill:#667085}
+</style>
+<text x="750" y="48" text-anchor="middle" class="title">Receiver CPU cost per logical record</text>
+<text x="750" y="80" text-anchor="middle" class="sub">Same zero-hold 32-byte framing harness — UDP omitted from scale (910.5 ns/record)</text><line x1="455" y1="125" x2="455" y2="822" stroke="#e3e8ef"/>
+<text x="455" y="848" text-anchor="middle" class="tick">0.00</text><line x1="642" y1="125" x2="642" y2="822" stroke="#e3e8ef"/>
+<text x="642" y="848" text-anchor="middle" class="tick">1.46</text><line x1="829" y1="125" x2="829" y2="822" stroke="#e3e8ef"/>
+<text x="829" y="848" text-anchor="middle" class="tick">2.91</text><line x1="1016" y1="125" x2="1016" y2="822" stroke="#e3e8ef"/>
+<text x="1016" y="848" text-anchor="middle" class="tick">4.37</text><line x1="1203" y1="125" x2="1203" y2="822" stroke="#e3e8ef"/>
+<text x="1203" y="848" text-anchor="middle" class="tick">5.82</text><line x1="1390" y1="125" x2="1390" y2="822" stroke="#e3e8ef"/>
+<text x="1390" y="848" text-anchor="middle" class="tick">7.28</text><text x="437" y="174" text-anchor="end" class="label">DHMP Adaptive / Latest path</text>
+<rect x="455" y="145" width="347.4" height="44" rx="5" fill="#1677ff"/>
+<text x="814.4" y="174" class="value">2.704 ns</text><text x="437" y="241" text-anchor="end" class="label">Raw TCP / fixed frame</text>
+<rect x="455" y="212" width="400.9" height="44" rx="5" fill="#707c91"/>
+<text x="867.9" y="241" class="value">3.120 ns</text><text x="437" y="308" text-anchor="end" class="label">TCP / varint length</text>
+<rect x="455" y="279" width="472.3" height="44" rx="5" fill="#707c91"/>
+<text x="939.3" y="308" class="value">3.676 ns</text><text x="437" y="375" text-anchor="end" class="label">TCP / 4-byte length</text>
+<rect x="455" y="346" width="509.9" height="44" rx="5" fill="#707c91"/>
+<text x="976.9" y="375" class="value">3.969 ns</text><text x="437" y="442" text-anchor="end" class="label">WebSocket / binary framing</text>
+<rect x="455" y="413" width="446.3" height="44" rx="5" fill="#707c91"/>
+<text x="913.3" y="442" class="value">3.474 ns</text><text x="437" y="509" text-anchor="end" class="label">HTTP/1.1 / chunk framing</text>
+<rect x="455" y="480" width="581.7" height="44" rx="5" fill="#707c91"/>
+<text x="1048.7" y="509" class="value">4.527 ns</text><text x="437" y="576" text-anchor="end" class="label">HTTP/2 / DATA framing</text>
+<rect x="455" y="547" width="720.5" height="44" rx="5" fill="#707c91"/>
+<text x="1187.5" y="576" class="value">5.608 ns</text><text x="437" y="643" text-anchor="end" class="label">gRPC / HTTP/2 framing</text>
+<rect x="455" y="614" width="834.8" height="44" rx="5" fill="#707c91"/>
+<text x="1301.8" y="643" class="value">6.498 ns</text><text x="437" y="710" text-anchor="end" class="label">MQTT QoS0 / PUBLISH</text>
+<rect x="455" y="681" width="583.5" height="44" rx="5" fill="#707c91"/>
+<text x="1050.5" y="710" class="value">4.542 ns</text><text x="437" y="777" text-anchor="end" class="label">NATS / PUB framing</text>
+<rect x="455" y="748" width="662.1" height="44" rx="5" fill="#707c91"/>
+<text x="1129.1" y="777" class="value">5.153 ns</text><text x="922.5" y="882" text-anchor="middle" class="sub">Receiver-thread CPU nanoseconds per logical input record · lower is better</text>
+<text x="922.5" y="906" text-anchor="middle" class="foot">Native localhost framing/transport harness · 32-byte logical records · 5-run median</text>
+</svg>
