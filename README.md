@@ -148,116 +148,73 @@ For a 32-byte contract:
 
 The retained-state requirement stays constant regardless of how long the connection runs.
 
-### Earlier standalone Ring-3 reference result
+### Current Ring-3 CPU work
 
-![Ring-3 Fixed-Slab Latest sustained benchmark](benchmarks/results/charts/ring3-fixed-slab-32b-2026-09-23.svg)
+The current native fast path uses the single-atomic `FRONT / MIDDLE / BACK` exchange, a 32-bit middle token, negotiated fixed-size arithmetic, fixed-width carry handling, and the fixed-slab receive model.
 
-Standalone native Linux/C localhost reference from before the latest single-atomic CPU ownership work, five 2-second passes:
-
-| Metric | Result |
-| --- | ---: |
-| Frame size | **32 B** |
-| Median logical input rate | **86.18 M frames/s** |
-| Median logical payload rate | **2.76 GB/s** |
-| Median receiver CPU / logical frame | **3.71 ns** |
-| Retained application-state payload | **96 B** |
-| Fixed receive workspace | **12 KiB** |
-| Obsolete frames skipped/overwritten | **~99.20%** |
-| Measured run range | **63.02–109.09 M frames/s** |
-
-This is a localhost architecture benchmark, not a claim that a physical network delivered 2.76 GB/s. The run range is intentionally published because scheduler and loopback conditions materially affect absolute rates.
-
-Source: [`benchmarks/native-gen2/ring3_fixed_slab_latest.c`](benchmarks/native-gen2/ring3_fixed_slab_latest.c)  
-Raw results: [`ring3-fixed-slab-latest-32b-2026-09-23.csv`](benchmarks/results/ring3-fixed-slab-latest-32b-2026-09-23.csv)
-
-### Latest Ring-3 CPU optimization results
-
-The Ring-3 ownership path has now been reduced from a per-slot atomic state machine to a classic SPSC triple-buffer exchange. The producer owns `BACK`, the consumer owns `FRONT`, and one 32-bit atomic `MIDDLE` token transfers ownership.
-
-Seven alternating native CPU runs with 32-byte state and a 10 µs zero-copy consumer hold:
-
-![Ring-3 single-atomic ownership throughput](benchmarks/results/charts/ring3-triple-exchange-throughput-2026-09-23.svg)
-
-| Ring-3 ownership engine | Producer publications/s | Producer CPU / publication | Producer claim retries | Useful consumer publications/s | Validation errors |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Per-slot state machine | 30.281 M | 33.023 ns | ~30.11 M | 89.745k | 0 |
-| **Single-atomic triple exchange** | **32.359 M** | **30.900 ns** | **0** | 89.308k | **0** |
-
-That is about **+6.9% producer publication throughput** and **-6.4% producer CPU cost** while removing the producer-side slot-claim retry loop.
-
-Two additional retained CPU-path improvements were retained and are now integrated into showcase v3:
-
-![Latest Ring-3 CPU fast-path costs](benchmarks/results/charts/ring3-cpu-fastpaths-2026-09-23.svg)
-
-| Processor detail | Before | After | Change |
-| --- | ---: | ---: | ---: |
-| 32-byte negotiated contract processing | 4.809 ns/batch | **4.738 ns/batch** | **~1.5% lower** |
-| Partial-frame carry handling | 4.794 ns/batch | **1.739 ns/batch** | **~63.7% lower** |
-
-The contract-specialized path replaces runtime division/runtime-size copy with fixed 32-byte arithmetic/copy. The carry fast path replaces variable-size `memmove` with one fixed 32-byte vector transfer while retaining the actual valid carry count separately.
-
-These are **processor-path microbenchmarks**. The current end-to-end native integration of these changes is showcase v3 below.
-
-Source/results:
-
-- [single-atomic triple exchange source](benchmarks/native-gen2/ring3_triple_exchange_ab.c)
-- [single-atomic raw results](benchmarks/results/ring3-triple-exchange-ab-2026-09-23.csv)
-- [contract specialization raw results](benchmarks/results/ring3-contract-specialize-ab-2026-09-23.csv)
-- [fixed carry raw results](benchmarks/results/ring3-carry32-ab-2026-09-23.csv)
+Controlled CPU A/B work is retained in [the detailed benchmark documentation](docs/BENCHMARKS.md). The main README intentionally keeps only the newest integrated comparison graphs.
 
 ## Performance comparisons
 
-DHMP has several benchmark families. Results from different harnesses are deliberately kept separate.
+### Current maximum-speed showcase v4 — zero artificial consumer delay
 
-### Current native 32-byte showcase v3 — latest Ring-3 engine
+The headline native comparison now removes the previous 10 µs simulated application hold completely.
 
-Showcase v3 integrates the retained CPU work into the actual localhost transport path:
+The consumer validates an acquired state and releases it immediately. There is **no clock-based delay in the hot consumer loop**.
 
-- Ring-3 `FRONT / MIDDLE / BACK` ownership;
-- one shared 32-bit atomic `MIDDLE` token;
-- one ownership exchange per publication;
-- negotiated 32-byte shift/mask framing;
-- fixed 32-byte vector publication copy;
-- fixed-width partial-frame carry handling;
-- 12 KiB receive workspace;
+Test profile:
+
+- 32-byte logical payloads;
+- 12 KiB reusable receive workspace;
 - 256 KiB reusable sender batch;
-- 10 µs zero-copy consumer hold;
-- TLS 1.3 for DHMPS.
+- Ring-3 `FRONT / MIDDLE / BACK` publication;
+- zero artificial consumer hold;
+- 500 ms warmup;
+- 1.2 second measured interval;
+- five runs per path with rotated order;
+- sender, receiver, and consumer pinned to separate CPUs when available;
+- payload and framing validation enabled.
 
-The framing baselines use the same `Latest` consumer/publication model so the comparison focuses on receive/framing work rather than giving DHMP a different consumer workload.
+The comparison includes DHMP plus ten established transport/framing baselines: raw fixed TCP, varint-length TCP, 4-byte-length TCP, WebSocket binary framing, HTTP/1.1 chunk framing, HTTP/2 DATA framing, gRPC/HTTP2 message framing, MQTT QoS 0 PUBLISH framing, NATS PUB framing, and batched UDP datagrams.
 
-![Native 32 B input rate — showcase v3](benchmarks/results/charts/showcase-v3-32b-input-2026-09-23.svg)
+![Native 32 B zero-hold input rate](benchmarks/results/charts/showcase-v4-zero-hold-32b-input-2026-09-23.svg)
 
-![Native 32 B useful publication rate — showcase v3](benchmarks/results/charts/showcase-v3-32b-published-2026-09-23.svg)
+![Native 32 B zero-hold receiver CPU](benchmarks/results/charts/showcase-v4-zero-hold-32b-cpu-2026-09-23.svg)
 
-Three-run medians:
+Five-run medians:
 
-| Path | Logical input | Useful publications | Receiver CPU / logical frame | Input run range |
+| Path | Logical input | Zero-hold useful publications | Receiver CPU / logical frame | Input run range |
 | --- | ---: | ---: | ---: | ---: |
-| **DHMP Latest / Ring-3 v3** | **118.45 M/s** | **73.67k/s** | **2.736 ns** | 97.93–127.90 M/s |
-| DHMPS / TLS 1.3 / Ring-3 | 59.66 M/s | 82.78k/s | 10.861 ns | 36.15–62.81 M/s |
-| Raw TCP / fixed frame | 145.88 M/s | 80.54k/s | 2.489 ns | 109.14–147.72 M/s |
-| TCP / 4-byte length | 71.22 M/s | 59.06k/s | 4.399 ns | 68.11–124.07 M/s |
-| WebSocket / binary framing | 104.36 M/s | 69.51k/s | 3.925 ns | 83.36–125.89 M/s |
-| HTTP/1.1 / chunk framing | 120.66 M/s | 83.42k/s | 4.202 ns | 43.54–122.05 M/s |
-| UDP / batched datagrams | 0.574 M/s | 81.56k/s | 690.13 ns | 0.456–0.673 M/s |
+| **DHMP Latest / Ring-3 v4** | **130.62 M/s** | **359.36k/s** | **2.704 ns** | 51.48–154.97 M/s |
+| Raw TCP / fixed frame | 111.73 M/s | 297.88k/s | 3.120 ns | 73.31–138.52 M/s |
+| TCP / varint length | 132.30 M/s | 364.60k/s | 3.676 ns | 91.11–137.70 M/s |
+| TCP / 4-byte length | 108.08 M/s | 327.63k/s | 3.969 ns | 90.00–124.87 M/s |
+| WebSocket / binary framing | 119.32 M/s | 341.47k/s | 3.474 ns | 83.11–127.03 M/s |
+| HTTP/1.1 / chunk framing | 108.03 M/s | 356.19k/s | 4.527 ns | 78.10–121.40 M/s |
+| HTTP/2 / DATA framing | 105.57 M/s | 356.20k/s | 5.608 ns | 95.19–114.91 M/s |
+| gRPC / HTTP/2 framing | 98.92 M/s | 382.60k/s | 6.498 ns | 84.25–102.49 M/s |
+| MQTT QoS 0 / PUBLISH | 91.79 M/s | 298.73k/s | 4.542 ns | 53.92–119.64 M/s |
+| NATS / PUB framing | 96.38 M/s | 341.67k/s | 5.153 ns | 35.97–105.91 M/s |
+| UDP / batched datagrams | 0.466 M/s | 107.64k/s | 910.50 ns | 0.437–0.552 M/s |
 
-All retained v3 runs reported **zero payload-validation errors and zero framing-validation errors**.
+All retained v4 runs reported **zero payload-validation errors and zero framing-validation errors**.
 
-The absolute localhost rates varied substantially between passes, so v3 publishes the run ranges rather than presenting the medians as a universal ceiling. The raw fixed-TCP row is intentionally extremely lean and should remain difficult to beat; DHMP's goal is to stay near that transport floor while providing fixed-contract and explicit `Latest` semantics.
+Removing the artificial hold changed the visible DHMP publication rate from the old ~74k/s stress-test range to a median **359k/s** in this maximum-speed suite. That is why the old 10 µs graph is no longer used as the headline speed comparison.
 
-The HTTP and WebSocket rows are framing/parser microbenchmarks, not full framework/server-stack measurements. The UDP row uses Linux `sendmmsg/recvmmsg` batching. Logical GB/s and frame rates are loopback/hot-path measurements, not physical NIC throughput.
+A few interpretation rules matter:
 
-Showcase v3 changes the harness relative to v2 — notably the sender batch and publication engine — so **v2 and v3 absolute rates should not be interpreted as a direct before/after speedup measurement**. The dedicated CPU A/B tests above are the controlled evidence for the optimization gains.
+- Raw fixed TCP and DHMP perform essentially the same fixed-record wire work in this harness. Small differences between them are measurement variance, not evidence that DHMP makes TCP itself faster.
+- The localhost environment is noisy; the published ranges are intentionally retained.
+- The HTTP, WebSocket, gRPC, MQTT, and NATS rows measure their framing hot paths in the same native harness. They are **not full production framework/server stacks**.
+- Useful-publication rate is a Latest batch/freshness metric, not a per-frame processor ceiling. Latest publishes at most one newest state per receive batch.
+- These are logical loopback rates, not physical NIC throughput.
 
-Source: [`showcase_v3.c`](benchmarks/native-showcase/showcase_v3.c)  
-Runner: [`run_showcase_v3.py`](benchmarks/native-showcase/run_showcase_v3.py)  
-Raw results: [`showcase-v3-32b-raw-3run-2026-09-23.csv`](benchmarks/results/showcase-v3-32b-raw-3run-2026-09-23.csv)  
-Summary: [`showcase-v3-32b-summary-3run-2026-09-23.csv`](benchmarks/results/showcase-v3-32b-summary-3run-2026-09-23.csv)
+Methodology: [showcase v4 zero-hold notes](benchmarks/native-showcase/V4_ZERO_HOLD.md)  
+Summary CSV: [showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv](benchmarks/results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
 
 ### Historical results
 
-Older .NET request/reply, DHMPS/HTTPS, and native showcase v2 measurements are retained in [the detailed benchmark history](docs/BENCHMARKS.md) for reproducibility, but are intentionally omitted from the main README so this page reflects the current Ring-3 engine.
+Older 10 µs slow-consumer, .NET request/reply, DHMPS/HTTPS, and native showcase measurements remain in [the detailed benchmark history](docs/BENCHMARKS.md) for reproducibility, but are intentionally omitted from the main README.
 
 ## Continuous streaming results
 
@@ -370,8 +327,8 @@ Established so far:
 Current engineering priorities:
 
 1. port Ring-3 Fixed-Slab Latest and the single-atomic ownership path into the .NET prototype;
-2. extend showcase v3 across negotiated frame sizes;
-3. repeat v3 with longer runs and on physical LAN hardware to reduce localhost scheduling variance;
+2. extend showcase v4 zero-hold across negotiated frame sizes;
+3. repeat showcase v4 with longer runs and on physical LAN hardware to reduce localhost scheduling variance;
 4. tune receive-workspace and sender-batch sizing across negotiated frame sizes;
 5. implement bounded Verified checkpoints;
 6. continue separating protocol specification from implementation details;
