@@ -42,3 +42,11 @@ The localhost host remains noisy. For example, DHMP ranged from 51.48 M to 154.9
 Raw fixed TCP and DHMP have essentially the same fixed-record wire work in this harness; small differences between them should be treated as measurement variance, not as DHMP somehow making TCP itself faster.
 
 The publication rate is a batch/freshness metric, not a per-frame processor rate: Latest publishes at most one newest state per receive batch. Receiver CPU nanoseconds per logical input frame is included separately.
+
+
+## Result files
+
+- [raw five-run CSV](../results/showcase-v4-zero-hold-32b-raw-5run-2026-09-23.csv)
+- [five-run median summary](../results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
+- [logical input-rate chart](../results/charts/showcase-v4-zero-hold-32b-input-2026-09-23.svg)
+- [receiver CPU chart](../results/charts/showcase-v4-zero-hold-32b-cpu-2026-09-23.svg)
