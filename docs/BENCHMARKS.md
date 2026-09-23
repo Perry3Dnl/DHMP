@@ -509,3 +509,58 @@ Raw data: [ring3-carry32-ab-2026-09-23.csv](../benchmarks/results/ring3-carry32-
 The conditional fixed-width path reduced the isolated carry housekeeping cost by about **63.7%**, saving roughly **3.05 ns per receive batch**. The conditional form is retained because it keeps the guard-memory assumption narrower while matching or beating the unconditional variant in the retained median.
 
 These are CPU microbenchmarks, not end-to-end network throughput results. Their purpose is to decide what should be folded into the next integrated Ring-3 showcase implementation.
+
+
+## Native showcase v3 — latest Ring-3 engine integrated — 2026-09-23
+
+Showcase v3 moves the retained CPU optimizations into a complete native localhost transport/framing comparison.
+
+Integrated DHMP/DHMPS fast path:
+
+- 32-byte fixed negotiated contract;
+- 12 KiB receive workspace;
+- 256 KiB reusable sender batch;
+- Ring-3 `FRONT / MIDDLE / BACK` ownership;
+- one shared 32-bit atomic middle token;
+- one atomic ownership exchange per publication;
+- fixed 32-byte AVX publication copy;
+- shift/mask fixed-frame arithmetic;
+- fixed-width 32-byte carry handling;
+- 10 µs zero-copy consumer hold.
+
+All comparison paths use the same Latest publication/consumer engine. The framed stream paths still perform their framing checks. UDP uses Linux `sendmmsg/recvmmsg` batching.
+
+Source: [showcase_v3.c](../benchmarks/native-showcase/showcase_v3.c)
+
+Runner: [run_showcase_v3.py](../benchmarks/native-showcase/run_showcase_v3.py)
+
+Raw data: [showcase-v3-32b-raw-3run-2026-09-23.csv](../benchmarks/results/showcase-v3-32b-raw-3run-2026-09-23.csv)
+
+Summary: [showcase-v3-32b-summary-3run-2026-09-23.csv](../benchmarks/results/showcase-v3-32b-summary-3run-2026-09-23.csv)
+
+Charts:
+
+- [logical input rate](../benchmarks/results/charts/showcase-v3-32b-input-2026-09-23.svg)
+- [useful publication rate](../benchmarks/results/charts/showcase-v3-32b-published-2026-09-23.svg)
+
+Three-run medians:
+
+| Path | Logical input | Useful publications | Payload GB/s | Receiver CPU / logical frame | Input range |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **DHMP Latest / Ring-3 v3** | **118.45 M/s** | **73.67k/s** | **3.79** | **2.736 ns** | 97.93–127.90 M/s |
+| DHMPS / TLS 1.3 / Ring-3 | 59.66 M/s | 82.78k/s | 1.91 | 10.861 ns | 36.15–62.81 M/s |
+| Raw TCP / fixed frame | 145.88 M/s | 80.54k/s | 4.67 | 2.489 ns | 109.14–147.72 M/s |
+| TCP / 4-byte length | 71.22 M/s | 59.06k/s | 2.28 | 4.399 ns | 68.11–124.07 M/s |
+| WebSocket / binary framing | 104.36 M/s | 69.51k/s | 3.34 | 3.925 ns | 83.36–125.89 M/s |
+| HTTP/1.1 / chunk framing | 120.66 M/s | 83.42k/s | 3.86 | 4.202 ns | 43.54–122.05 M/s |
+| UDP / batched datagrams | 0.574 M/s | 81.56k/s | 0.018 | 690.13 ns | 0.456–0.673 M/s |
+
+All retained v3 runs had zero payload-validation and framing-validation errors.
+
+The wide ranges show that this shared/containerized localhost environment still has material scheduling and loopback variability. The v3 medians should be treated as current integrated architecture measurements, not universal ceilings.
+
+The raw fixed-TCP baseline is intentionally minimal. It is expected to remain extremely competitive because DHMP is built on top of the same transport. DHMP's differentiator is the fixed-contract model and explicit Latest semantics while keeping processor overhead near the lean stream floor.
+
+The HTTP and WebSocket cases are framing/parser microbenchmarks, not complete ASP.NET Core or browser stacks. Logical payload GB/s is not physical NIC throughput.
+
+Showcase v3 also changes the harness relative to v2 (including the sender batch and publication engine), so v2-to-v3 absolute numbers are not a controlled optimization A/B. The separate Ring-3 CPU experiments are the controlled evidence for the single-atomic, specialization, and carry-path gains.
