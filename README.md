@@ -185,7 +185,7 @@ Seven alternating native CPU runs with 32-byte state and a 10 µs zero-copy cons
 
 That is about **+6.9% producer publication throughput** and **-6.4% producer CPU cost** while removing the producer-side slot-claim retry loop.
 
-Two additional retained CPU-path improvements are ready for integration:
+Two additional retained CPU-path improvements were retained and are now integrated into showcase v3:
 
 ![Latest Ring-3 CPU fast-path costs](benchmarks/results/charts/ring3-cpu-fastpaths-2026-09-23.svg)
 
@@ -196,7 +196,7 @@ Two additional retained CPU-path improvements are ready for integration:
 
 The contract-specialized path replaces runtime division/runtime-size copy with fixed 32-byte arithmetic/copy. The carry fast path replaces variable-size `memmove` with one fixed 32-byte vector transfer while retaining the actual valid carry count separately.
 
-These are **processor-path microbenchmarks**, not new end-to-end TCP throughput figures. The native showcase v2 results below still represent the last integrated transport run; the next showcase revision will combine the single-atomic exchange, 32-byte specialization, and fixed-width carry path before new network numbers are published.
+These are **processor-path microbenchmarks**. The current end-to-end native integration of these changes is showcase v3 below.
 
 Source/results:
 
@@ -208,6 +208,52 @@ Source/results:
 ## Performance comparisons
 
 DHMP has several benchmark families. Results from different harnesses are deliberately kept separate.
+
+### Current native 32-byte showcase v3 — latest Ring-3 engine
+
+Showcase v3 integrates the retained CPU work into the actual localhost transport path:
+
+- Ring-3 `FRONT / MIDDLE / BACK` ownership;
+- one shared 32-bit atomic `MIDDLE` token;
+- one ownership exchange per publication;
+- negotiated 32-byte shift/mask framing;
+- fixed 32-byte vector publication copy;
+- fixed-width partial-frame carry handling;
+- 12 KiB receive workspace;
+- 256 KiB reusable sender batch;
+- 10 µs zero-copy consumer hold;
+- TLS 1.3 for DHMPS.
+
+The framing baselines use the same `Latest` consumer/publication model so the comparison focuses on receive/framing work rather than giving DHMP a different consumer workload.
+
+![Native 32 B input rate — showcase v3](benchmarks/results/charts/showcase-v3-32b-input-2026-09-23.svg)
+
+![Native 32 B useful publication rate — showcase v3](benchmarks/results/charts/showcase-v3-32b-published-2026-09-23.svg)
+
+Three-run medians:
+
+| Path | Logical input | Useful publications | Receiver CPU / logical frame | Input run range |
+| --- | ---: | ---: | ---: | ---: |
+| **DHMP Latest / Ring-3 v3** | **118.45 M/s** | **73.67k/s** | **2.736 ns** | 97.93–127.90 M/s |
+| DHMPS / TLS 1.3 / Ring-3 | 59.66 M/s | 82.78k/s | 10.861 ns | 36.15–62.81 M/s |
+| Raw TCP / fixed frame | 145.88 M/s | 80.54k/s | 2.489 ns | 109.14–147.72 M/s |
+| TCP / 4-byte length | 71.22 M/s | 59.06k/s | 4.399 ns | 68.11–124.07 M/s |
+| WebSocket / binary framing | 104.36 M/s | 69.51k/s | 3.925 ns | 83.36–125.89 M/s |
+| HTTP/1.1 / chunk framing | 120.66 M/s | 83.42k/s | 4.202 ns | 43.54–122.05 M/s |
+| UDP / batched datagrams | 0.574 M/s | 81.56k/s | 690.13 ns | 0.456–0.673 M/s |
+
+All retained v3 runs reported **zero payload-validation errors and zero framing-validation errors**.
+
+The absolute localhost rates varied substantially between passes, so v3 publishes the run ranges rather than presenting the medians as a universal ceiling. The raw fixed-TCP row is intentionally extremely lean and should remain difficult to beat; DHMP's goal is to stay near that transport floor while providing fixed-contract and explicit `Latest` semantics.
+
+The HTTP and WebSocket rows are framing/parser microbenchmarks, not full framework/server-stack measurements. The UDP row uses Linux `sendmmsg/recvmmsg` batching. Logical GB/s and frame rates are loopback/hot-path measurements, not physical NIC throughput.
+
+Showcase v3 changes the harness relative to v2 — notably the sender batch and publication engine — so **v2 and v3 absolute rates should not be interpreted as a direct before/after speedup measurement**. The dedicated CPU A/B tests above are the controlled evidence for the optimization gains.
+
+Source: [`showcase_v3.c`](benchmarks/native-showcase/showcase_v3.c)  
+Runner: [`run_showcase_v3.py`](benchmarks/native-showcase/run_showcase_v3.py)  
+Raw results: [`showcase-v3-32b-raw-3run-2026-09-23.csv`](benchmarks/results/showcase-v3-32b-raw-3run-2026-09-23.csv)  
+Summary: [`showcase-v3-32b-summary-3run-2026-09-23.csv`](benchmarks/results/showcase-v3-32b-summary-3run-2026-09-23.csv)
 
 ### Historical .NET request/reply comparison — pre-Ring-3 CPU engine
 
@@ -247,7 +293,7 @@ Secure median round trips per second:
 
 TLS setup is outside the steady-state timing in this comparison.
 
-### Native 32-byte transport/framing showcase v2 — pre-latest CPU sweep
+### Historical native showcase v2 — pre-latest CPU sweep
 
 This is the most recent retained **integrated network** comparison, but it predates the single-atomic triple exchange, contract-specialized 32-byte processor, and fixed-width carry fast path shown above. Ring-3 is implemented inside the same native showcase harness as Ring8, Slab6, DHMPS, raw TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP. All rows below therefore use the same timing model and workload.
 
@@ -388,14 +434,13 @@ Established so far:
 
 Current engineering priorities:
 
-1. integrate the retained Ring-3 CPU wins into the native TCP showcase and publish a new combined run;
-2. port Ring-3 Fixed-Slab Latest and the single-atomic ownership path into the .NET prototype;
-3. extend the integrated Ring-3 showcase across more frame sizes;
-4. run fixed-duration LAN tests across physical machines;
-5. tune receive-workspace sizing across negotiated frame sizes;
-6. implement bounded Verified checkpoints;
-7. continue separating protocol specification from implementation details;
-8. build ergonomic .NET/Unity-facing APIs without adding per-frame wire overhead.
+1. port Ring-3 Fixed-Slab Latest and the single-atomic ownership path into the .NET prototype;
+2. extend showcase v3 across negotiated frame sizes;
+3. repeat v3 with longer runs and on physical LAN hardware to reduce localhost scheduling variance;
+4. tune receive-workspace and sender-batch sizing across negotiated frame sizes;
+5. implement bounded Verified checkpoints;
+6. continue separating protocol specification from implementation details;
+7. build ergonomic .NET/Unity-facing APIs without adding per-frame wire overhead.
 
 ## Documentation
 
