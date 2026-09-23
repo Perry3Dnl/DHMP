@@ -19,7 +19,7 @@ DHMP benchmark results are only useful if the comparison is reproducible and the
 
 ## Current frozen native framing generation
 
-The current cross-protocol framing generation is **showcase v4**.
+The current cross-protocol framing generation is **showcase v6**.
 
 Profile:
 
@@ -83,3 +83,10 @@ The root README may show:
 - **full-stack protocol comparison** only after real full-stack implementations have been run together under one frozen harness.
 
 If DHMP loses a fair benchmark, publish the loss.
+
+
+## v6 normalization
+
+The retained native framing comparison now uses **one 32-byte logical message per framing unit**. This replaced the older mixed-granularity setup where some framing paths amortized headers across large batches.
+
+See [V6_FAIR_PER_MESSAGE.md](../benchmarks/native-showcase/V6_FAIR_PER_MESSAGE.md).
