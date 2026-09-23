@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#172b4d}.title{font-size:38px;font-weight:700}.sub{font-size:21px;fill:#53627a}.label{font-size:19px}.tick{font-size:16px;fill:#667085}.value{font-size:18px;font-weight:700}</style>
+<text x="640.0" y="48" text-anchor="middle" class="title">Native 32 B logical input rate — showcase v3</text>
+<text x="640.0" y="82" text-anchor="middle" class="sub">Latest Ring-3 CPU engine integrated; 3-run median, localhost, higher is better</text>
+<line x1="360.0" y1="115" x2="360.0" y2="630" stroke="#e3e8ef"/><text x="360.0" y="656" text-anchor="middle" class="tick">0</text>
+<line x1="530.0" y1="115" x2="530.0" y2="630" stroke="#e3e8ef"/><text x="530.0" y="656" text-anchor="middle" class="tick">32 M</text>
+<line x1="700.0" y1="115" x2="700.0" y2="630" stroke="#e3e8ef"/><text x="700.0" y="656" text-anchor="middle" class="tick">64 M</text>
+<line x1="870.0" y1="115" x2="870.0" y2="630" stroke="#e3e8ef"/><text x="870.0" y="656" text-anchor="middle" class="tick">96 M</text>
+<line x1="1040.0" y1="115" x2="1040.0" y2="630" stroke="#e3e8ef"/><text x="1040.0" y="656" text-anchor="middle" class="tick">128 M</text>
+<line x1="1210.0" y1="115" x2="1210.0" y2="630" stroke="#e3e8ef"/><text x="1210.0" y="656" text-anchor="middle" class="tick">160 M</text>
+<text x="342" y="155.0" text-anchor="end" class="label">DHMP Latest / Ring-3 v3</text><rect x="360" y="125" width="629.3" height="46" rx="5" fill="#1677ff"/><text x="999.3" y="155.0" text-anchor="start" class="value">118 M</text>
+<text x="342" y="223.0" text-anchor="end" class="label">DHMPS / TLS 1.3 / Ring-3</text><rect x="360" y="193" width="316.9" height="46" rx="5" fill="#60a5fa"/><text x="686.9" y="223.0" text-anchor="start" class="value">60 M</text>
+<text x="342" y="291.0" text-anchor="end" class="label">Raw TCP / fixed frame</text><rect x="360" y="261" width="775.0" height="46" rx="5" fill="#5b6470"/><text x="1145.0" y="291.0" text-anchor="start" class="value">146 M</text>
+<text x="342" y="359.0" text-anchor="end" class="label">TCP / 4-byte length</text><rect x="360" y="329" width="378.4" height="46" rx="5" fill="#5b6470"/><text x="748.4" y="359.0" text-anchor="start" class="value">71 M</text>
+<text x="342" y="427.0" text-anchor="end" class="label">WebSocket / binary framing</text><rect x="360" y="397" width="554.4" height="46" rx="5" fill="#5b6470"/><text x="924.4" y="427.0" text-anchor="start" class="value">104 M</text>
+<text x="342" y="495.0" text-anchor="end" class="label">HTTP/1.1 / chunk framing</text><rect x="360" y="465" width="641.0" height="46" rx="5" fill="#5b6470"/><text x="1011.0" y="495.0" text-anchor="start" class="value">121 M</text>
+<text x="342" y="563.0" text-anchor="end" class="label">UDP / batched datagrams</text><rect x="360" y="533" width="3.1" height="46" rx="5" fill="#5b6470"/><text x="373.1" y="563.0" text-anchor="start" class="value">0.57 M</text>
+<text x="785.0" y="696" text-anchor="middle" class="sub">Million logical frames / second</text>
+</svg>
