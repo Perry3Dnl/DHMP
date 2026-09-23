@@ -107,6 +107,8 @@ Current demonstrated capability points:
 
 The ComputeBlock number is deliberately labelled **processor-only**. It isolates the numerical kernel and does not mean a network interface transferred 51.5 GB/s.
 
+[Capability summary CSV](benchmarks/results/adaptive-showcase-capability-summary-2026-09-23.csv)
+
 ## How much did the newest optimizations change the engine?
 
 <p align="center">
