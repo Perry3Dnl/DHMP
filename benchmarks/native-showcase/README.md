@@ -156,3 +156,24 @@ Results:
 
 - [raw twelve-run CSV](../results/every-receive-slab-lease-ab-raw-12run-2026-09-23.csv)
 - [twelve-run summary](../results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
+
+
+## Fused batch processing / SIMD
+
+`every_fused_vector_processing_ab.c` tests batching the actual developer-facing conversion/calculation work inside the existing bounded `Every` slab pipeline.
+
+Twelve-run medians:
+
+| Routine | End-to-end results/s | Processor CPU/result |
+| --- | ---: | ---: |
+| Per-message scalar | 30.82 M/s | 32.451 ns |
+| **Fused scalar batch** | **35.92 M/s** | **27.771 ns** |
+| Fused AVX2 (8 records) | 35.81 M/s | 27.872 ns |
+| Fused AVX-512 (16 records) | 34.34 M/s | 29.061 ns |
+
+Batch fusion itself produced the strongest retained improvement: about **+16.5% throughput** and **-14.4% processor CPU/result**. Wider SIMD did not automatically improve this 32-byte AoS schema, so the runtime should select a contract-specific routine rather than enabling the widest available ISA unconditionally.
+
+Results:
+
+- [raw twelve-run CSV](../results/every-fused-vector-processing-ab-raw-12run-2026-09-23.csv)
+- [twelve-run summary](../results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
