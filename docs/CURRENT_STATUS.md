@@ -90,6 +90,15 @@ It did not. In a fixed-iteration two-core test matching the full three-state tai
 
 The packed layout is therefore retained. With 64-byte alignment, the current 96-byte Ring-3 touches only two cache lines for a complete three-state refresh; padding each slot would force three cache-line writes and double the physical slot area to 192 bytes.
 
+
+### Ring-2 vs Ring-3 ownership test
+
+The current Ring-3 choice was tested directly against a two-slot safe-swap design with a consumer that holds a zero-copy 32-byte state for 10 µs.
+
+Using the same atomic `FREE / WRITING / PUBLISHED / READING` ownership protocol, both variants completed seven retained two-core runs with zero validation errors. Median producer throughput was effectively identical: **30.640 M publications/s for Ring-2 versus 30.649 M/s for Ring-3**. Ring-3 also produced about **1.8% more useful consumer publications** (90.498k/s vs 88.861k/s).
+
+The conclusion is that Ring-2's smaller 64-byte payload footprint does not provide a practical throughput advantage once safe zero-copy ownership is required. Ring-3 remains the preferred `Latest` default because the third slot provides independent reader/latest/writer roles without costing measurable producer throughput in this test.
+
 ### Native 32-byte showcase v2
 
 Ring-3 Fixed-Slab Latest is now integrated into the same native Linux/C comparison harness as Ring8, Slab6, DHMPS/TLS, raw fixed TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP.
