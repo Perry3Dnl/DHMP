@@ -126,3 +126,15 @@ Raw results: [../results/processor-output-slab-ab-2026-09-23.csv](../results/pro
 The exchange version is ownership-correct and eliminates retries, but the retained x86-64 benchmark did not show a speed win. CAS remains the preferred default because the real receive-batch path already has very few CAS failures and the unconditional exchange can increase cache-line ownership traffic.
 
 Raw results: [../results/ring3-consumer-cas-vs-exchange-2026-09-23.csv](../results/ring3-consumer-cas-vs-exchange-2026-09-23.csv)
+
+
+## CPU topology / cache placement
+
+`ring3_cpu_topology_ab.c` tests Ring-3 ownership transfer with producer and consumer pinned to different host-reported cache relationships.
+
+The isolated test found a modest win for one reported shared lower-cache pair, but a seven-run end-to-end loopback A/B did not show a corresponding network throughput win. The current fixed placement remains the default until physical-hardware testing can identify a stable topology rule.
+
+Results:
+
+- [isolated ownership A/B](../results/ring3-cpu-topology-ab-2026-09-23.csv)
+- [network placement A/B](../results/ring3-cpu-topology-network-ab-2026-09-23.csv)
