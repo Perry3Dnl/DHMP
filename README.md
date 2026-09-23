@@ -4,74 +4,62 @@
 
 # DHMP — Direct Headerless Message Protocol
 
-DHMP is an experimental fixed-contract protocol and runtime architecture for persistent machine-to-machine communication.
+DHMP is an experimental **fixed-contract protocol and adaptive runtime architecture** for persistent machine-to-machine communication.
 
-The core idea is simple:
+The design principle is:
 
-> **Negotiate what can be known once, then keep repeated metadata, unnecessary copies, per-message allocation, queue growth, and avoidable application work out of the steady-state path.**
+> **Negotiate what can be known once, then keep repeated metadata, unnecessary copies, per-message synchronization, queue growth, and avoidable processing out of the steady-state path.**
 
-The current retained design is no longer one fixed processor loop. It is an **Adaptive Fixed-Contract engine**: the application explicitly chooses the required semantics (`Every` or `Latest`), the session negotiates its fixed contract once, and the runtime selects the fastest validated implementation path that preserves those semantics.
+The project has moved beyond a single Ring or Slab experiment. The current retained direction is one **Adaptive Fixed-Contract** engine with specialized execution paths for `Latest`, ordinary `Every`, and numerical `Every / ComputeBlock` workloads.
 
-The native Linux/C labs are currently ahead of the .NET prototype and are used to prove architecture changes before they are ported into the .NET implementation.
+<p align="center">
+  <img src="benchmarks/results/charts/adaptive-current-architecture-2026-09-23.svg" alt="DHMP Adaptive Fixed-Contract architecture">
+</p>
 
-> **Current focus:** one adaptive runtime with specialized `Latest`, ordinary `Every`, and computation-block `Every` paths. Old experimental models remain in the benchmark history but are no longer the README focus.
+> **Current focus:** port the retained Adaptive architecture into .NET, then tune the transport/runtime layer around it. Historical Ring/Slab models remain in the benchmark documentation for reproducibility but are no longer the main README model.
 
-## At a glance
+## Current model at a glance
 
-| Property | Current DHMP direction |
+| Layer | Retained direction |
 | --- | --- |
-| Steady-state framing | Fixed contract negotiated once; no repeated DHMP length/header for ordinary fixed records |
-| Transport | TCP for DHMP; TLS/TCP for DHMPS |
-| Receive semantics | **Every** or **Latest** — always explicit |
-| Latest implementation | Compact Ring-3 `FRONT / MIDDLE / BACK` |
-| Every implementation | Bounded reusable slab ownership |
-| High-throughput API | Batch-first |
-| Numeric specialization | Optional fixed computation-ready block contract |
-| Processing | Contract-selected fused scalar/SIMD routine |
-| Memory model | Fixed reusable pools; ownership moves instead of payload where possible |
-| Delivery | Inline or optional batch delivery worker |
-| Forwarding | Owned output slab can become the next sender buffer directly |
-| Delivery reliability | Unconfirmed or Verified/replay model |
-| Main target | Service-to-service, games, telemetry, simulation, replication, devices |
+| Wire contract | Negotiate fixed record or fixed block layout once |
+| Transport | DHMP over TCP; DHMPS over TLS/TCP |
+| Semantics | `Every` or `Latest` — explicit and never changed by AutoTune |
+| `Latest` | Compact Ring-3 `FRONT / MIDDLE / BACK` |
+| `Every` | Bounded reusable slab ownership |
+| Numeric `Every` | Optional computation-ready field-major block contract |
+| Processing | Contract-selected fused scalar/SIMD batch routine |
+| Delivery API | Batch-first lease/view |
+| Delivery worker | Optional, when real downstream work repays the handoff |
+| Forwarding | Owned output slab can become the sender buffer directly |
+| Memory | Fixed reusable pools; move ownership instead of payload whenever possible |
+| Reliability | Unconfirmed or Verified/replay model |
+| Main target | Services, games, telemetry, simulation, replication, devices |
 
-## The current retained model: Adaptive Fixed-Contract
+# Latest retained optimization results
 
-The wire semantics remain small. Most optimizations are implementation choices selected after the contract is known.
+The chart below summarizes the **current retained improvements**, each against its own controlled matched baseline. These gains come from different A/B harnesses and **must not be multiplied or added together**.
 
-```text
-application chooses semantics
-        │
-        ├── Latest
-        │
-        └── Every
-        │
-        ▼
-handshake negotiates fixed contract
-  frame/block size
-  representation
-  plain/TLS
-        │
-        ▼
-runtime selects the fastest valid path
-        │
-        ├── Latest / Ring-3
-        ├── Every / borrowed slabs
-        └── Every / computation block
-        │
-        ▼
-optional runtime specialization
-  fused processing
-  SIMD routine
-  delivery worker
-  direct slab forwarding
-  topology / transport tuning
-```
+<p align="center">
+  <img src="benchmarks/results/charts/adaptive-current-optimization-gains-2026-09-23.svg" alt="Current DHMP Adaptive optimization gains">
+</p>
 
-**Adaptive never changes application semantics.** It may choose a faster implementation for `Every`, but it may not silently turn `Every` into `Latest`.
+| Optimization | Current result | Retained decision |
+| --- | ---: | --- |
+| `Every` output-slab publication | **3.89×** median end-to-end result rate vs per-result publication | Keep |
+| ComputeBlock SoA + AVX2 | **1.74×** isolated processor result rate vs AoS + AVX2 | Keep as optional numeric contract |
+| Fused batch processing | **+16.5%** median throughput vs one scalar call/message | Keep |
+| Borrowed receive slab | **+5.8%** median throughput vs receive→copy→public slab | Keep when wire-compatible |
+| Direct slab-to-send | **+4.9%** median forwarding throughput vs sender scratch copy | Keep |
+| Dedicated delivery worker | **+18.7% to +48.5%** in tested conversion workloads | Optional / AutoTune |
+| Fixed 32-byte carry | **~63.7% lower carry housekeeping** vs variable memmove | Keep |
+| Single-token Ring-3 producer ownership | **~+6.9% producer throughput** vs per-slot atomics | Keep |
+| Cache-line-padded Ring-3 | **~78% worse producer cost** | Reject |
+| Consumer exchange instead of CAS | No reliable CPU win; slower medians | Reject as default |
 
-## Three retained execution profiles
+All retained correctness runs reported zero validation errors.
 
-### 1. Latest — newest useful state
+## 1. Latest — compact newest-state path
 
 `Latest` is for state where newer data makes older queued state obsolete.
 
@@ -82,34 +70,38 @@ fixed reusable receive workspace
    ↓
 identify complete frames
    ↓
-conflate obsolete complete states
+skip obsolete complete states
    ↓
 copy only newest useful state
    ↓
-compact Ring-3
- FRONT / MIDDLE / BACK
+Ring-3
+FRONT / MIDDLE / BACK
    ↓
 consumer
 ```
 
-For a 32-byte contract, the three retained payload slots are only:
+For a 32-byte contract, retained application payload is only:
 
 ```text
 3 × 32 B = 96 B
 ```
 
-The current ownership model uses one shared 32-bit `MIDDLE` token. The producer keeps `BACK` locally and the consumer keeps `FRONT` locally. The design does not shift retained state, grow a queue, or clear old payload memory before reuse.
+The retained ownership model uses one shared **32-bit `MIDDLE` token**. The producer keeps `BACK` locally; the consumer keeps `FRONT` locally. The producer uses one atomic publication exchange and the consumer retains CAS acquisition because the exchange alternative removed retries but regressed CPU cost.
 
-Typical fits: game transforms, controller state, simulation state, dashboards, live UI state, and high-frequency current-value telemetry.
+`Latest` does not materialize every obsolete frame. It drains the TCP byte stream, mathematically identifies complete frames, and publishes only the newest useful state allowed by the contract.
 
-### 2. Every — ordinary record stream
+Typical fits: game transforms, controller/device state, simulation state, dashboards, live UI state, and current-value telemetry.
 
-`Every` preserves every logical record in order. The current fast path is based on **bounded slab ownership**, not one atomic publication per message.
+## 2. Every — bounded slab path
+
+`Every` preserves every logical record in order, so unread results may not be overwritten.
+
+The current fast path is:
 
 ```text
 bounded reusable slab pool
         ↓
-recv directly into owned slab
+receive directly into owned slab
         ↓
 publish {offset, count}
         ↓
@@ -117,30 +109,73 @@ optional fused conversion
         ↓
 batch adapter / developer
         │
-        └── or direct slab-to-send forwarding
+        └── or direct slab-to-send
         ↓
 release slab
 ```
 
-If the received representation is already suitable for the application, the **receive slab itself becomes the public batch**. Only split-frame boundary fragments are copied.
+The most important change was replacing **one ownership publication per result** with **one publication per populated slab**.
 
-If conversion needs a different representation, the processor writes results sequentially into a reusable output slab and publishes the populated batch once.
+<p align="center">
+  <img src="benchmarks/results/charts/adaptive-every-output-slab-2026-09-23.svg" alt="DHMP Every output-slab benchmark">
+</p>
 
-Typical fits: commands, events, replication, logs, transactions, and telemetry where every sample matters.
+| `Every` handoff | End-to-end | Processor CPU/result | Consumer CPU/result | Results/publication |
+| --- | ---: | ---: | ---: | ---: |
+| Per-result publication | 33.35 M/s | 29.933 ns | 29.978 ns | 1.0 |
+| **Bounded output slabs** | **129.80 M/s** | **6.988 ns** | **7.699 ns** | **372.3** |
 
-### 3. Every / ComputeBlock — numeric and array-native workloads
+Both variants retained the same **96 KiB bounded output payload capacity**. The slab path preserved and validated all 30 million results.
 
-For simulations, numerical telemetry, bulk transforms and similar workloads, DHMP can optionally negotiate the layout of a **whole fixed computation-ready block** rather than only one repeated record.
+[Raw results](benchmarks/results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv) · [Summary](benchmarks/results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
 
-Example 12 KiB contract:
+### Borrow the receive slab when possible
+
+When the wire representation is already suitable for developer code, the receive slab itself can become the public batch.
+
+| Path | End-to-end | Logical payload | Receiver CPU/frame |
+| --- | ---: | ---: | ---: |
+| Receive workspace → copy → public slab | 119.63 M/s | 3.83 GB/s | 6.305 ns |
+| **Receive slab becomes public slab** | **126.51 M/s** | **4.05 GB/s** | **6.184 ns** |
+
+Only TCP split-frame boundary fragments need copying. The complete-frame region remains in the borrowed slab until downstream code releases the lease.
+
+[Summary](benchmarks/results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
+
+## 3. Fuse the computation across the batch
+
+Slab batching removes storage and ownership overhead, but developer-facing processing can still waste CPU if it invokes one conversion routine per message.
+
+The current processing experiment performs the same numeric transform using per-message scalar calls, one fused scalar routine per batch, explicit AVX2, and AVX-512 gather/scatter.
+
+<p align="center">
+  <img src="benchmarks/results/charts/adaptive-fused-processing-2026-09-23.svg" alt="DHMP fused batch processing benchmark">
+</p>
+
+| Processor | End-to-end | Processor CPU/result |
+| --- | ---: | ---: |
+| Per-message scalar | 30.82 M/s | 32.451 ns |
+| **Fused scalar batch** | **35.92 M/s** | **27.771 ns** |
+| Fused AVX2 | 35.81 M/s | 27.872 ns |
+| Fused AVX-512 gather/scatter | 34.34 M/s | 29.061 ns |
+
+The retained lesson is **fuse first, SIMD second**. The widest ISA is not automatically best; the negotiated data layout determines whether vectorization repays its gather/transpose cost.
+
+[Summary](benchmarks/results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
+
+## 4. ComputeBlock — make the wire format computation-ready
+
+For array-native numerical workloads, DHMP can optionally negotiate the layout of a **whole fixed block** rather than only a repeated record.
+
+Same 12 KiB logical block:
 
 ```text
-ordinary AoS block
+AoS record block
 [x y z vx vy vz temp scale]
 [x y z vx vy vz temp scale]
 ...
 
-computation-ready SoA block
+SoA computation block
 [x x x x ...]
 [y y y y ...]
 [z z z z ...]
@@ -151,265 +186,182 @@ computation-ready SoA block
 [scale ...]
 ```
 
-The SoA form travels over the wire. The receiver can operate directly on contiguous field arrays without first transposing ordinary records.
+The SoA layout travels over the wire, so the receiver does not first transpose ordinary messages into field arrays.
 
-This is **optional**, not the default DHMP record layout. It is strongest when both producer and consumer naturally work in arrays and the block-accumulation latency is acceptable.
+<p align="center">
+  <img src="benchmarks/results/charts/adaptive-computeblock-cpu-2026-09-23.svg" alt="DHMP computation-ready block processor benchmark">
+</p>
 
----
-
-# Current benchmark evidence
-
-These are native Linux/C architecture-lab results on localhost. They are useful for controlled A/B decisions, not universal network-throughput claims. Logical GB/s is not physical NIC throughput.
-
-## Latest: zero-hold transport/framing showcase
-
-The current `Latest` headline comparison has **zero artificial consumer delay**.
-
-Test profile:
-
-- 32-byte logical records;
-- 12 KiB reusable receive workspace;
-- 256 KiB reusable sender batch;
-- Ring-3 publication;
-- zero artificial consumer hold;
-- five rotated runs;
-- sender / receiver / consumer pinned when available;
-- full payload/framing validation.
-
-![Current DHMP Latest zero-hold input comparison](benchmarks/results/charts/showcase-v4-zero-hold-32b-input-2026-09-23.svg)
-
-![Current DHMP Latest zero-hold receiver CPU comparison](benchmarks/results/charts/showcase-v4-zero-hold-32b-cpu-2026-09-23.svg)
-
-Selected five-run medians:
-
-| Path | Logical input | Receiver CPU / logical frame |
-| --- | ---: | ---: |
-| **DHMP Latest / Ring-3 v4** | **130.62 M/s** | **2.704 ns** |
-| Raw TCP / fixed 32 B | 111.73 M/s | 3.120 ns |
-| TCP / one-byte varint length | 132.30 M/s | 3.676 ns |
-| WebSocket binary framing | 119.32 M/s | 3.474 ns |
-| HTTP/2 DATA framing | 105.57 M/s | 5.608 ns |
-| gRPC / HTTP/2 framing shape | 98.92 M/s | 6.498 ns |
-
-Raw fixed TCP and DHMP perform essentially the same fixed-record wire work. Small differences around the transport floor should be read as benchmark variance, not as DHMP somehow making TCP intrinsically faster.
-
-The WebSocket, HTTP, gRPC, MQTT and NATS rows in this native showcase are **framing/parser hot-path shapes**, not full production server/framework stacks.
-
-[Methodology](benchmarks/native-showcase/V4_ZERO_HOLD.md) · [Summary CSV](benchmarks/results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
-
-## Every: publish slabs, not individual results
-
-The strongest integrated `Every` handoff result replaced one ownership publication per 32-byte result with one publication per populated output slab.
-
-Both sides retained the same **96 KiB bounded output payload capacity**.
-
-![Current DHMP Every output-slab result](benchmarks/results/charts/adaptive-every-output-slab-2026-09-23.svg)
-
-| Every handoff | End-to-end results | Processor CPU/result | Consumer CPU/result | Results/publication |
-| --- | ---: | ---: | ---: | ---: |
-| Per-result publication | 33.35 M/s | 29.933 ns | 29.978 ns | 1.0 |
-| **Bounded output slabs** | **129.80 M/s** | **6.988 ns** | **7.699 ns** | **372.3** |
-
-That is about **3.89× the median end-to-end result rate** in this A/B, with all 30 million results preserved and validated.
-
-[Raw CSV](benchmarks/results/every-output-slab-e2e-32b-raw-9run-2026-09-23.csv) · [Summary CSV](benchmarks/results/every-output-slab-e2e-32b-summary-9run-2026-09-23.csv)
-
-## Every: borrow the receive slab when possible
-
-For wire-compatible `Every` payloads, the receiver can lend the receive slab itself to downstream code instead of copying all complete frames into a second public buffer.
-
-Twelve-run median:
-
-| Path | End-to-end | Logical payload | Receiver CPU/frame |
-| --- | ---: | ---: | ---: |
-| Receive workspace → copy → public slab | 119.63 M/s | 3.83 GB/s | 6.305 ns |
-| **Receive slab becomes public slab** | **126.51 M/s** | **4.05 GB/s** | **6.184 ns** |
-
-The borrowed path improved median throughput by about **5.8%**. Split-frame boundary repair remained tiny relative to the full payload; complete frames were not copied into a second application buffer.
-
-[Summary CSV](benchmarks/results/every-receive-slab-lease-ab-summary-12run-2026-09-23.csv)
-
-## Processing: fuse the work across the batch
-
-Batching storage is not enough if developer-facing computation still dispatches one function per message.
-
-The current processor experiment performs the same numerical transform through four implementations:
-
-![Current DHMP fused-processing comparison](benchmarks/results/charts/adaptive-fused-processing-2026-09-23.svg)
-
-| Processor | End-to-end | Processor CPU/result |
-| --- | ---: | ---: |
-| Per-message scalar | 30.82 M/s | 32.451 ns |
-| **Fused scalar batch** | **35.92 M/s** | **27.771 ns** |
-| Fused AVX2 | 35.81 M/s | 27.872 ns |
-| Fused AVX-512 gather/scatter | 34.34 M/s | 29.061 ns |
-
-The largest retained gain here came from **fusing the batch**, not simply selecting the widest SIMD ISA. The runtime should therefore select a routine by contract/layout and CPU instead of unconditionally preferring AVX-512.
-
-[Summary CSV](benchmarks/results/every-fused-vector-processing-ab-summary-12run-2026-09-23.csv)
-
-## ComputeBlock: make the wire representation SIMD-ready
-
-The computation-block experiment kept the wire bytes identical: 384 × 32-byte messages = one 12 KiB block either way.
-
-The processor-only result exposes the layout effect directly:
-
-![Computation-ready block processor cost](benchmarks/results/charts/adaptive-computeblock-cpu-2026-09-23.svg)
-
-| Layout / routine | CPU/result | CPU-side result rate |
+| Layout / routine | Processor CPU/result | CPU-side result rate |
 | --- | ---: | ---: |
 | AoS scalar | 2.434 ns | 410.9 M/s |
 | AoS + AVX2 transpose | 1.080 ns | 925.9 M/s |
 | SoA scalar | 2.370 ns | 421.9 M/s |
 | **SoA + AVX2 contiguous fields** | **0.621 ns** | **1.610 B/s** |
 
-Compared with AVX2 over ordinary AoS records, the computation-ready SoA block reduced isolated transform cost by about **42.5%** and raised CPU-side transform rate by about **1.74×**.
+Compared with AVX2 over ordinary AoS records, the computation-ready block reduced isolated transform cost by about **42.5%** and raised processor-side result rate by about **1.74×**.
 
-The integrated localhost pipeline showed a much smaller improvement (about **1.7%**) because transport, slab handoff and validation then dominated. That is precisely why this layout is a specialization for compute-heavy array-native workloads rather than the universal record format.
+The integrated localhost pipeline improved only about **1.7%**, because network, slab ownership, waiting, and validation then dominate. ComputeBlock is therefore an **optional specialization**, not a universal replacement for ordinary records.
+
+Best fits: simulation, numerical telemetry, physics/state arrays, bulk coordinate transforms, signal/data processing, and similar array-native workloads.
 
 [Wire summary](benchmarks/results/block-layout-wire-ab-summary-9run-2026-09-23.csv) · [Processor summary](benchmarks/results/block-layout-processor-micro-summary-7run-2026-09-23.csv)
 
-## Delivery and forwarding
+## 5. Delivery and forwarding stay batch-oriented
 
-The same ownership model extends beyond the processor:
+The same ownership model continues across the application boundary.
 
-| Optimization | Controlled result | Retained direction |
-| --- | ---: | --- |
-| Output slab → direct `send()` instead of sender scratch copy | 41.93 → **43.98 M/s** (~+4.9%) | Send directly from the owned wire-ready slab |
-| Dedicated batch delivery worker | **+18.7% to +48.5%** wall-clock throughput across tested conversion weights | Optional; use when real downstream work repays the cross-core handoff |
-| Cache-aware worker placement | Materially changed whether the worker helped | Runtime/AutoTune candidate, not a hard-coded CPU number |
+| Layer | Retained direction | Result |
+| --- | --- | ---: |
+| Delivery worker | Give the worker a whole populated slab, not one message | +18.7% to +48.5% wall-clock throughput in tested conversion weights |
+| Public API | Batch-first lease/view | One adapter crossing per ~384 records in the retained tests |
+| Forwarding | Send directly from the owned wire-ready output slab | 41.93 → **43.98 M/s** (~+4.9%) |
+| Placement | Keep producer/consumer/worker cache topology in mind | Promising but hardware-dependent |
 
-The delivery worker does not necessarily reduce aggregate CPU. Its value is allowing protocol receive work and application preparation to execute concurrently on separate cores.
+A delivery worker is useful only when it performs real work—decoding, conversion, or application preparation. A helper that only forwards pointers adds another handoff without relieving the protocol processor.
 
-[Direct forwarding summary](benchmarks/results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv) · [Delivery-worker summary](benchmarks/results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
+The worker is therefore an **optional runtime choice**, not a protocol requirement.
 
----
+[Delivery-worker summary](benchmarks/results/every-delivery-worker-ab-summary-7run-2026-09-23.csv) · [Forwarding summary](benchmarks/results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
 
-# What DHMP is optimizing
+# The retained rule
 
-The retained design follows one rule through the whole pipeline:
+The newest architecture is built around one principle:
 
-> **Move ownership and descriptions whenever possible; move payload bytes only when the semantics or representation require it.**
+> **Move ownership and descriptions whenever possible; move payload bytes only when semantics or representation require it.**
 
-That leads to:
+That means:
 
-- no repeated DHMP frame length/header for ordinary fixed contracts;
+- fixed contract negotiated once;
+- no repeated DHMP length/header for ordinary fixed records;
 - fixed reusable transport workspaces;
-- compact Ring-3 state for `Latest`;
+- compact Ring-3 retained state for `Latest`;
 - bounded slab pools for `Every`;
-- mathematical conflation before expensive `Latest` work;
-- one handoff per populated batch instead of per result;
+- one handoff per populated batch instead of per message;
 - borrowed receive slabs for directly consumable payloads;
 - direct processor-output-to-sender ownership;
 - fused batch processing;
-- optional computation-ready wire blocks;
+- optional computation-ready block layout;
 - batch-first language adapters;
-- optional parallel delivery workers;
+- optional parallel delivery worker;
 - fixed memory rather than growing queues.
 
-## Protocol versus implementation
+# Protocol vs runtime optimization
 
-Not every benchmark optimization belongs in the DHMP wire specification.
+DHMP deliberately separates interoperability rules from implementation tuning.
 
-### Protocol-level concepts
+### Protocol-level
 
 - fixed-contract handshake;
 - fixed record or fixed block boundary;
 - `Every` / `Latest`;
-- Unconfirmed / Verified delivery;
-- optional negotiated computation-block layout;
-- DHMP versus DHMPS.
+- Unconfirmed / Verified;
+- optional computation-ready block layout;
+- DHMP / DHMPS.
 
-### Runtime/implementation concepts
+### Runtime-level
 
-- Ring-3 ownership;
-- slab count and slab size;
-- atomic token representation;
+- Ring-3 implementation;
+- slab size/count;
+- 32-bit atomic ownership token;
+- fixed-width carry path;
 - fused/SIMD routine selection;
 - delivery worker;
 - CPU/cache placement;
-- socket buffers;
-- sender batching;
-- polling strategy;
-- `io_uring`, registered buffers, busy polling, kTLS and similar platform accelerators.
+- send/receive batching;
+- socket buffer sizing;
+- polling;
+- future `io_uring`, registered buffers, busy polling, kTLS and zero-copy APIs.
 
-This separation keeps the protocol implementable in other languages while allowing the reference runtime to be aggressively optimized.
+This keeps DHMP implementable in .NET, C/C++, Rust, Go, Java, Python adapters, Unity, and other environments without making one operating-system tuning choice part of the protocol.
+
+# Cross-protocol benchmark status
+
+The previous README displayed the native **Ring-3 v4 zero-hold** comparison against raw TCP, length-prefixed TCP, WebSocket framing, HTTP framing, gRPC framing, MQTT, NATS, and UDP.
+
+That benchmark is still valid for the **Latest/Ring-3 v4 path it measured**, but it predates the newer `Every`, fused-processing, borrowed-slab, direct-forwarding, and ComputeBlock work. It is therefore **not shown as a headline graph here and is not relabeled as the Adaptive engine**.
+
+The old comparison remains available in the benchmark history:
+
+- [Showcase v4 methodology](benchmarks/native-showcase/V4_ZERO_HOLD.md)
+- [Showcase v4 summary CSV](benchmarks/results/showcase-v4-zero-hold-32b-summary-5run-2026-09-23.csv)
+- [Full benchmark history](docs/BENCHMARKS.md)
+
+A new cross-protocol headline graph should be published only after the current retained Adaptive implementation is rerun inside one controlled comparison harness.
 
 # Delivery semantics
 
-Receive semantics and recovery semantics are separate.
+Receive semantics and recovery semantics are independent.
 
 ### Unconfirmed
 
-The sender streams without requiring DHMP-level proof/replay for every logical record. TCP still provides ordered byte delivery while the connection remains alive.
+The sender streams without requiring DHMP-level proof/replay for every logical record. TCP still supplies ordered reliable byte delivery while the connection remains alive.
 
 ### Verified
 
-Verified keeps the normal data path streaming:
+Verified keeps the hot data path streaming:
 
 - no per-frame DHMP ACK;
-- sender retains uncertain history;
-- a reconnect/checkpoint establishes the accepted stream position;
+- sender retains uncertain logical history;
+- reconnect/checkpoint establishes the accepted position;
 - only the uncertain tail is replayed.
 
-The remaining protocol work is to make Verified history cleanly bounded through asynchronous checkpoints without turning the hot path into request/reply traffic.
+The remaining work is a clean bounded checkpoint/history implementation.
 
 # DHMP and DHMPS
 
-**DHMP** uses the negotiated fixed-contract model over the underlying transport.
+**DHMP** is the plain fixed-contract application protocol.
 
 **DHMPS** carries the same model through standard platform TLS. DHMP does not invent custom cryptography.
 
-TLS is currently a significant CPU layer and has not yet received the same depth of tuning as the plain native path.
+TLS remains a substantial CPU layer and has not yet received the same optimization depth as the plain native path.
 
 # Benchmark discipline
 
-DHMP contains several benchmark families and their absolute numbers should not be mixed casually.
+Different benchmark families answer different questions.
 
-- **Native transport/showcase:** framing, socket, ownership and integrated pipeline experiments.
-- **Processor microbenchmarks:** isolate CPU/layout algorithms.
-- **.NET benchmarks:** measure the actual .NET prototype and framework stacks.
-- **Slow-consumer tests:** validate ownership/conflation correctness; they are not maximum-speed headline numbers.
+- **Integrated native pipeline tests** measure socket + ownership + processing paths.
+- **Processor microbenchmarks** isolate CPU/layout behavior.
+- **Slow-consumer tests** validate ownership and conflation safety.
+- **.NET tests** measure the actual .NET prototype and framework integrations.
+- **Cross-protocol showcase tests** compare framing/transport shapes inside one native harness.
 
-The README shows only the current retained architecture and current headline graphs. Historical graphs, rejected variants and old .NET results remain available for reproducibility in [BENCHMARKS.md](docs/BENCHMARKS.md).
+Absolute numbers from different harnesses should not be mixed. Optimization percentages in the README are controlled A/B results against their stated baseline.
 
-# Current status
+All current retained benchmark source, raw CSV data, summaries, and historical results are kept in the repository.
 
-DHMP is still experimental and is not yet a frozen interoperability specification.
+# Current status and next work
 
 The strongest retained native architecture now includes:
 
-- Adaptive Fixed-Contract runtime direction;
-- compact 32-bit-token Ring-3 `Latest`;
+- Adaptive Fixed-Contract runtime selection;
+- Ring-3 `Latest` with one 32-bit shared ownership token;
 - fixed-width carry handling;
-- contract-specialized framing;
-- bounded `Every` output slabs;
+- bounded output-slab `Every`;
 - borrowed receive-slab delivery;
 - direct slab-to-send forwarding;
 - fused batch processing;
-- optional SIMD routine selection;
-- optional computation-ready SoA block contracts;
+- contract-selected SIMD;
+- optional SoA ComputeBlock wire contracts;
 - optional batch delivery worker;
 - topology-aware placement as an AutoTune candidate.
 
-## Next engineering work
+The next major work is:
 
-1. **Port the retained Adaptive paths into the .NET implementation** instead of continuing to optimize obsolete native models.
-2. Systematically tune receive workspace, sender batch, `SO_RCVBUF`, `SO_SNDBUF`, polling and TLS settings.
-3. Repeat the combined paths on physical LAN hardware with longer runs and hardware counters.
-4. Measure latency as well as throughput for computation blocks, especially accumulation delay.
-5. Test computation blocks with real array-native producers and consumers so sender repacking/object-construction costs are included.
+1. **Port these retained Adaptive paths into the .NET implementation.**
+2. Build one new integrated benchmark harness around the current Adaptive code, then regenerate the cross-protocol comparison from fresh measurements.
+3. Tune receive slab size, sender batch size, `SO_RCVBUF`, `SO_SNDBUF`, polling, CPU placement, and TLS.
+4. Repeat the combined tests on physical LAN hardware with longer runs and hardware counters.
+5. Measure ComputeBlock latency/accumulation cost as well as throughput.
 6. Implement bounded Verified checkpoints.
-7. Keep the protocol specification separate from runtime-specific acceleration.
-
-Transport/runtime tuning follow-up: [TRANSPORT_TUNING_TODO.md](docs/TRANSPORT_TUNING_TODO.md)
 
 # Documentation
 
 - [Architecture comparison and retained model](docs/ARCHITECTURE_COMPARISON.md)
-- [Protocol draft](docs/PROTOCOL_DRAFT.md)
 - [Current development status](docs/CURRENT_STATUS.md)
+- [Protocol draft](docs/PROTOCOL_DRAFT.md)
 - [Benchmark methodology and full history](docs/BENCHMARKS.md)
+- [Transport tuning follow-up](docs/TRANSPORT_TUNING_TODO.md)
 - [Native showcase labs](benchmarks/native-showcase)
 - [Native processor labs](benchmarks/native-gen2)
 - [Raw benchmark results and charts](benchmarks/results)
@@ -418,4 +370,4 @@ Transport/runtime tuning follow-up: [TRANSPORT_TUNING_TODO.md](docs/TRANSPORT_TU
 
 The main implementation target is **.NET 10**.
 
-The architecture labs are currently native Linux/C so implementation ideas can be screened quickly before selected, validated paths are ported into .NET.
+The newest architecture work currently lives in native Linux/C benchmark labs so designs can be tested quickly before the retained paths are ported into the production-facing .NET implementation.
