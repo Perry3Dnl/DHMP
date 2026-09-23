@@ -177,6 +177,34 @@ In that run, a single 256 KiB receive contained:
 
 and Latest could skip stale states without individually dispatching them.
 
+
+### Ring-3 Fixed-Slab Latest fast path
+
+The current native architecture lab now includes an experimental **Ring-3 Fixed-Slab Latest** receive engine.
+
+It keeps only three permanent state slots and always overwrites the oldest retained state. Network I/O lands in one fixed reusable contiguous slab so socket calls can stay large; obsolete complete frames are skipped by fixed-size arithmetic, and only the newest three complete frames from a receive batch are copied into the Ring-3 state window.
+
+At a 32-byte fixed contract:
+
+- retained application-state storage is **3 × 32 B = 96 B**;
+- the reference benchmark uses a fixed **12 KiB** receive workspace;
+- there is no per-frame queue growth, frame shifting, or buffer clearing;
+- steady-state frame storage is reused indefinitely.
+
+A standalone Linux/C localhost reference run added on 2026-09-23 used five 2-second passes. The median was:
+
+| Metric | Ring-3 Fixed-Slab Latest |
+| --- | ---: |
+| Logical input rate | **86.2 M frames/s** |
+| 32 B logical payload rate | **2.76 GB/s** |
+| Receiver CPU / logical frame | **3.71 ns** |
+| Retained state payload | **96 B** |
+| Obsolete frames skipped/overwritten | **~99.20%** |
+
+The individual passes ranged from roughly 63 M/s to 109 M/s, showing that localhost scheduling and shared-host conditions materially affect absolute results. Earlier tuned architecture experiments with the same general slab-to-small-state-ring shape reached higher burst rates, but the reproducible standalone reference result above is the value retained for documentation.
+
+This is an **implementation fast path for `Latest` semantics**, not a new per-frame wire format. Source: [`ring3_fixed_slab_latest.c`](benchmarks/native-gen2/ring3_fixed_slab_latest.c). Raw results: [CSV](benchmarks/results/ring3-fixed-slab-latest-32b-2026-09-23.csv).
+
 ### Benchmark caveat
 
 The reusable-slab model run currently uses a small byte budget, so some timed regions are only a few milliseconds long. The extreme multi-million-frame figures therefore demonstrate the **architecture and batching mechanism**, not yet a sustained throughput ceiling.
@@ -198,6 +226,7 @@ What has been established so far:
 - Unconfirmed and no-periodic-ACK Verified semantics;
 - reconnect/replay of uncertain Verified tails;
 - reusable-slab/bulk-I/O implementation model;
+- experimental Ring-3 Fixed-Slab Latest path with constant three-frame retained state;
 - benchmark comparisons against raw TCP, MessagePack, WebSocket, HTTP/1.1, HTTP/2, HTTPS, UDP and gRPC.
 
 The next major protocol problem is **bounded Verified mode**: asynchronous verification/checkpoints must allow retained history to be released without adding ACK chatter to the normal data stream.
