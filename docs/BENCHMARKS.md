@@ -446,3 +446,66 @@ The new ownership engine improved median producer publication throughput by abou
 Its larger architectural benefit is removing contention machinery from the producer hot path. The producer no longer scans/claims slots or retries CAS operations; it owns `BACK` outright and performs one atomic ownership transfer per publication. Consumer useful-publication rate stayed essentially unchanged in this 10 µs-hold workload, while consumer CAS retries dropped by more than five orders of magnitude.
 
 **Decision:** retain three slots, but prefer the single-atomic `FRONT / MIDDLE / BACK` exchange as the current Ring-3 ownership model for the next integrated benchmark.
+
+
+## Ring-3 CPU micro-optimization sweep — 2026-09-23
+
+After the single-atomic `FRONT / MIDDLE / BACK` exchange was selected, several smaller CPU-side costs were isolated.
+
+### Atomic memory order
+
+The producer exchange was reduced from `acq_rel` to `release`, and the consumer's preliminary load / failed CAS were tested with relaxed ordering while keeping an `acq_rel` successful ownership transfer.
+
+On the retained x86-64 machine this produced no meaningful speedup. Inspection of generated code explains why: the exchange remains an `xchg` read-modify-write, acquire versus relaxed loads are ordinary loads, and the successful CAS remains a locked compare/exchange. The weaker but correct ordering is useful for expressing intent and portability, but is not counted as an x86 performance win.
+
+### Atomic token width
+
+The middle token needs only a slot index plus one dirty bit, so 8-, 16-, 32-, and 64-bit atomic tokens were compared with 50 million producer publications and a 10 µs consumer hold.
+
+Source: [ring3_token_width_ab.c](../benchmarks/native-gen2/ring3_token_width_ab.c)
+
+Raw data: [ring3-token-width-ab-2026-09-23.csv](../benchmarks/results/ring3-token-width-ab-2026-09-23.csv)
+
+| Token width | Median producer CPU ns/publication |
+| ---: | ---: |
+| 8 bit | 3.941 ns |
+| 16 bit | 4.030 ns |
+| **32 bit** | **2.286 ns** |
+| 64 bit | 2.250 ns |
+
+A longer 32-vs-64 follow-up was effectively a tie, so 32 bits remains the preferred token width. Sub-word atomic RMW instructions were materially slower on this machine.
+
+A tagged-pointer token was also screened; it regressed median producer cost by roughly 2.5% versus the compact index token, so direct pointer tagging was rejected.
+
+### Contract-specialized 32-byte processor
+
+Because frame size is negotiated once, a 32-byte contract can use a dedicated processor path rather than runtime division and runtime-size copy operations.
+
+Source: [ring3_contract_specialize_ab.c](../benchmarks/native-gen2/ring3_contract_specialize_ab.c)
+
+Raw data: [ring3-contract-specialize-ab-2026-09-23.csv](../benchmarks/results/ring3-contract-specialize-ab-2026-09-23.csv)
+
+| Processor | Median ns / batch |
+| --- | ---: |
+| Generic runtime-size path | 4.809 ns |
+| **Specialized 32-byte path** | **4.738 ns** |
+
+The specialized path improved this isolated processor operation by about **1.5%**. Generated assembly removes the runtime integer divide and runtime-size `memcpy`, replacing them with shift/mask arithmetic plus a fixed 256-bit load/store.
+
+### Fixed-width carry copy
+
+For a 32-byte contract, trailing carry is at most 31 valid bytes. With a workspace that includes at least one frame of guard capacity, the carry can be moved using one fixed 32-byte vector transfer while the separate carry count records how many bytes are valid.
+
+Source: [ring3_carry32_ab.c](../benchmarks/native-gen2/ring3_carry32_ab.c)
+
+Raw data: [ring3-carry32-ab-2026-09-23.csv](../benchmarks/results/ring3-carry32-ab-2026-09-23.csv)
+
+| Carry path | Median ns / batch |
+| --- | ---: |
+| Generic variable-size `memmove` | 4.794 ns |
+| **Conditional fixed 32-byte vector copy** | **1.739 ns** |
+| Unconditional fixed 32-byte copy | 1.785 ns |
+
+The conditional fixed-width path reduced the isolated carry housekeeping cost by about **63.7%**, saving roughly **3.05 ns per receive batch**. The conditional form is retained because it keeps the guard-memory assumption narrower while matching or beating the unconditional variant in the retained median.
+
+These are CPU microbenchmarks, not end-to-end network throughput results. Their purpose is to decide what should be folded into the next integrated Ring-3 showcase implementation.
