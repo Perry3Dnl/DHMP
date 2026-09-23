@@ -137,36 +137,43 @@ These measurements come from the native Linux/C architecture lab, not the .NET i
 
 ## Showcase: two DHMP models, DHMPS, and five familiar baselines
 
-The current showcase keeps the two strongest retained `Latest` designs in view:
+This showcase puts the two retained Gen-2 `Latest` processor models beside **DHMPS/TLS** and five familiar transport/framing baselines in one native harness:
 
-- **Ring8 Spin** — the max-rate/freshness-oriented processor path from the Gen-2 search.
-- **Slab6 Hybrid** — a more balanced path that trades some raw ingest for useful publication behavior.
-- **DHMPS / Slab6 Hybrid** — the same fixed-contract idea carried over standard TLS.
+- **DHMP Ring8 Spin** — freshness/rate-oriented, 8 reusable slots with a spinning consumer.
+- **DHMP Slab6 Hybrid** — balanced path, 6 reusable slots with short spin + sleep behavior.
+- **DHMPS / TLS 1.3 / Slab6** — the Slab6 model carried over standard TLS 1.3.
+- **Raw TCP / fixed frame**, **TCP + 4-byte length**, **UDP batched datagrams**, **WebSocket binary framing**, and **HTTP/1.1 chunk framing**.
 
-They were run beside five familiar baselines: raw fixed-size TCP, 4-byte length-prefixed TCP, batched UDP datagrams, binary WebSocket framing, and HTTP/1.1 chunk framing.
+![32-byte showcase input rate](benchmarks/results/charts/showcase-32b-input-2026-09-23.svg)
 
-![32-byte showcase](benchmarks/results/charts/showcase-32b-input-2026-09-22.svg)
+![32-byte showcase useful publications](benchmarks/results/charts/showcase-32b-published-2026-09-23.svg)
 
-![256-byte showcase](benchmarks/results/charts/showcase-256b-input-2026-09-22.svg)
+Two-run means for **32-byte logical payloads**:
 
-Two-run mean input rates:
-
-| Path | 32 B | 256 B |
+| Path | Input frames/s | Useful publications/s |
 | --- | ---: | ---: |
-| DHMP Ring8 Spin | **92.6 M/s** | **12.84 M/s** |
-| DHMP Slab6 Hybrid | **100.3 M/s** | **11.27 M/s** |
-| DHMPS / TLS / Slab6 | **66.5 M/s** | **8.49 M/s** |
-| Raw TCP / fixed-size | 93.9 M/s | 14.26 M/s |
-| TCP / 4-byte length | 107.8 M/s | 13.04 M/s |
-| UDP / batched datagrams | 0.63 M/s | 0.62 M/s |
-| WebSocket / binary framing | 33.5 M/s | 4.39 M/s |
-| HTTP/1.1 / chunk framing | 105.5 M/s | 10.80 M/s |
+| DHMP Ring8 Spin | **111.8 M** | **59.1k** |
+| DHMP Slab6 Hybrid | **124.7 M** | 28.3k |
+| DHMPS / TLS / Slab6 | **58.6 M** | 37.4k |
+| Raw TCP / fixed frame | 125.9 M | 29.2k |
+| TCP / 4-byte length | 141.7 M | 18.4k |
+| UDP / batched datagrams | 0.46 M | 6.8k |
+| WebSocket / binary framing | 107.3 M | 43.7k |
+| HTTP/1.1 / chunk framing | 29.4 M | 11.2k |
 
-The result is intentionally not framed as “DHMP is magically faster than TCP.” The lean TCP/framing baselines remain extremely competitive, which is expected. The design target is to stay in that performance class while adding fixed-contract framing, `Every`/`Latest` semantics, reconnect/recovery behavior, and a secure DHMPS option without putting repeated DHMP metadata on every application frame.
+The main result is not that DHMP somehow beats raw TCP at being TCP. The lean TCP baselines remain extremely strong. The useful result is that the current DHMP models remain in that performance class while carrying DHMP's fixed-contract semantics, `Every`/`Latest` behavior, and — for DHMPS — standard TLS encryption without adding a repeated DHMP application header to every logical frame.
 
-This is a **native Linux/C localhost wire/framing microbenchmark** with 10 µs simulated consumer work and Latest/conflating semantics in every case. The WebSocket and HTTP rows measure their framing/parsing paths in this lab, not complete server frameworks. Full .NET stack comparisons remain documented separately below.
+The publication chart measures how often the test consumer observed a newest stable state while doing **10 µs of simulated work**. It is therefore a `Latest`/conflation metric, not a generic protocol guarantee.
 
-Source and raw results: [benchmarks/native-showcase](benchmarks/native-showcase) and [benchmarks/results/showcase-summary-2run-2026-09-22.csv](benchmarks/results/showcase-summary-2run-2026-09-22.csv).
+Test profile: native Linux/C localhost, adaptive slab target `clamp(frameSize × 512, 16 KiB, 1 MiB)`, 500 ms warmup, 1.5 s measured interval, **2 runs per path**, sender/receiver/consumer pinned to separate CPUs when available, TLS 1.3 for DHMPS. All retained runs completed with **zero validation errors**.
+
+The WebSocket and HTTP rows measure binary/chunk framing and parsing in this native lab, not full application-server frameworks. This avoids mixing the current Linux/C processor experiments with the separate Windows/.NET ecosystem benchmark.
+
+Source and raw data:
+
+- [native showcase lab](benchmarks/native-showcase)
+- [raw two-run CSV](benchmarks/results/showcase-32b-raw-2run-2026-09-23.csv)
+- [two-run summary CSV](benchmarks/results/showcase-32b-summary-2run-2026-09-23.csv)
 
 ## Latest benchmark results
 

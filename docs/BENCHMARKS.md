@@ -193,3 +193,32 @@ Interpretation: the lean raw/length-prefixed stream baselines remain close to or
 
 The WebSocket and HTTP cases here are framing/parser microbenchmarks, not complete framework stacks. For actual ASP.NET Core/gRPC/WebSocket stack comparisons, use the .NET landscape sections above rather than mixing the two harnesses.
 
+## Native showcase: DHMP models, DHMPS, and five baselines — 2026-09-23
+
+Raw data:
+
+- [showcase-32b-raw-2run-2026-09-23.csv](../benchmarks/results/showcase-32b-raw-2run-2026-09-23.csv)
+- [showcase-32b-summary-2run-2026-09-23.csv](../benchmarks/results/showcase-32b-summary-2run-2026-09-23.csv)
+
+Charts:
+
+- [input rate](../benchmarks/results/charts/showcase-32b-input-2026-09-23.svg)
+- [useful publication rate](../benchmarks/results/charts/showcase-32b-published-2026-09-23.svg)
+
+Configuration: native Linux/C localhost, 32-byte logical payloads, 10 µs simulated consumer work, adaptive slab target `clamp(frameSize × 512, 16 KiB, 1 MiB)`, 500 ms warmup, 1.5 second measured interval, 2 runs per path, CPU pinning when available, and TLS 1.3 for DHMPS.
+
+| Path | Input frames/s | Useful publications/s |
+| --- | ---: | ---: |
+| DHMP Ring8 Spin | 111.8 M | 59.1k |
+| DHMP Slab6 Hybrid | 124.7 M | 28.3k |
+| DHMPS / TLS / Slab6 | 58.6 M | 37.4k |
+| Raw TCP / fixed frame | 125.9 M | 29.2k |
+| TCP / 4-byte length | 141.7 M | 18.4k |
+| UDP / batched datagrams | 0.46 M | 6.8k |
+| WebSocket / binary framing | 107.3 M | 43.7k |
+| HTTP/1.1 / chunk framing | 29.4 M | 11.2k |
+
+All retained runs completed with zero validation errors.
+
+This is a hot-path framing/ingestion/conflation microbenchmark, not a universal protocol ranking. The WebSocket and HTTP rows measure their framing/parsing path rather than complete application-server stacks. The TCP baselines are intentionally lean and should be expected to remain extremely competitive. DHMPS uses normal TLS 1.3; TLS handshake time is outside the measured steady-state interval.
+

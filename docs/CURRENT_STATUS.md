@@ -70,6 +70,10 @@ The current result is not one universal winner. Tiny-frame, maximum-ingest, and 
 
 The Gen-2 native results are algorithm-comparison data only; they should not be compared numerically with the Windows/.NET benchmarks.
 
+### Native 32-byte showcase
+
+A consolidated native showcase now compares the retained Ring8 Spin and Slab6 Hybrid Latest paths, DHMPS/TLS, and five familiar framing/transport baselines in one Linux/C localhost harness. In the retained two-run 32-byte test, Slab6 Hybrid measured 124.7 M logical input frames/s, Ring8 Spin 111.8 M/s, and DHMPS/TLS 58.6 M/s. Raw fixed TCP measured 125.9 M/s and 4-byte length-prefixed TCP 141.7 M/s. The point of the test is to keep DHMP in the lean-TCP performance class while adding DHMP semantics, not to claim that DHMP makes TCP intrinsically faster.
+
 ### No-ACK Verified recovery experiment
 
 Normal development run:

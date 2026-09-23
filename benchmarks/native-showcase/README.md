@@ -1,28 +1,32 @@
-# Native showcase benchmark
+# DHMP native showcase benchmark
 
-This benchmark compares two retained DHMP Latest processor paths, a TLS-wrapped DHMPS path, and five familiar wire/framing baselines under the same latest-state workload.
+This directory contains the native Linux/C showcase used by the project README to compare two retained DHMP `Latest` processor paths, DHMPS/TLS, and five familiar framing/transport baselines under the same local test harness.
 
-Compared paths:
-- DHMP Latest / Ring8 Spin
-- DHMP Latest / Slab6 Hybrid
-- DHMPS / TLS / Slab6 Hybrid
-- Raw TCP / fixed-size
+## Compared paths
+
+- DHMP Ring8 Spin
+- DHMP Slab6 Hybrid
+- DHMPS / TLS 1.3 / Slab6 Hybrid
+- Raw TCP / fixed-size frame
 - TCP / 4-byte length prefix
-- UDP / batched datagrams
+- UDP / batched datagrams (`sendmmsg` / `recvmmsg`)
 - WebSocket binary framing
-- HTTP/1.1 chunk framing on one persistent body stream
+- HTTP/1.1 chunk framing
 
-Workload:
-- 32 B and 256 B payloads
-- two measured runs per point
-- 1.5 s per run
+The WebSocket and HTTP rows are framing/parsing microbenchmarks, not complete application-server stacks.
+
+## Published test profile
+
+- 32-byte logical payloads
 - 10 µs simulated consumer work
-- persistent localhost transport
-- handshake/setup outside timing
-- no compression
-- Latest/conflating consumer semantics in every case
-- adaptive DHMP slab target: `clamp(frameSize * 512, 16 KiB, 1 MiB)`
+- adaptive slab target: `clamp(frameSize * 512, 16 KiB, 1 MiB)`
+- 500 ms warmup
+- 1.5 second measured interval
+- 2 runs per path
+- loopback networking
+- sender, receiver, and consumer pinned to separate CPUs when available
+- TLS 1.3 for DHMPS
 
-The WebSocket and HTTP cases measure framing/parsing paths in this native lab, not complete application frameworks, routing stacks, or request handlers. They should not be interpreted as full end-to-end framework benchmarks.
+All retained published runs completed with zero validation errors.
 
-The source archive contains the C benchmark, runner, Makefile, and local TLS test-certificate generation.
+The source archive in this directory contains `showcase.c`, the two-run Python runner, Makefile, and this README.
