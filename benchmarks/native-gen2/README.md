@@ -72,3 +72,22 @@ gcc -O3 -march=native -pthread ring2_vs_ring3_hold10us.c -o ring23-hold
 The retained seven-run medians were effectively tied on producer throughput (~30.64 M publications/s), while Ring-3 delivered ~1.8% more useful consumer publications. All retained runs had zero validation errors.
 
 Raw data: [../results/ring2-vs-ring3-hold10us-2026-09-23.csv](../results/ring2-vs-ring3-hold10us-2026-09-23.csv)
+
+
+## Ring-3 single-atomic triple exchange
+
+`ring3_triple_exchange_ab.c` compares the safe per-slot ownership state machine against a classic SPSC `FRONT / MIDDLE / BACK` triple-buffer exchange.
+
+The optimized path keeps producer and consumer ownership local and uses one shared atomic middle-token containing the slot index plus a dirty bit.
+
+Build:
+
+```bash
+gcc -O3 -march=native -pthread ring3_triple_exchange_ab.c -o ring3-exchange-ab
+./ring3-exchange-ab baseline
+./ring3-exchange-ab exchange
+```
+
+Seven alternating retained runs with a 10 µs zero-copy consumer hold produced a median **32.359 M producer publications/s** for the exchange path versus **30.281 M/s** for the per-slot baseline. Producer CPU cost fell from 33.023 ns to 30.900 ns/publication, and all retained runs reported zero validation errors.
+
+Raw results: [../results/ring3-triple-exchange-ab-2026-09-23.csv](../results/ring3-triple-exchange-ab-2026-09-23.csv)
