@@ -108,6 +108,18 @@ Explicit AVX2 processing of eight records at a time essentially tied the fused s
 All retained runs validated with zero errors. This is an implementation/runtime specialization and does not change DHMP wire semantics.
 
 
+
+### Negotiated computation-ready block contracts
+
+A fixed-block wire-layout experiment now shows that DHMP can negotiate a SIMD-friendly field-major block representation for numerical `Every` workloads.
+
+A 12 KiB block containing 384 × 32-byte records was compared with an equal-size 12 KiB block containing eight contiguous field arrays. End-to-end localhost throughput improved only modestly (**35.25 M/s AoS AVX2 → 35.85 M/s SoA AVX2, ~+1.7%**) because transport and handoff costs dominate the current integrated pipeline.
+
+The processor-only result is much stronger: **1.080 ns/result → 0.621 ns/result**, about **42.5% lower compute CPU** and **1.74× processor throughput** when the AVX2 routine can load contiguous field arrays directly.
+
+This is retained as an **optional negotiated wire-contract family**, not the universal DHMP record layout. It is intended for array-native simulations, telemetry, numerical processing, and similar batch workloads where block accumulation latency is acceptable. Ordinary record contracts remain preferable for commands, sparse messages, and low-latency per-message workloads.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
