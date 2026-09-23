@@ -81,9 +81,13 @@ For a 32-byte contract, the retained state payload is only 96 bytes. A five-pass
 
 The design lesson is that **retained state capacity and socket I/O batch size should be independent**: a tiny Ring-3 state window can coexist with a larger fixed transport workspace without introducing an unbounded queue.
 
-### Native 32-byte showcase
+### Native 32-byte showcase v2
 
-A consolidated native showcase now compares the retained Ring8 Spin and Slab6 Hybrid Latest paths, DHMPS/TLS, and five familiar framing/transport baselines in one Linux/C localhost harness. In the retained two-run 32-byte test, Slab6 Hybrid measured 124.7 M logical input frames/s, Ring8 Spin 111.8 M/s, and DHMPS/TLS 58.6 M/s. Raw fixed TCP measured 125.9 M/s and 4-byte length-prefixed TCP 141.7 M/s. The point of the test is to keep DHMP in the lean-TCP performance class while adding DHMP semantics, not to claim that DHMP makes TCP intrinsically faster.
+Ring-3 Fixed-Slab Latest is now integrated into the same native Linux/C comparison harness as Ring8, Slab6, DHMPS/TLS, raw fixed TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP.
+
+In the retained three-run 32-byte v2 test, Ring-3 measured a median **174.2 M logical input frames/s** and **74.1k useful publications/s** while retaining only **96 B** of application-state payload. Slab6 measured 179.2 M/s and 78.2k/s with 192 B retained state; Ring8 measured 150.0 M/s and 72.8k/s with 256 B retained state.
+
+This makes the current Ring-3 result a direct same-harness comparison rather than a standalone side experiment. It is very close to the highest-throughput DHMP path in the test while using the smallest DHMP retained-state window. These are localhost architecture results and not physical-network or .NET production throughput claims.
 
 ### No-ACK Verified recovery experiment
 
