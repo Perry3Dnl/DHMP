@@ -1,0 +1,3 @@
+mode,median_e2e_fps,median_receiver_cpu_ns_frame,median_consumer_cpu_ns_frame,median_batches,median_frames_per_batch,median_boundary_events,median_boundary_bytes_copied,median_producer_wait_spins,median_consumer_wait_spins,min_e2e_fps,max_e2e_fps,errors
+copy,119632283.297,6.304907,8.356437,81285.5,369.0705,3604,70201,187839,7494902,65502385.491,140849615.964,0
+borrow,126512741.452,6.184019,7.900881,80918,370.746,3066,65452,255900.5,7502187,50144024.168,148816343.820,0
