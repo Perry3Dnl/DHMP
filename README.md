@@ -71,7 +71,7 @@ Across the retained v6 loopback runs there were:
 - **0 UDP payload errors**
 - **0 configuration errors**
 
-[Full v6 audit and methodology](benchmarks/native-showcase/V6_FAIR_PER_MESSAGE.md)
+[Full v6 audit and methodology](benchmarks/native-showcase/V6_FAIR_PER_MESSAGE.md) · [Exact audited source snapshot](benchmarks/native-showcase/showcase_v6_fair.c.gz.b64)
 
 ### What each native row means
 
