@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760">
+<rect width="100%" height="100%" fill="#fff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#172b4d}
+.title{font-size:38px;font-weight:700}.sub{font-size:19px;fill:#53627a}
+.card{fill:#f8fafc;stroke:#b7c3d0;stroke-width:2}.best{fill:#eaf3ff;stroke:#1677ff;stroke-width:3}
+.k{font-size:22px;font-weight:700}.big{font-size:44px;font-weight:700}.mid{font-size:21px}.small{font-size:17px;fill:#667085}
+</style>
+<text x="800" y="52" text-anchor="middle" class="title">Current DHMP capability snapshot</text>
+<text x="800" y="88" text-anchor="middle" class="sub">Current retained paths · 32-byte logical records · different controlled harnesses, not additive</text>
+
+<rect x="70" y="135" width="700" height="235" rx="18" class="best"/>
+<text x="110" y="180" class="k">Adaptive Latest — transport ingest</text>
+<text x="110" y="242" class="big">130.62 M records/s</text>
+<text x="110" y="286" class="mid">4.18 GB/s logical payload</text>
+<text x="110" y="326" class="mid">2.704 ns receiver CPU / record</text>
+<text x="110" y="354" class="small">Zero-hold native framing/transport showcase</text>
+
+<rect x="830" y="135" width="700" height="235" rx="18" class="best"/>
+<text x="870" y="180" class="k">Adaptive Every — output-slab pipeline</text>
+<text x="870" y="242" class="big">129.80 M results/s</text>
+<text x="870" y="286" class="mid">4.15 GB/s logical result payload</text>
+<text x="870" y="326" class="mid">3.89× matched per-result baseline</text>
+<text x="870" y="354" class="small">All 30 million results preserved and validated</text>
+
+<rect x="70" y="415" width="700" height="235" rx="18" class="card"/>
+<text x="110" y="460" class="k">Adaptive Every — borrowed receive slab</text>
+<text x="110" y="522" class="big">126.51 M records/s</text>
+<text x="110" y="566" class="mid">4.05 GB/s logical payload</text>
+<text x="110" y="606" class="mid">+5.8% vs receive → copy → public slab</text>
+<text x="110" y="634" class="small">Only split-boundary fragments are copied</text>
+
+<rect x="830" y="415" width="700" height="235" rx="18" class="card"/>
+<text x="870" y="460" class="k">ComputeBlock — processor-only kernel</text>
+<text x="870" y="522" class="big">1.610 B results/s</text>
+<text x="870" y="566" class="mid">51.5 GB/s logical 32-byte records</text>
+<text x="870" y="606" class="mid">0.621 ns CPU / result</text>
+<text x="870" y="634" class="small">SoA + AVX2 processor microbenchmark; not network throughput</text>
+
+<text x="800" y="716" text-anchor="middle" class="small">Logical GB/s describes application payload represented by the records; it is not a claim of physical NIC bandwidth.</text>
+</svg>
