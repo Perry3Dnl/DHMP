@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#172b4d}
+.title{font-size:40px;font-weight:700}.sub{font-size:20px;fill:#53627a}
+.h{font-size:25px;font-weight:700}.t{font-size:19px}.small{font-size:17px;fill:#53627a}
+.box{fill:#f8fafc;stroke:#b7c3d0;stroke-width:2}
+.primary{fill:#eaf3ff;stroke:#1677ff;stroke-width:3}
+.arrow{stroke:#6b778c;stroke-width:3;fill:none;marker-end:url(#a)}
+</style>
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#6b778c"/></marker></defs>
+<text x="800" y="55" text-anchor="middle" class="title">DHMP Adaptive Fixed-Contract — current retained architecture</text>
+<text x="800" y="92" text-anchor="middle" class="sub">Semantics stay explicit; implementation path is selected after the fixed contract is known</text>
+
+<rect x="510" y="130" width="580" height="100" rx="14" class="primary"/>
+<text x="800" y="170" text-anchor="middle" class="h">1. Application chooses semantics</text>
+<text x="800" y="205" text-anchor="middle" class="t">Every or Latest — never changed by AutoTune</text>
+
+<path d="M800 230 L800 285" class="arrow"/>
+<rect x="510" y="285" width="580" height="115" rx="14" class="box"/>
+<text x="800" y="325" text-anchor="middle" class="h">2. Handshake fixes the contract</text>
+<text x="800" y="360" text-anchor="middle" class="t">record/block size · representation · plain/TLS</text>
+<text x="800" y="386" text-anchor="middle" class="small">optional computation-ready block layout for numeric Every workloads</text>
+
+<path d="M800 400 L800 455" class="arrow"/>
+<text x="800" y="445" text-anchor="middle" class="h">3. Runtime selects the fastest valid path</text>
+
+<rect x="90" y="485" width="420" height="235" rx="16" class="primary"/>
+<text x="300" y="525" text-anchor="middle" class="h">Latest / Ring-3</text>
+<text x="300" y="563" text-anchor="middle" class="t">fixed receive workspace</text>
+<text x="300" y="594" text-anchor="middle" class="t">skip obsolete complete states</text>
+<text x="300" y="625" text-anchor="middle" class="t">copy newest useful state only</text>
+<text x="300" y="656" text-anchor="middle" class="t">96 B retained payload @ 32 B</text>
+<text x="300" y="694" text-anchor="middle" class="small">32-bit MIDDLE token · consumer CAS</text>
+
+<rect x="590" y="485" width="420" height="235" rx="16" class="primary"/>
+<text x="800" y="525" text-anchor="middle" class="h">Every / record slabs</text>
+<text x="800" y="563" text-anchor="middle" class="t">bounded reusable slab pool</text>
+<text x="800" y="594" text-anchor="middle" class="t">borrow receive slab when compatible</text>
+<text x="800" y="625" text-anchor="middle" class="t">one publication per populated batch</text>
+<text x="800" y="656" text-anchor="middle" class="t">fused processing when required</text>
+<text x="800" y="694" text-anchor="middle" class="small">backpressure preserves every result</text>
+
+<rect x="1090" y="485" width="420" height="235" rx="16" class="primary"/>
+<text x="1300" y="525" text-anchor="middle" class="h">Every / ComputeBlock</text>
+<text x="1300" y="563" text-anchor="middle" class="t">fixed field-major SoA block on wire</text>
+<text x="1300" y="594" text-anchor="middle" class="t">contiguous SIMD field arrays</text>
+<text x="1300" y="625" text-anchor="middle" class="t">no AoS→SoA receiver transpose</text>
+<text x="1300" y="656" text-anchor="middle" class="t">contract-selected fused routine</text>
+<text x="1300" y="694" text-anchor="middle" class="small">best for array-native numerical work</text>
+
+<path d="M300 720 L300 795" class="arrow"/>
+<path d="M800 720 L800 795" class="arrow"/>
+<path d="M1300 720 L1300 795" class="arrow"/>
+
+<rect x="300" y="795" width="1000" height="120" rx="16" class="box"/>
+<text x="800" y="835" text-anchor="middle" class="h">4. Optional runtime accelerators</text>
+<text x="800" y="870" text-anchor="middle" class="t">batch delivery worker · direct slab-to-send · topology-aware placement · socket/TLS tuning</text>
+<text x="800" y="900" text-anchor="middle" class="small">Ownership moves whenever possible; payload moves only when semantics or representation require it</text>
+
+<text x="800" y="955" text-anchor="middle" class="sub">Current native-lab direction · .NET integration is the next major implementation step</text>
+</svg>
