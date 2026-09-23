@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="650" viewBox="0 0 1100 650">
+<rect width="1100" height="650" fill="#ffffff"/>
+<text x="550.0" y="42" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700" fill="#111827">32-byte streaming showcase v2 — logical input rate</text>
+<line x1="260.0" y1="90" x2="260.0" y2="596" stroke="#e5e7eb" stroke-width="1"/>
+<text x="260.0" y="623" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#374151">0</text>
+<line x1="412.0" y1="90" x2="412.0" y2="596" stroke="#e5e7eb" stroke-width="1"/>
+<text x="412.0" y="623" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#374151">36</text>
+<line x1="564.0" y1="90" x2="564.0" y2="596" stroke="#e5e7eb" stroke-width="1"/>
+<text x="564.0" y="623" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#374151">72</text>
+<line x1="716.0" y1="90" x2="716.0" y2="596" stroke="#e5e7eb" stroke-width="1"/>
+<text x="716.0" y="623" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#374151">108</text>
+<line x1="868.0" y1="90" x2="868.0" y2="596" stroke="#e5e7eb" stroke-width="1"/>
+<text x="868.0" y="623" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#374151">144</text>
+<line x1="1020.0" y1="90" x2="1020.0" y2="596" stroke="#e5e7eb" stroke-width="1"/>
+<text x="1020.0" y="623" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" fill="#374151">180</text>
+<text x="246" y="124.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">DHMP Slab6</text>
+<rect x="260" y="100" width="756.5" height="38" rx="4" fill="#4b5563"/>
+<text x="1026.5" y="124.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">179.2</text>
+<text x="246" y="180.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">DHMP Ring-3 Fixed-Slab</text>
+<rect x="260" y="156" width="735.7" height="38" rx="4" fill="#2563eb"/>
+<text x="1005.7" y="180.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">174.2</text>
+<text x="246" y="236.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">DHMP Ring8</text>
+<rect x="260" y="212" width="633.1" height="38" rx="4" fill="#4b5563"/>
+<text x="903.1" y="236.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">150.0</text>
+<text x="246" y="292.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">HTTP/1.1 / chunk framing</text>
+<rect x="260" y="268" width="522.3" height="38" rx="4" fill="#4b5563"/>
+<text x="792.3" y="292.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">123.7</text>
+<text x="246" y="348.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">TCP + 4B length</text>
+<rect x="260" y="324" width="504.6" height="38" rx="4" fill="#4b5563"/>
+<text x="774.6" y="348.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">119.5</text>
+<text x="246" y="404.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">WebSocket / binary framing</text>
+<rect x="260" y="380" width="442.3" height="38" rx="4" fill="#4b5563"/>
+<text x="712.3" y="404.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">104.7</text>
+<text x="246" y="460.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">Raw TCP / fixed frame</text>
+<rect x="260" y="436" width="308.0" height="38" rx="4" fill="#4b5563"/>
+<text x="578.0" y="460.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">73.0</text>
+<text x="246" y="516.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">DHMPS / TLS / Ring-3</text>
+<rect x="260" y="492" width="274.7" height="38" rx="4" fill="#4b5563"/>
+<text x="544.7" y="516.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">65.1</text>
+<text x="246" y="572.0" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#111827">UDP / datagram</text>
+<rect x="260" y="548" width="1.6" height="38" rx="4" fill="#4b5563"/>
+<text x="271.6" y="572.0" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#111827">0.4</text>
+<text x="640.0" y="632" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" fill="#374151">Million logical frames / second</text>
+</svg>
