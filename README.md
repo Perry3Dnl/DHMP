@@ -44,37 +44,50 @@ The WebSocket/HTTP/gRPC/MQTT/NATS rows are **framing/parser hot-path shapes in t
 
 Five-run median logical input rates:
 
-| Path | Logical records/s | Logical payload |
+| Path | Median logical records/s | 5-run range | Median logical payload |
+| --- | ---: | ---: | ---: |
+| **DHMP Adaptive / Latest path** | **130.62 M/s** | **51.48–154.97 M/s** | **4.18 GB/s** |
+| Raw TCP / fixed frame | 111.73 M/s | 73.31–138.52 M/s | 3.58 GB/s |
+| TCP / varint length | 132.30 M/s | 91.11–137.70 M/s | 4.23 GB/s |
+| TCP / 4-byte length | 108.08 M/s | 90.00–124.87 M/s | 3.46 GB/s |
+| WebSocket / binary framing | 119.32 M/s | 83.11–127.03 M/s | 3.82 GB/s |
+| HTTP/1.1 / chunk framing | 108.03 M/s | 78.10–121.40 M/s | 3.46 GB/s |
+| HTTP/2 / DATA framing | 105.57 M/s | 95.19–114.91 M/s | 3.38 GB/s |
+| gRPC / HTTP/2 framing | 98.92 M/s | 84.25–102.49 M/s | 3.17 GB/s |
+| MQTT QoS0 / PUBLISH | 91.79 M/s | 53.92–119.64 M/s | 2.94 GB/s |
+| NATS / PUB framing | 96.38 M/s | 35.97–105.91 M/s | 3.08 GB/s |
+| UDP / batched datagrams | 0.466 M/s | 0.437–0.552 M/s | 0.015 GB/s |
+
+The ranges matter. This shared localhost host is noisy enough that small differences between the lean TCP/DHMP rows are **not a stable protocol ranking**. The one-byte varint TCP row has a slightly higher median input rate than DHMP in v4, while DHMP has lower receiver CPU per logical record.
+
+### Frozen comparison rule
+
+The headline protocol table above is **one frozen benchmark generation: showcase v4**. It must not be updated by mixing in results from later DHMP-only optimization labs.
+
+When the benchmark harness changes, **all protocol rows must be rerun together** before a new cross-protocol chart replaces v4.
+
+<details>
+<summary><strong>Why do older HTTP numbers in this repository look very different?</strong></summary>
+
+They came from different benchmark generations and are not directly comparable:
+
+| Benchmark generation | HTTP/1.1 32-byte logical rate | Approx. logical payload |
 | --- | ---: | ---: |
-| **DHMP Adaptive / Latest path** | **130.62 M/s** | **4.18 GB/s** |
-| Raw TCP / fixed frame | 111.73 M/s | 3.58 GB/s |
-| TCP / varint length | 132.30 M/s | 4.23 GB/s |
-| TCP / 4-byte length | 108.08 M/s | 3.46 GB/s |
-| WebSocket / binary framing | 119.32 M/s | 3.82 GB/s |
-| HTTP/1.1 / chunk framing | 108.03 M/s | 3.46 GB/s |
-| HTTP/2 / DATA framing | 105.57 M/s | 3.38 GB/s |
-| gRPC / HTTP/2 framing | 98.92 M/s | 3.17 GB/s |
-| MQTT QoS0 / PUBLISH | 91.79 M/s | 2.94 GB/s |
-| NATS / PUB framing | 96.38 M/s | 3.08 GB/s |
-| UDP / batched datagrams | 0.466 M/s | 0.015 GB/s |
+| 2026-09-22 native showcase | 105.47 M/s | 3.38 GB/s |
+| early 2026-09-23 showcase | 29.40 M/s | 0.94 GB/s |
+| showcase v2 | 123.69 M/s | 3.96 GB/s |
+| showcase v3 | 120.66 M/s | 3.86 GB/s |
+| **showcase v4 — current frozen comparison** | **108.03 M/s** | **3.46 GB/s** |
 
-In this harness DHMP is essentially at the fixed-stream transport floor. The one-byte varint TCP row has a slightly higher median input rate (**132.30 vs 130.62 M/s**), while DHMP uses less receiver CPU per logical record.
+The jump from 29.4 M/s to later values does **not** mean HTTP itself became three or four times faster. The shared harness changed: receive workspace, sender/publication machinery, run count/order, and later the artificial consumer hold were changed across generations. The repository already records v2→v3 absolute results as non-controlled because the harness changed.
 
-Relative to the same-harness rows, DHMP measured approximately:
+The correct use of these numbers is:
 
-| Compared with | DHMP logical-rate difference | DHMP receiver-CPU reduction |
-| --- | ---: | ---: |
-| Raw fixed TCP | **+16.9%** | **13.3% less** |
-| TCP varint length | **-1.3%** | **26.4% less** |
-| TCP 4-byte length | **+20.9%** | **31.9% less** |
-| WebSocket framing | **+9.5%** | **22.2% less** |
-| HTTP/1.1 chunk framing | **+20.9%** | **40.3% less** |
-| HTTP/2 DATA framing | **+23.7%** | **51.8% less** |
-| gRPC/HTTP2 framing | **+32.0%** | **58.4% less** |
-| MQTT QoS0 framing | **+42.3%** | **40.5% less** |
-| NATS PUB framing | **+35.5%** | **47.5% less** |
+- compare protocols **within one benchmark generation**;
+- compare a DHMP optimization only with its matched A/B baseline;
+- never calculate a DHMP improvement using an old baseline from a different harness.
 
-These percentages describe this native benchmark only; they are not claims about complete deployed framework stacks.
+</details>
 
 ## How much CPU does receiving one record cost?
 
