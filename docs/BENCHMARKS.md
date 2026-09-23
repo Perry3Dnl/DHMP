@@ -1,3 +1,25 @@
+# DHMP benchmark methodology and results
+
+## Current README showcase
+
+The root README now leads with the current performance showcase before explaining the architecture.
+
+Current showcase figures:
+
+- [protocol/framing logical throughput](../benchmarks/results/charts/showcase-current-protocol-throughput-2026-09-23.svg)
+- [protocol/framing receiver CPU](../benchmarks/results/charts/showcase-current-protocol-cpu-2026-09-23.svg)
+- [current Adaptive capability snapshot](../benchmarks/results/charts/showcase-current-capability-snapshot-2026-09-23.svg)
+- [current matched optimization gains](../benchmarks/results/charts/adaptive-current-optimization-gains-2026-09-23.svg)
+- [Every output-slab result](../benchmarks/results/charts/adaptive-every-output-slab-2026-09-23.svg)
+- [fused-processing result](../benchmarks/results/charts/adaptive-fused-processing-2026-09-23.svg)
+- [ComputeBlock processor result](../benchmarks/results/charts/adaptive-computeblock-cpu-2026-09-23.svg)
+
+The protocol/framing graphs use the retained zero-hold Ring-3 `Latest` transport benchmark because that is the current Adaptive `Latest` path measured against the familiar baselines. The newer `Every` and ComputeBlock optimizations were measured in separate matched A/B harnesses and are shown separately rather than being relabeled as cross-protocol results.
+
+Capability snapshot data: [adaptive-showcase-capability-summary-2026-09-23.csv](../benchmarks/results/adaptive-showcase-capability-summary-2026-09-23.csv)
+
+Logical GB/s means logical application payload represented by the benchmark records. It is not physical NIC throughput.
+
 # Benchmark notes and reference results
 
 These are experimental localhost results from the current .NET 10 prototype. They are useful for comparing revisions on the same machine; they are not universal performance claims.
