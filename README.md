@@ -116,7 +116,7 @@ and the consumer has fallen behind, a `Latest` implementation is allowed to disc
 The current highlighted native architecture uses two separate fixed-memory concepts:
 
 1. **transport workspace** — a reusable contiguous slab that lets the OS perform efficient larger socket reads;
-2. **retained state** — exactly three permanent logical frame slots.
+2. **retained state** — exactly three permanent buffers used as `FRONT / MIDDLE / BACK` ownership roles.
 
 ```text
 network
@@ -131,14 +131,14 @@ network
    │ skip obsolete history
    ▼
 ┌────────┬────────┬────────┐
-│ slot 0 │ slot 1 │ slot 2 │
+│ FRONT  │ MIDDLE │  BACK  │
 └────────┴────────┴────────┘
-   newest three retained states
+ consumer   latest   producer
 ```
 
-When all three retained slots are occupied and a newer state arrives, the **oldest retained state is always overwritten**.
+The producer writes only to `BACK`, then publishes it by atomically exchanging `BACK ↔ MIDDLE`. The consumer owns `FRONT`; when a newer state is available it exchanges `FRONT ↔ MIDDLE`. An older unconsumed `MIDDLE` state may be replaced by a newer one, which is exactly the intended `Latest` conflation behavior.
 
-The implementation does not shift old frame data forward, grow a queue, or clear memory before reuse. The role/index changes; the storage stays where it is.
+The implementation does not shift old frame data forward, grow a queue, or clear memory before reuse. Payload storage stays fixed; only ownership roles move.
 
 For a 32-byte contract:
 
@@ -148,11 +148,11 @@ For a 32-byte contract:
 
 The retained-state requirement stays constant regardless of how long the connection runs.
 
-### Ring-3 reference result
+### Earlier standalone Ring-3 reference result
 
 ![Ring-3 Fixed-Slab Latest sustained benchmark](benchmarks/results/charts/ring3-fixed-slab-32b-2026-09-23.svg)
 
-Standalone native Linux/C localhost reference, five 2-second passes:
+Standalone native Linux/C localhost reference from before the latest single-atomic CPU ownership work, five 2-second passes:
 
 | Metric | Result |
 | --- | ---: |
@@ -176,6 +176,8 @@ The Ring-3 ownership path has now been reduced from a per-slot atomic state mach
 
 Seven alternating native CPU runs with 32-byte state and a 10 µs zero-copy consumer hold:
 
+![Ring-3 single-atomic ownership throughput](benchmarks/results/charts/ring3-triple-exchange-throughput-2026-09-23.svg)
+
 | Ring-3 ownership engine | Producer publications/s | Producer CPU / publication | Producer claim retries | Useful consumer publications/s | Validation errors |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Per-slot state machine | 30.281 M | 33.023 ns | ~30.11 M | 89.745k | 0 |
@@ -184,6 +186,8 @@ Seven alternating native CPU runs with 32-byte state and a 10 µs zero-copy cons
 That is about **+6.9% producer publication throughput** and **-6.4% producer CPU cost** while removing the producer-side slot-claim retry loop.
 
 Two additional retained CPU-path improvements are ready for integration:
+
+![Latest Ring-3 CPU fast-path costs](benchmarks/results/charts/ring3-cpu-fastpaths-2026-09-23.svg)
 
 | Processor detail | Before | After | Change |
 | --- | ---: | ---: | ---: |
@@ -205,9 +209,9 @@ Source/results:
 
 DHMP has several benchmark families. Results from different harnesses are deliberately kept separate.
 
-### .NET request/reply comparison
+### Historical .NET request/reply comparison — pre-Ring-3 CPU engine
 
-Persistent localhost connection, same opaque payload sizes, no TLS, sequential request/reply.
+Persistent localhost connection, same opaque payload sizes, no TLS, sequential request/reply. These numbers remain valid for that earlier .NET implementation, but **they do not use the current Ring-3 single-atomic ownership engine or today's CPU fast paths**.
 
 ![DHMP vs common protocols](benchmarks/results/charts/readme-dhmp-vs-common-protocols.svg)
 
@@ -224,9 +228,9 @@ Median round trips per second:
 
 The important baseline is lean binary TCP. DHMP should not be presented as magically making TCP itself faster; the goal is to remain close to the lean transport floor while adding fixed-contract and receive/delivery semantics.
 
-### DHMPS vs HTTPS
+### Historical DHMPS vs HTTPS — pre-Ring-3 CPU engine
 
-DHMPS is DHMP wrapped in normal platform TLS.
+DHMPS is DHMP wrapped in normal platform TLS. This chart is an earlier .NET secure request/reply benchmark; **it does not use the current Ring-3 `FRONT / MIDDLE / BACK` engine or the latest 32-byte CPU optimizations**.
 
 ![DHMPS vs HTTPS](benchmarks/results/charts/readme-dhmps-vs-https.svg)
 
@@ -243,9 +247,9 @@ Secure median round trips per second:
 
 TLS setup is outside the steady-state timing in this comparison.
 
-### Native 32-byte transport/framing showcase v2
+### Native 32-byte transport/framing showcase v2 — pre-latest CPU sweep
 
-Ring-3 is now implemented **inside the same native showcase harness** as Ring8, Slab6, DHMPS, raw TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP. All rows below therefore use the same timing model and workload.
+This is the most recent retained **integrated network** comparison, but it predates the single-atomic triple exchange, contract-specialized 32-byte processor, and fixed-width carry fast path shown above. Ring-3 is implemented inside the same native showcase harness as Ring8, Slab6, DHMPS, raw TCP, length-prefixed TCP, WebSocket framing, HTTP chunk framing, and UDP. All rows below therefore use the same timing model and workload.
 
 Test profile: 32-byte logical payloads, 12 KiB fixed receive workspace, 500 ms warmup, 1.5 s measured interval, three runs per path, 10 µs simulated consumer work, CPU pinning when available, and TLS 1.3 for DHMPS.
 
