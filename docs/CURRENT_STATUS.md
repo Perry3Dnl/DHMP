@@ -1,6 +1,8 @@
 
 ### Consumer CAS vs exchange
 
+> Follow-up: transport/runtime tuning is tracked in [TRANSPORT_TUNING_TODO.md](TRANSPORT_TUNING_TODO.md) and should be revisited after the RX -> processor -> output-slab pipeline work.
+
 A single-exchange consumer acquisition was tested as an alternative to the current compare-and-swap acquisition. It is ownership-correct for the SPSC Ring-3 token model and eliminates consumer retry loops entirely.
 
 The retained high-contention benchmark did not show a CPU advantage: exchange measured a median 12.412 ns producer cost versus 11.790 ns with CAS, and 83.661 ns consumer CPU per acquisition versus 74.482 ns with CAS. Both paths completed with zero validation errors.
