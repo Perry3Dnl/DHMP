@@ -38,6 +38,26 @@ The end-to-end zero-hold TCP loopback benchmark did not reproduce that advantage
 **Status:** topology awareness is promising but hardware-dependent. Do not change the default yet. Revisit with physical hardware, hardware counters, and the future AutoTune/runtime transport work.
 
 
+
+### Every output-slab fast path
+
+The fixed output-slab idea has now been integrated into a bounded native TCP `Every` pipeline.
+
+Both compared paths use the same 96 KiB output payload capacity. The baseline publishes each 32-byte transformed result separately; the new path writes each receive batch directly into one of eight reusable 12 KiB output slabs and publishes the populated slab once. Partial slabs are published immediately, and the processor blocks rather than overwriting unread slabs.
+
+Across nine alternating 30-million-result runs:
+
+- per-result publication: **33.35 M results/s** median end-to-end, **29.933 ns receiver/processor CPU/result**;
+- output-slab publication: **129.80 M results/s**, **6.988 ns/result**;
+- median batch: **372.3 results per ownership publication**;
+- all processed and consumed counts matched;
+- zero validation errors.
+
+That is about **3.89× the median end-to-end result rate** and **76.7% lower receiver/processor CPU per result** in this native test.
+
+This is now the preferred implementation direction for `Every`. `Latest` remains separate and should continue avoiding obsolete-result materialization.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
