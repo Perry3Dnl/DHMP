@@ -4,35 +4,46 @@
 
 # DHMP — Direct Headerless Message Protocol
 
-DHMP is an experimental fixed-contract application transport designed to keep repeated metadata, per-message allocation, and unnecessary application work out of the hot path.
+DHMP is an experimental fixed-contract transport for persistent machine-to-machine communication.
 
-The central idea is simple:
+The design goal is simple: **negotiate what can be known once, then keep repeated metadata, per-message allocation, queue growth, and unnecessary application work out of the steady-state hot path.**
 
-- negotiate the contract once when a connection/session is established;
-- use the negotiated fixed logical frame size as framing;
-- keep steady-state application traffic headerless at the DHMP layer;
-- treat the connection as a continuous byte stream rather than one socket operation per logical message;
-- support both **Every** and **Latest** receive semantics;
-- support plain **DHMP** and TLS-wrapped **DHMPS**;
-- keep delivery/recovery semantics separate from receive semantics.
+DHMP is currently being developed as a protocol design plus reference implementations and benchmark labs. The main implementation target is .NET; native C labs are used to explore receive-path architectures before promising ideas are ported back into the .NET prototype.
 
-This repository currently contains the protocol design and .NET 10 benchmark prototype. Some experiment code still uses the earlier internal name `FixedWire`; those names are being left alone until the protocol model is stable.
+> **Current highlighted `Latest` implementation:** Ring-3 Fixed-Slab Latest — three permanently retained state slots, overwrite-oldest semantics, and one fixed reusable I/O workspace.
+
+## At a glance
+
+| Property | DHMP model |
+| --- | --- |
+| Framing | Fixed logical frame size negotiated once |
+| Per-frame DHMP header | None in steady state |
+| Connection model | Persistent continuous byte stream |
+| Receive semantics | **Every** or **Latest** |
+| Latest retention | Bounded newest-state window |
+| Latest overflow | Always overwrite the oldest retained state |
+| Delivery semantics | **Unconfirmed** or **Verified** |
+| Secure mode | **DHMPS** over platform TLS |
+| Memory model | Fixed reusable transport workspace + bounded retained state |
+| Main target | Service-to-service, game/server state, telemetry, replication, devices |
 
 ## Why DHMP?
 
-Many application protocols repeat information on every message that is already known after connection setup: message type, schema identity, payload length, routing metadata, and other framing data.
+Many application protocols repeatedly send information that both peers already know after connection setup: schema identity, payload size, route information, message type, framing metadata, and other fixed contract details.
 
 DHMP explores the opposite model:
 
 ```text
-handshake:
-  establish contract + frame size + session semantics
+connection setup
+    ↓
+negotiate contract + fixed frame size + semantics
+    ↓
 
-steady state:
-  [frame][frame][frame][frame][frame]...
+steady state
+[frame][frame][frame][frame][frame]...
 ```
 
-instead of:
+rather than:
 
 ```text
 [type][length][metadata][payload]
@@ -40,114 +51,193 @@ instead of:
 [type][length][metadata][payload]
 ```
 
-The goal is not to replace TCP reliability or TLS security. DHMP sits above the transport and removes application-level work that does not need to be repeated for every fixed-contract frame.
+DHMP does **not** attempt to replace TCP reliability or TLS security. It sits above the underlying transport and removes application-level work that does not need to be repeated for every fixed-contract frame.
 
-## Data-pump model
+## Continuous data-pump model
 
-DHMP is intended to operate as a continuous reusable-memory data pump.
-
-A socket read may contain many logical DHMP frames:
+A logical DHMP frame does not need to equal one socket read or write.
 
 ```text
 TCP byte stream
-      |
-      v
-+------------------------------+
-| reusable receive slab        |
-| frame frame frame ... frame  |
-+------------------------------+
-      |
-      +--> Every  -> process every complete frame
-      |
-      +--> Latest -> publish only the newest complete frame
+      │
+      ▼
+┌──────────────────────────────┐
+│ fixed reusable I/O workspace │
+│ frame frame frame ... frame  │
+└──────────────────────────────┘
+      │
+      ├── Every  → expose every complete frame
+      │
+      └── Latest → retain only newest useful state
 ```
 
-A logical frame boundary does **not** need to equal a socket read/write boundary.
+This lets the implementation amortize one socket operation across many logical frames.
 
-The current model-design benchmark uses reusable 256 KiB send and receive slabs so thousands of logical frames can be amortized across one socket operation.
-
-For **Latest**, stale complete frames do not need to become queued application messages at all. They can be skipped by fixed-size arithmetic while preserving only the newest complete state and any trailing partial frame.
+For `Latest`, obsolete complete frames do not need to become queued application objects at all. Once the negotiated frame size is known, the receiver can identify complete frame boundaries using fixed-size arithmetic and skip state that can no longer be observed.
 
 ## Receive semantics
 
-DHMP currently defines two receive policies.
-
 ### Every
 
-Expose every complete logical frame in order.
+`Every` exposes every complete logical frame in order.
 
-Useful for workloads such as replication, command streams, logs, telemetry where every event matters, or any application that must inspect every frame.
+Typical workloads:
+
+- command streams;
+- replication/change feeds;
+- logs;
+- telemetry where each sample matters;
+- transactions or events that must not be discarded.
 
 ### Latest
 
-Expose the newest complete state available when the consumer runs and intentionally skip obsolete complete states.
+`Latest` is for current-state workloads where newer state makes older state obsolete.
 
-Useful for controller state, live UI state, game state, dashboards, device state, or other workloads where freshness is more important than processing every intermediate update.
+Typical workloads:
 
-These receive policies are independent from delivery/recovery semantics.
+- game/server state;
+- player or vehicle transforms;
+- controller/device state;
+- dashboards;
+- simulation state;
+- live UI state;
+- high-frequency telemetry snapshots.
 
-## Delivery semantics
+If the stream contains:
 
-### Unconfirmed
+```text
+[1][2][3][4][5]
+```
 
-The sender continuously emits frames and does not require DHMP-level proof that the peer accepted them.
+and the consumer has fallen behind, a `Latest` implementation is allowed to discard stale state instead of forcing the application to process a growing backlog.
 
-TCP still provides normal ordered/reliable byte delivery while the connection is alive. If the session dies, uncertain application frames may be abandoned.
+## Current Latest fast path: Ring-3 Fixed-Slab
 
-### Verified
+The current highlighted native architecture uses two separate fixed-memory concepts:
 
-The normal data path remains the same continuous stream:
+1. **transport workspace** — a reusable contiguous slab that lets the OS perform efficient larger socket reads;
+2. **retained state** — exactly three permanent logical frame slots.
 
-- no per-frame ACK;
-- no periodic ACK just because data is flowing;
-- sender does not wait before sending the next frame;
-- sender retains unverified logical history;
-- reconnect/verification establishes the receiver's accepted stream position;
-- only the uncertain tail is replayed.
+```text
+network
+   │
+   ▼
+┌──────────────────────────┐
+│ fixed receive workspace  │
+│ overwritten every cycle  │
+└──────────────────────────┘
+   │
+   │ identify complete frames
+   │ skip obsolete history
+   ▼
+┌────────┬────────┬────────┐
+│ slot 0 │ slot 1 │ slot 2 │
+└────────┴────────┴────────┘
+   newest three retained states
+```
 
-Because retained history cannot grow forever, Verified ultimately requires asynchronous checkpoints so old confirmed history can be discarded without changing the hot data path.
+When all three retained slots are occupied and a newer state arrives, the **oldest retained state is always overwritten**.
 
-## DHMP and DHMPS
+The implementation does not shift old frame data forward, grow a queue, or clear memory before reuse. The role/index changes; the storage stays where it is.
 
-**DHMP** is the plain transport.
+For a 32-byte contract:
 
-**DHMPS** is DHMP carried over normal platform TLS.
+```text
+3 × 32 B = 96 B retained application-state payload
+```
 
-DHMPS does not invent custom cryptography. The current .NET prototype uses the platform TLS stack. TLS framing exists below DHMP, but DHMP itself still does not add a repeated application header to every logical frame.
+The retained-state requirement stays constant regardless of how long the connection runs.
 
-## Performance at a glance
-
-The front-page comparison focuses on the current **.NET localhost protocol benchmarks**, where DHMP and DHMPS are measured against familiar application-protocol stacks using the same payload sizes.
-
-![DHMP vs common protocols](benchmarks/results/charts/readme-dhmp-vs-common-protocols.svg)
-
-In the full persistent request/reply benchmark, DHMP is compared with length-prefixed TCP, MessagePack/TCP, HTTP/1.1, HTTP/2, and gRPC/Protobuf. These are **round trips per second**, not raw network bandwidth.
-
-![DHMPS vs HTTPS](benchmarks/results/charts/readme-dhmps-vs-https.svg)
-
-The secure comparison keeps connection/TLS setup outside the steady-state timing and compares DHMPS with HTTPS/1.1 and HTTPS/2 using the same opaque payload sizes.
-
-These charts are intended as a clear implementation-level comparison, not a claim that DHMP makes TCP itself faster. Native processor-path experiments, wire/framing microbenchmarks, raw CSV files, methodology, and caveats remain documented in [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [benchmarks/results](benchmarks/results).
-
-### Newest native Latest fast path
-
-The latest repository update adds the **Ring-3 Fixed-Slab Latest** reference path. It keeps only three permanent application-state frames while using a separate fixed receive workspace for efficient socket I/O.
+### Ring-3 reference result
 
 ![Ring-3 Fixed-Slab Latest sustained benchmark](benchmarks/results/charts/ring3-fixed-slab-32b-2026-09-23.svg)
 
-The five 2-second passes measured **63.02–109.09 M logical 32-byte frames/s**, with a **median of 86.18 M/s** (2.76 GB/s payload), **3.71 ns receiver CPU per logical frame**, and only **96 B of retained application-state payload**. This native/Linux architecture result is shown separately from the .NET protocol charts above because the harnesses are not directly comparable.
+Standalone native Linux/C localhost reference, five 2-second passes:
 
-## Latest benchmark results
+| Metric | Result |
+| --- | ---: |
+| Frame size | **32 B** |
+| Median logical input rate | **86.18 M frames/s** |
+| Median logical payload rate | **2.76 GB/s** |
+| Median receiver CPU / logical frame | **3.71 ns** |
+| Retained application-state payload | **96 B** |
+| Fixed receive workspace | **12 KiB** |
+| Obsolete frames skipped/overwritten | **~99.20%** |
+| Measured run range | **63.02–109.09 M frames/s** |
 
-Raw CSV files and SVG charts are stored under [benchmarks/results](benchmarks/results).
+This is a localhost architecture benchmark, not a claim that a physical network delivered 2.76 GB/s. The run range is intentionally published because scheduler and loopback conditions materially affect absolute rates.
 
-### Continuous streaming
+Source: [`benchmarks/native-gen2/ring3_fixed_slab_latest.c`](benchmarks/native-gen2/ring3_fixed_slab_latest.c)  
+Raw results: [`ring3-fixed-slab-latest-32b-2026-09-23.csv`](benchmarks/results/ring3-fixed-slab-latest-32b-2026-09-23.csv)
 
-The continuous-streaming benchmark removes request/reply waiting and sends fixed-size frames continuously.
+## Performance comparisons
 
-For DHMP, the measured end-to-end frame rate stayed roughly flat from 16 B through 1 KiB while payload throughput increased substantially:
+DHMP has several benchmark families. Results from different harnesses are deliberately kept separate.
 
-| Payload | Frames/sec | Payload throughput |
+### .NET request/reply comparison
+
+Persistent localhost connection, same opaque payload sizes, no TLS, sequential request/reply.
+
+![DHMP vs common protocols](benchmarks/results/charts/readme-dhmp-vs-common-protocols.svg)
+
+Median round trips per second:
+
+| Payload | DHMP | TCP + 4-byte length | MessagePack/TCP | HTTP/1.1 | HTTP/2 | gRPC/Protobuf |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 32 B | **42,565** | 38,046 | 24,168 | 20,535 | 12,806 | 11,460 |
+| 64 B | **53,433** | 50,496 | 45,625 | 23,393 | 10,742 | 11,357 |
+| 128 B | 44,022 | **44,101** | 32,159 | 18,973 | 12,134 | 10,235 |
+| 256 B | **43,794** | 43,014 | 39,797 | 22,910 | 15,578 | 10,625 |
+| 512 B | **56,336** | 51,670 | 44,455 | 23,035 | 15,236 | 11,006 |
+| 1 KiB | **56,239** | 51,858 | 44,465 | 22,795 | 15,369 | 13,887 |
+
+The important baseline is lean binary TCP. DHMP should not be presented as magically making TCP itself faster; the goal is to remain close to the lean transport floor while adding fixed-contract and receive/delivery semantics.
+
+### DHMPS vs HTTPS
+
+DHMPS is DHMP wrapped in normal platform TLS.
+
+![DHMPS vs HTTPS](benchmarks/results/charts/readme-dhmps-vs-https.svg)
+
+Secure median round trips per second:
+
+| Payload | DHMPS | HTTPS/1.1 | HTTPS/2 |
+| ---: | ---: | ---: | ---: |
+| 32 B | **16,712** | 6,219 | 6,419 |
+| 64 B | **35,605** | 10,909 | 10,284 |
+| 128 B | **42,763** | 11,567 | 15,128 |
+| 256 B | **35,124** | 14,377 | 11,728 |
+| 512 B | **38,932** | 12,830 | 13,255 |
+| 1 KiB | **38,133** | 12,974 | 11,999 |
+
+TLS setup is outside the steady-state timing in this comparison.
+
+### Native 32-byte transport/framing showcase
+
+The native showcase keeps all compared paths inside one Linux/C harness and applies the same `Latest`/conflating workload.
+
+![Native 32 B input rate](benchmarks/results/charts/showcase-32b-input-2026-09-23.svg)
+
+![Native 32 B useful publication rate](benchmarks/results/charts/showcase-32b-published-2026-09-23.svg)
+
+| Path | Logical input frames/s | Useful publications/s |
+| --- | ---: | ---: |
+| DHMP Ring8 Spin | 111.8 M | **59.1k** |
+| DHMP Slab6 Hybrid | 124.7 M | 28.3k |
+| DHMPS / TLS / Slab6 | 58.6 M | 37.4k |
+| Raw TCP / fixed frame | 125.9 M | 29.2k |
+| TCP / 4-byte length | **141.7 M** | 18.4k |
+| UDP / batched datagrams | 0.46 M | 6.8k |
+| WebSocket / binary framing | 107.3 M | 43.7k |
+| HTTP/1.1 / chunk framing | 29.4 M | 11.2k |
+
+The WebSocket and HTTP rows in this native showcase are framing/parser microbenchmarks, **not full ASP.NET Core server-stack benchmarks**. The Ring-3 standalone reference above is not inserted into this chart because it was measured by a different harness; it should be added only after Ring-3 is rerun inside the same showcase suite.
+
+## Continuous streaming results
+
+The .NET continuous-streaming benchmark removes request/reply waiting and sends fixed-size frames continuously.
+
+| Payload | DHMP frames/s | Payload throughput |
 | ---: | ---: | ---: |
 | 16 B | ~206k | ~3.15 MiB/s |
 | 32 B | ~228k | ~6.95 MiB/s |
@@ -160,112 +250,116 @@ For DHMP, the measured end-to-end frame rate stayed roughly flat from 16 B throu
 | 4 KiB | ~179k | ~697.79 MiB/s |
 | 8 KiB | ~141k | ~1.10 GiB/s |
 
-This is consistent with the intended model: for small and medium fixed frames, per-operation cost dominates first; as frames become larger, byte movement, TCP, memory copies, and socket buffering become the limiting factors.
+These results illustrate the transition from per-operation overhead at small frame sizes toward byte movement, socket buffering, and memory bandwidth at larger sizes.
 
-### Reusable-slab model test
+## Delivery semantics
 
-The newer model-design benchmark removes the artificial one-frame-per-socket-operation behavior.
+Receive semantics and delivery/recovery semantics are separate.
 
-At **32-byte frames**:
+### Unconfirmed
 
-| Mode | Logical input frames/sec | Frames/socket read | Published | Skipped |
-| --- | ---: | ---: | ---: | ---: |
-| DHMP Every | ~17.2 M | ~6,096 | 100% | 0% |
-| DHMP Latest | ~195.7 M | 8,192 | ~0.0122% | ~99.9878% |
+The sender continuously emits frames without requiring DHMP-level proof that the peer accepted every logical frame.
 
-The Latest number is **not** 195.7 million application callbacks per second.
+TCP still provides ordered reliable byte delivery while the connection remains alive. If the session dies, uncertain application frames may be abandoned.
 
-It represents logical 32-byte frame-equivalents passing through the fixed byte stream while the receiver publishes only the newest useful state from each large receive batch.
+### Verified
 
-In that run, a single 256 KiB receive contained:
+Verified keeps the same no-wait hot data stream:
 
-```text
-262,144 bytes / 32 bytes = 8,192 logical frames
-```
+- no per-frame ACK;
+- no periodic ACK merely because data is flowing;
+- sender continues sending;
+- sender retains uncertain logical history;
+- reconnect/verification establishes the receiver's accepted stream position;
+- only the uncertain tail is replayed.
 
-and Latest could skip stale states without individually dispatching them.
+The remaining design problem is **bounded Verified history**: asynchronous checkpoints need to confirm an accepted position so old retained history can be released without turning the normal stream into request/reply traffic.
 
+## DHMP and DHMPS
 
-### Ring-3 Fixed-Slab Latest fast path
+**DHMP** is the plain application transport.
 
-The current native architecture lab now includes an experimental **Ring-3 Fixed-Slab Latest** receive engine.
+**DHMPS** is DHMP carried through normal platform TLS.
 
-It keeps only three permanent state slots and always overwrites the oldest retained state. Network I/O lands in one fixed reusable contiguous slab so socket calls can stay large; obsolete complete frames are skipped by fixed-size arithmetic, and only the newest three complete frames from a receive batch are copied into the Ring-3 state window.
-
-At a 32-byte fixed contract:
-
-- retained application-state storage is **3 × 32 B = 96 B**;
-- the reference benchmark uses a fixed **12 KiB** receive workspace;
-- there is no per-frame queue growth, frame shifting, or buffer clearing;
-- steady-state frame storage is reused indefinitely.
-
-A standalone Linux/C localhost reference run added on 2026-09-23 used five 2-second passes. The median was:
-
-
-
-| Metric | Ring-3 Fixed-Slab Latest |
-| --- | ---: |
-| Logical input rate | **86.2 M frames/s** |
-| 32 B logical payload rate | **2.76 GB/s** |
-| Receiver CPU / logical frame | **3.71 ns** |
-| Retained state payload | **96 B** |
-| Obsolete frames skipped/overwritten | **~99.20%** |
-
-The individual passes ranged from roughly 63 M/s to 109 M/s, showing that localhost scheduling and shared-host conditions materially affect absolute results. Earlier tuned architecture experiments with the same general slab-to-small-state-ring shape reached higher burst rates, but the reproducible standalone reference result above is the value retained for documentation.
-
-This is an **implementation fast path for `Latest` semantics**, not a new per-frame wire format. Source: [`ring3_fixed_slab_latest.c`](benchmarks/native-gen2/ring3_fixed_slab_latest.c). Raw results: [CSV](benchmarks/results/ring3-fixed-slab-latest-32b-2026-09-23.csv).
-
-### Benchmark caveat
-
-The reusable-slab model run currently uses a small byte budget, so some timed regions are only a few milliseconds long. The extreme multi-million-frame figures therefore demonstrate the **architecture and batching mechanism**, not yet a sustained throughput ceiling.
-
-The next benchmark step is fixed-duration multi-second passes before treating those burst numbers as publishable sustained performance claims.
-
-See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for methodology and caveats.
-
-## Current status
-
-DHMP is experimental work, not yet a published interoperability specification.
-
-What has been established so far:
-
-- fixed-contract/headerless steady-state framing;
-- arbitrary negotiated fixed frame sizes;
-- Every and Latest receive semantics;
-- plain DHMP and TLS-wrapped DHMPS;
-- Unconfirmed and no-periodic-ACK Verified semantics;
-- reconnect/replay of uncertain Verified tails;
-- reusable-slab/bulk-I/O implementation model;
-- experimental Ring-3 Fixed-Slab Latest path with constant three-frame retained state;
-- benchmark comparisons against raw TCP, MessagePack, WebSocket, HTTP/1.1, HTTP/2, HTTPS, UDP and gRPC.
-
-The next major protocol problem is **bounded Verified mode**: asynchronous verification/checkpoints must allow retained history to be released without adding ACK chatter to the normal data stream.
-
-The current benchmark focus is the **processor/publication path**: selecting efficient internal strategies for `Every` and `Latest` without changing their protocol semantics.
+DHMPS does not invent custom cryptography. TLS framing exists below DHMP, while DHMP itself keeps the same fixed-contract application-frame model.
 
 ## Intended use cases
 
 DHMP is being explored for workloads such as:
 
 - service-to-service communication;
-- controller/device state;
+- multiplayer game/server state;
+- controller/device communication;
 - real-time state distribution;
-- game/server state;
 - telemetry;
+- simulation;
 - cache synchronization;
 - replication/change feeds;
 - log shipping;
 - edge/backend synchronization.
 
-It is not intended to reproduce every feature of HTTP, gRPC, Kafka, MQTT, QUIC, or message brokers inside one protocol. Higher-level concerns should stay layered above the small transport core.
+The strongest fit is communication that is:
+
+- persistent;
+- high-frequency;
+- fixed-contract;
+- small-to-medium message oriented;
+- sensitive to allocation, queue growth, or stale-state processing.
+
+DHMP is **not** intended to reproduce every feature of HTTP, gRPC, Kafka, MQTT, QUIC, or a message broker inside one protocol. Higher-level features should remain layered above the small transport core.
+
+## Benchmark discipline
+
+DHMP uses several different benchmark harnesses. Their absolute numbers should not be mixed casually.
+
+- **.NET protocol benchmarks** compare real .NET stacks and application APIs.
+- **native showcase benchmarks** compare framing/ingestion paths inside one C harness.
+- **processor-path labs** explore algorithms and memory models.
+- **Ring-3 standalone tests** validate the newest bounded-state implementation shape.
+
+A higher native-lab number does not mean the .NET implementation currently achieves the same rate, and a logical payload rate does not mean a physical NIC transferred that many bytes per second.
+
+Raw CSV files, source code, methodology, and caveats are retained so results remain reproducible.
+
+## Current status
+
+DHMP is experimental work and is not yet a frozen interoperability specification.
+
+Established so far:
+
+- fixed-contract/headerless steady-state framing;
+- arbitrary negotiated fixed frame sizes;
+- `Every` and `Latest` receive semantics;
+- Ring-3 bounded newest-state implementation experiments;
+- overwrite-oldest Latest behavior;
+- fixed reusable I/O workspace;
+- plain DHMP and TLS-wrapped DHMPS;
+- Unconfirmed delivery;
+- no-periodic-ACK Verified recovery;
+- reconnect/replay of uncertain Verified tails;
+- reusable-slab/bulk-I/O implementation model;
+- comparisons against lean TCP, MessagePack, WebSocket, HTTP, HTTPS, UDP, and gRPC.
+
+Current engineering priorities:
+
+1. port Ring-3 Fixed-Slab Latest into the .NET prototype;
+2. rerun Ring-3 inside the same native showcase harness;
+3. run fixed-duration LAN tests across physical machines;
+4. tune receive-workspace sizing across negotiated frame sizes;
+5. implement bounded Verified checkpoints;
+6. continue separating protocol specification from implementation details;
+7. build ergonomic .NET/Unity-facing APIs without adding per-frame wire overhead.
 
 ## Documentation
 
 - [Protocol draft](docs/PROTOCOL_DRAFT.md)
 - [Current development status](docs/CURRENT_STATUS.md)
-- [Benchmark methodology and results](docs/BENCHMARKS.md)
+- [Benchmark methodology and detailed results](docs/BENCHMARKS.md)
+- [Native Gen-2 processor lab](benchmarks/native-gen2)
 - [Raw benchmark results and charts](benchmarks/results)
 
 ## Requirements
 
-The main prototype targets **.NET 10**. A separate Linux/C native lab under `benchmarks/native-gen2` is used only for rapid processor-path architecture experiments.
+The main prototype targets **.NET 10**.
+
+A separate Linux/C native lab under `benchmarks/native-gen2` is used for architecture and processor-path experiments before selected ideas are ported to the .NET implementation.
