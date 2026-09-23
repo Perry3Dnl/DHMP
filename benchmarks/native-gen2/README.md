@@ -53,3 +53,22 @@ gcc -O3 -march=native -pthread ring3_cacheline_ab.c -o ring3-cache-ab
 ```
 
 The retained result favors the compact layout: median producer CPU cost was 8.215 ns per complete three-state update for packed 96 B versus 14.662 ns for 64-byte-isolated slots. See [../../docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) for details.
+
+
+## Ring-2 vs Ring-3 with a 10 µs held state
+
+`ring2_vs_ring3_hold10us.c` compares a safe two-slot swap design with the three-slot design while the consumer holds a zero-copy state for 10 µs.
+
+Both variants use the same atomic slot ownership state machine and validate every consumed 32-byte state for torn reads.
+
+Build:
+
+```bash
+gcc -O3 -march=native -pthread ring2_vs_ring3_hold10us.c -o ring23-hold
+./ring23-hold 2
+./ring23-hold 3
+```
+
+The retained seven-run medians were effectively tied on producer throughput (~30.64 M publications/s), while Ring-3 delivered ~1.8% more useful consumer publications. All retained runs had zero validation errors.
+
+Raw data: [../results/ring2-vs-ring3-hold10us-2026-09-23.csv](../results/ring2-vs-ring3-hold10us-2026-09-23.csv)
