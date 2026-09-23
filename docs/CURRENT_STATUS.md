@@ -1,3 +1,14 @@
+
+### Zero-hold maximum-speed showcase v4
+
+The main native comparison no longer uses an artificial 10 µs consumer hold. Showcase v4 runs the current Ring-3 Latest handoff with immediate consumer release and compares DHMP with ten established framing/transport baselines.
+
+Across five rotated 32-byte runs, DHMP measured a median **130.62 M logical frames/s**, **359.36k zero-hold useful publications/s**, and **2.704 ns receiver CPU per logical input frame**. All retained v4 paths reported zero validation errors.
+
+The no-hold publication result confirms that the previous ~70–90k publication figures were dominated by the deliberately inserted 10 µs application delay. That old suite remains a slow-consumer correctness/conflation test rather than a maximum-speed benchmark.
+
+Localhost scheduling variance is still substantial, so v4 publishes complete run ranges and raw results. The next measurement priority is longer physical-LAN runs and cross-machine repeatability.
+
 # Current development status
 
 Updated: 2026-09-23
