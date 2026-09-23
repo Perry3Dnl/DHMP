@@ -1,0 +1,5 @@
+mode,median_cpu_ns_frame,median_fps_cpu,errors
+aos_scalar,2.433835,410874251.438,0
+aos_avx2,1.080029,925900876.235,0
+soa_scalar,2.36995,421949834.802,0
+soa_avx2,0.621018,1610258892.309,0
