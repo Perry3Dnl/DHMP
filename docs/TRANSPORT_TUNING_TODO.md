@@ -53,3 +53,10 @@ AutoTune
 ## Revisit
 
 Revisit after the RX -> processor -> output-slab pipeline is integrated and benchmarked, so transport tuning is measured against the current fastest processor architecture rather than an obsolete path.
+
+
+## Topology-aware placement experiment
+
+A first Ring-3 placement A/B has now been completed. The isolated ownership test showed a modest benefit for one reported shared lower-cache producer/consumer pair, but the full TCP loopback path did not reproduce a stable throughput win. Keep topology-aware placement on the AutoTune list and repeat it on physical hardware before selecting automatic rules.
+
+See [BENCHMARKS.md](BENCHMARKS.md) and the raw `ring3-cpu-topology-*` result files.
