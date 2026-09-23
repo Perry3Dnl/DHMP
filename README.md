@@ -326,7 +326,7 @@ Established so far:
 
 Current engineering priorities:
 
-1. port Ring-3 Fixed-Slab Latest and the bounded Every slab pipeline into .NET, including borrowed receive-slab delivery, direct slab-to-send forwarding, and a batch-first optional delivery worker;
+1. port Ring-3 Fixed-Slab Latest and the bounded Every slab pipeline into .NET, including borrowed receive-slab delivery, direct slab-to-send forwarding, batch-first delivery workers, and contract-selected fused processing routines;
 2. extend showcase v4 zero-hold across negotiated frame sizes;
 3. repeat showcase v4 with longer runs and on physical LAN hardware to reduce localhost scheduling variance;
 4. tune receive-workspace and sender-batch sizing across negotiated frame sizes;
