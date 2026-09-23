@@ -1,5 +1,7 @@
 # DHMP benchmark methodology and results
 
+> Benchmark publication rules: [BENCHMARK_FAIRNESS.md](BENCHMARK_FAIRNESS.md). Cross-protocol rows are only comparable inside one frozen harness generation. Full-stack protocol claims require real full-stack implementations.
+
 ## Current README showcase
 
 The root README now leads with the current performance showcase before explaining the architecture.
