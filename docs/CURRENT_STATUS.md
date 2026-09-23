@@ -1,3 +1,4 @@
+# Current development status
 
 ### Zero-hold maximum-speed showcase v4
 
@@ -9,7 +10,6 @@ The no-hold publication result confirms that the previous ~70–90k publication 
 
 Localhost scheduling variance is still substantial, so v4 publishes complete run ranges and raw results. The next measurement priority is longer physical-LAN runs and cross-machine repeatability.
 
-# Current development status
 
 Updated: 2026-09-23
 
