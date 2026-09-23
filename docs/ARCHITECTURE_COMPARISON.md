@@ -1,5 +1,19 @@
 # DHMP architecture comparison and retained model
 
+The current retained implementation direction is **Adaptive Fixed-Contract**. The application still chooses `Every` or `Latest`; the runtime only selects implementation details that preserve those semantics.
+
+Current README figures:
+
+- [Adaptive architecture](../benchmarks/results/charts/adaptive-current-architecture-2026-09-23.svg)
+- [Current matched A/B optimization gains](../benchmarks/results/charts/adaptive-current-optimization-gains-2026-09-23.svg)
+- [Every output-slab result](../benchmarks/results/charts/adaptive-every-output-slab-2026-09-23.svg)
+- [Fused processing result](../benchmarks/results/charts/adaptive-fused-processing-2026-09-23.svg)
+- [ComputeBlock processor result](../benchmarks/results/charts/adaptive-computeblock-cpu-2026-09-23.svg)
+
+## Current headline
+
+The root README now focuses on the latest retained Adaptive architecture. The older Ring-3 v4 cross-protocol graph remains historical evidence for the `Latest` path it measured and is no longer presented as if it represented the newer `Every`/ComputeBlock optimizations.
+
 This document consolidates the optimization work into one view. Percentages and rates come from different controlled A/B tests and **must not be added together as if they were independent cumulative gains**.
 
 ## Layer-by-layer comparison
