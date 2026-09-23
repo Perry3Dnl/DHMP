@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="710" viewBox="0 0 1500 710">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#172b4d}
+.title{font-size:36px;font-weight:700}.sub{font-size:19px;fill:#53627a}
+.label{font-size:19px}.value{font-size:19px;font-weight:700}.tick{font-size:15px;fill:#667085}.note{font-size:16px;fill:#667085}
+</style>
+<text x="750" y="48" text-anchor="middle" class="title">Current DHMP Adaptive optimization gains</text>
+<text x="750" y="82" text-anchor="middle" class="sub">Controlled A/B results from the latest retained architecture · each bar uses its own matched baseline</text><line x1="520" y1="135" x2="520" y2="608" stroke="#e3e8ef"/>
+<text x="520" y="636" text-anchor="middle" class="tick">0×</text><line x1="729.5238095238095" y1="135" x2="729.5238095238095" y2="608" stroke="#e3e8ef"/>
+<text x="729.5238095238095" y="636" text-anchor="middle" class="tick">1×</text><line x1="939.047619047619" y1="135" x2="939.047619047619" y2="608" stroke="#e3e8ef"/>
+<text x="939.047619047619" y="636" text-anchor="middle" class="tick">2×</text><line x1="1148.5714285714284" y1="135" x2="1148.5714285714284" y2="608" stroke="#e3e8ef"/>
+<text x="1148.5714285714284" y="636" text-anchor="middle" class="tick">3×</text><line x1="1358.095238095238" y1="135" x2="1358.095238095238" y2="608" stroke="#e3e8ef"/>
+<text x="1358.095238095238" y="636" text-anchor="middle" class="tick">4×</text><text x="500" y="192" text-anchor="end" class="label">Every: output-slab publication</text>
+<rect x="520" y="160" width="815.0" height="50" rx="5" fill="#1677ff"/>
+<text x="1349.0" y="192" class="value">3.89×</text><text x="500" y="280" text-anchor="end" class="label">ComputeBlock: SoA + AVX2 processor</text>
+<rect x="520" y="248" width="364.6" height="50" rx="5" fill="#1677ff"/>
+<text x="898.6" y="280" class="value">1.740×</text><text x="500" y="368" text-anchor="end" class="label">Every: fused batch processing</text>
+<rect x="520" y="336" width="244.1" height="50" rx="5" fill="#1677ff"/>
+<text x="778.1" y="368" class="value">1.165×</text><text x="500" y="456" text-anchor="end" class="label">Every: borrowed receive slab</text>
+<rect x="520" y="424" width="221.7" height="50" rx="5" fill="#1677ff"/>
+<text x="755.7" y="456" class="value">1.058×</text><text x="500" y="544" text-anchor="end" class="label">Forwarding: direct slab-to-send</text>
+<rect x="520" y="512" width="219.8" height="50" rx="5" fill="#1677ff"/>
+<text x="753.8" y="544" class="value">1.049×</text><text x="960" y="660" text-anchor="middle" class="sub">Performance relative to the matched baseline (1.0×)</text>
+<text x="960" y="688" text-anchor="middle" class="note">Different harnesses and workloads · gains are not additive and are not a cross-protocol ranking</text>
+</svg>
