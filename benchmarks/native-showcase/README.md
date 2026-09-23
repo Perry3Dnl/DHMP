@@ -2,58 +2,78 @@
 
 This directory contains the native Linux/C comparison harness used to put DHMP receive strategies and familiar framing/transport baselines under one local workload.
 
-## Current showcase v2
+## Current showcase v3
 
-Ring-3 Fixed-Slab Latest is now a first-class path in the same harness as the other benchmark rows.
+Showcase v3 integrates the latest retained Ring-3 CPU architecture directly into the transport benchmark:
+
+- fixed 32-byte negotiated contract;
+- 12 KiB reusable receive workspace;
+- 256 KiB reusable sender batch;
+- three permanent 32-byte payload buffers;
+- SPSC `FRONT / MIDDLE / BACK` ownership;
+- one shared 32-bit atomic `MIDDLE` token;
+- fixed 32-byte vector publication copy;
+- fixed-width carry handling for partial frames;
+- 10 µs zero-copy consumer hold;
+- TLS 1.3 for DHMPS;
+- Linux `sendmmsg/recvmmsg` batching for UDP.
 
 Compared paths:
 
-- **DHMP Ring-3 Fixed-Slab Latest**
-- DHMP Ring8
-- DHMP Slab6
-- DHMPS / TLS 1.3 / Ring-3
-- Raw TCP / fixed-size frame
+- **DHMP Latest / Ring-3 v3**
+- **DHMPS / TLS 1.3 / Ring-3**
+- raw TCP / fixed frame
 - TCP / 4-byte length prefix
-- UDP / datagram
 - WebSocket binary framing
 - HTTP/1.1 chunk framing
+- UDP / batched datagrams
 
-The WebSocket and HTTP rows are framing/parser microbenchmarks rather than complete application-server stacks. The UDP v2 row is an unbatched datagram path.
+The framing baselines use the same Latest publication/consumer model. WebSocket and HTTP remain framing/parser microbenchmarks rather than complete server-stack tests.
 
-## v2 test profile
+### Build
 
-- 32-byte logical payloads
-- fixed 12 KiB receive workspace
-- 3 retained slots for Ring-3 (96 B at 32 B/frame)
-- 8 retained slots for Ring8
-- 6 retained slots for Slab6
-- 500 ms warmup
-- 1.5 second measured interval
-- 3 runs per path
-- 10 µs simulated consumer work
-- loopback networking
-- sender, receiver, and consumer CPU pinning when available
-- TLS 1.3 for DHMPS
-- zero validation errors in all retained v2 runs
+```bash
+gcc -O3 -march=native -pthread -Wall -Wextra -Wpedantic \
+    showcase_v3.c -o showcase_v3 -lssl -lcrypto
+```
 
-The v2 source archive is [DHMP-native-showcase-source.zip](DHMP-native-showcase-source.zip). It contains the integrated `showcase_v2.c` harness and build files.
+Generate a local test certificate for the DHMPS row:
 
-## v2 results
+```bash
+openssl req -x509 -newkey rsa:2048 \
+    -keyout key.pem -out cert.pem -sha256 -days 1 -nodes \
+    -subj '/CN=localhost'
+```
 
-- [raw three-run CSV](../results/showcase-v2-32b-raw-3run-2026-09-23.csv)
-- [three-run median summary](../results/showcase-v2-32b-summary-3run-2026-09-23.csv)
-- [logical input-rate chart](../results/charts/showcase-v2-32b-input-2026-09-23.svg)
-- [useful-publication chart](../results/charts/showcase-v2-32b-published-2026-09-23.svg)
+Then run the retained three-pass suite:
 
-At 32 B the retained medians are:
+```bash
+python run_showcase_v3.py
+```
 
-| Path | Input frames/s | Useful publications/s | Retained state |
+### v3 retained medians
+
+| Path | Logical input | Useful publications | Receiver CPU / logical frame |
 | --- | ---: | ---: | ---: |
-| DHMP Slab6 | 179.2 M | 78.2k | 192 B |
-| **DHMP Ring-3 Fixed-Slab** | **174.2 M** | **74.1k** | **96 B** |
-| DHMP Ring8 | 150.0 M | 72.8k | 256 B |
-| DHMPS / TLS / Ring-3 | 65.1 M | 71.6k | 96 B |
+| **DHMP Latest / Ring-3 v3** | **118.45 M/s** | **73.67k/s** | **2.736 ns** |
+| DHMPS / TLS 1.3 / Ring-3 | 59.66 M/s | 82.78k/s | 10.861 ns |
+| Raw TCP / fixed frame | 145.88 M/s | 80.54k/s | 2.489 ns |
+| TCP / 4-byte length | 71.22 M/s | 59.06k/s | 4.399 ns |
+| WebSocket / binary framing | 104.36 M/s | 69.51k/s | 3.925 ns |
+| HTTP/1.1 / chunk framing | 120.66 M/s | 83.42k/s | 4.202 ns |
+| UDP / batched datagrams | 0.574 M/s | 81.56k/s | 690.13 ns |
 
-The important Ring-3 result is not that it wins every metric. Slab6 is slightly higher in this run. Ring-3 retains half as much application-state payload while remaining in essentially the same high-throughput class.
+All retained runs reported zero payload-validation and framing-validation errors.
 
-These are native localhost architecture results, not physical-network throughput claims and not direct measurements of the .NET implementation.
+Results:
+
+- [raw three-run CSV](../results/showcase-v3-32b-raw-3run-2026-09-23.csv)
+- [three-run median summary](../results/showcase-v3-32b-summary-3run-2026-09-23.csv)
+- [logical input-rate chart](../results/charts/showcase-v3-32b-input-2026-09-23.svg)
+- [useful-publication chart](../results/charts/showcase-v3-32b-published-2026-09-23.svg)
+
+The localhost run-to-run ranges are intentionally retained in the summary CSV. These rates are architecture-lab measurements, not physical-network throughput claims.
+
+## Historical showcase v2
+
+The older v2 source archive remains at [DHMP-native-showcase-source.zip](DHMP-native-showcase-source.zip). v2 predates the single-atomic triple exchange, the current fixed-width carry path, and the current v3 sender/publication model. Its absolute rates should not be treated as directly comparable to v3 because the harness changed.
