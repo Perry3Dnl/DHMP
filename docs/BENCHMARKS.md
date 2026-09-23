@@ -347,3 +347,39 @@ The reason is consistent with the memory layout. With a 64-byte-aligned packed R
 This also explains why the earlier synthetic false-sharing experiment looked more favorable to padding: that microtest deliberately had one core repeatedly write one half of a cache line while another core repeatedly read the other half. The actual Ring-3 batch pattern is different. In the real full-tail path, compact packing reduces cache-line traffic and the newest slot is already naturally separated when the ring begins at a 64-byte boundary.
 
 **Decision:** retain the current compact 96-byte Ring-3 slot layout. Full 64-byte slot padding is not adopted.
+
+
+## Ring-2 vs Ring-3 with 10 µs zero-copy consumer hold — 2026-09-23
+
+This test addresses the main semantic reason for keeping three slots: whether a two-slot design remains faster after adding the synchronization required to let the consumer hold a zero-copy state safely while the producer continues publishing.
+
+Configuration:
+
+- native Linux/C;
+- 32-byte state;
+- producer and consumer pinned to separate CPUs;
+- 10 µs consumer hold per acquired state;
+- 2-second measured interval;
+- 7 retained runs per variant;
+- same atomic slot-state protocol for correctness: `FREE / WRITING / PUBLISHED / READING`;
+- payload integrity checked on every acquired state;
+- zero validation errors in all retained runs.
+
+Source: [ring2_vs_ring3_hold10us.c](../benchmarks/native-gen2/ring2_vs_ring3_hold10us.c)
+
+Raw data: [ring2-vs-ring3-hold10us-2026-09-23.csv](../benchmarks/results/ring2-vs-ring3-hold10us-2026-09-23.csv)
+
+Median results:
+
+| Variant | Producer publications/s | Producer CPU ns/publication | Consumer useful publications/s | Validation errors |
+| --- | ---: | ---: | ---: | ---: |
+| Ring-2 safe swap | 30.640 M | 32.636 ns | 88.861k | 0 |
+| **Ring-3 triple buffer** | **30.649 M** | **32.624 ns** | **90.498k** | **0** |
+
+The producer rates are effectively identical (about 0.03% apart), while Ring-3 delivered about **1.8% more useful consumer publications** in the median retained run.
+
+The important result is that Ring-2's smaller 64-byte payload footprint did **not** translate into a measurable producer-throughput advantage once a safe zero-copy ownership protocol and a 10 µs consumer hold were included. The synchronization needed to keep the two-slot design correct consumes the raw-copy advantage seen in isolated memory tests.
+
+This makes Ring-3 the stronger default for `Latest` zero-copy semantics: it preserves a separate reader-held state while the producer continues publishing, without showing a throughput penalty in this test.
+
+An earlier aggressively minimized lock-free prototype produced occasional torn-state validation failures and is not retained as a valid result. Only zero-error runs are published.
