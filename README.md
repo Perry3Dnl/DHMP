@@ -12,7 +12,27 @@ The goal is straightforward:
 
 # Performance showcase
 
-## What are we testing?
+## Fair benchmark status
+
+The project currently has **two different classes of benchmark evidence**, and they must not be confused.
+
+| Comparison | Status | Can this support a headline claim? |
+| --- | --- | --- |
+| DHMP vs raw TCP / length-prefixed TCP in the frozen native C harness | **Tested** | Yes, for this exact native framing/transport harness |
+| DHMP vs WebSocket / HTTP/1.1 / HTTP/2 / gRPC / MQTT / NATS **framing shapes** in the same native C harness | **Tested** | Yes, but only as framing/parser hot-path comparisons |
+| DHMP vs real ASP.NET Core HTTP/1.1 | **Not yet fairly tested against current Adaptive DHMP** | **No** |
+| DHMP vs real ASP.NET Core HTTP/2 | **Not yet fairly tested against current Adaptive DHMP** | **No** |
+| DHMP vs real grpc-dotnet | **Not yet fairly tested against current Adaptive DHMP** | **No** |
+| DHMP vs real System.Net.WebSockets | **Not yet fairly tested against current Adaptive DHMP** | **No** |
+| DHMP vs a real MQTT broker/client | **Not yet fairly tested** | **No** |
+| DHMP vs official/version-pinned NATS client + NATS server | **Not yet fairly tested** | **No** |
+| DHMPS vs HTTPS / secure HTTP2 under one frozen TLS harness | **Not yet rerun for the current engine** | **No** |
+
+**Therefore the current README does not claim that DHMP is faster than complete HTTP/2, gRPC, WebSocket, MQTT, or NATS production stacks.** Those rows remain unmeasured until we run real implementations together under one frozen harness.
+
+If a future fair full-stack benchmark shows DHMP is slower, the slower DHMP result will be published.
+
+## What are we testing today?
 
 The headline native showcase answers a narrow question first:
 
@@ -50,7 +70,9 @@ The comparison includes raw fixed TCP, varint-length TCP, 4-byte-length TCP, Web
 | NATS / PUB framing | Native C NATS PUB framing with a fixed subject | **No** |
 | UDP / batched datagrams | Native C batched UDP datagrams | No application protocol |
 
-So this table is a **framing/transport hot-path comparison**, not a claim that DHMP has already beaten full Kestrel HTTP/2, grpc-dotnet, an MQTT broker, NATS server, or a complete WebSocket framework.
+So this table is a **framing/transport hot-path comparison**. It answers **"how expensive is this framing shape in the same native loop?"** It does **not** answer **"is DHMP faster than the real production implementation of this protocol?"**
+
+For example, the row labelled `HTTP/2 / DATA framing` is a native C DATA-frame hot path. It is **not** ASP.NET Core/Kestrel HTTP/2. Likewise, the gRPC row is an envelope/framing shape, not grpc-dotnet.
 
 Logical GB/s below means application payload represented by logical records; it is **not physical NIC throughput**.
 
@@ -123,7 +145,9 @@ That metric counts receiver-thread processing time per logical input frame. It i
 
 ## Full-stack comparison status
 
-The current native framing table above is **not** the final real-world protocol comparison. The fair full-stack table will only be populated after the current Adaptive .NET implementation is run against version-pinned real implementations under one frozen harness.
+The table below is intentionally incomplete. **Missing means unmeasured, not zero, not slow, and not assumed.**
+
+The final real-world comparison will only be populated after the current Adaptive .NET implementation is run against version-pinned real implementations under one frozen harness.
 
 | Real comparison target | Status |
 | --- | --- |
