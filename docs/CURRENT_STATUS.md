@@ -84,6 +84,18 @@ This is a parallel-throughput optimization rather than an aggregate-CPU optimiza
 The high-performance adapter contract should therefore be batch-first. Per-message APIs belong above that batch surface as convenience wrappers.
 
 
+
+### Borrowed receive slabs for zero-copy Every delivery
+
+The `Every` path now has a validated architecture for borrowing the receive slab itself as the public batch when the wire representation is already directly consumable.
+
+Instead of receiving into one workspace and copying all complete frames into a second output slab, the receiver takes a slab from the bounded pool, receives directly into it, publishes an `offset + count` view, and reuses that slab only after downstream code releases ownership. Cross-read split frames use a tiny carry buffer; only those boundary fragments are copied.
+
+Across twelve alternating 30-million-frame runs, the borrowed path measured **126.51 M frames/s** median end-to-end versus **119.63 M/s** for the copy path, about **+5.8%**. Median logical payload throughput rose from about **3.83 GB/s to 4.05 GB/s**, with zero validation errors.
+
+This should be the preferred `Every` fast path for wire-compatible payloads. Transformed representations still require output storage; `Latest` keeps its compact newest-state retention model.
+
+
 ## What has been established
 
 The prototype has progressed from a fixed-layout socket experiment into a broader DHMP transport design.
