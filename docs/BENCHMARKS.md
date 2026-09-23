@@ -791,3 +791,41 @@ Source: [every_forward_direct_slab_ab.c](../benchmarks/native-showcase/every_for
 Raw results: [every-forward-direct-slab-ab-raw-12run-2026-09-23.csv](../benchmarks/results/every-forward-direct-slab-ab-raw-12run-2026-09-23.csv)
 
 Summary: [every-forward-direct-slab-ab-summary-12run-2026-09-23.csv](../benchmarks/results/every-forward-direct-slab-ab-summary-12run-2026-09-23.csv)
+
+
+## Dedicated batch delivery worker — 2026-09-23
+
+A native `Every` pipeline experiment tested moving actual decode/conversion and batch-adapter work off the protocol receiver onto a dedicated delivery worker.
+
+Both variants use the same bounded **8 × 12 KiB slab pool** and the same batch-oriented adapter. The protocol stage receives complete 32-byte records and places them into a reusable slab. The difference is where delivery preparation runs:
+
+- **inline:** the protocol thread performs conversion and one adapter call for the whole slab before continuing to receive;
+- **worker:** the protocol thread publishes the populated slab and immediately returns to receive work; a dedicated delivery worker acquires the slab, performs the identical conversion, calls the identical batch adapter once, then returns the slab to the pool.
+
+The adapter therefore crosses the delivery boundary once per roughly **384 records**, not once per message.
+
+A synthetic conversion-weight sweep used 12 million ordered records per run, seven alternating runs per weight, zero artificial consumer delay, sender CPU 4, protocol CPU 2, and delivery-worker CPU 3. CPUs 2/3 were the cache-close pair identified by the earlier topology experiment.
+
+| Conversion work | Inline median | Worker median | Worker throughput change | Inline CPU/result | Worker protocol CPU/result | Worker delivery CPU/result |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 round | 89.60 M/s | **133.09 M/s** | **+48.5%** | 11.116 ns | 7.041 ns | 7.511 ns |
+| 2 rounds | 83.71 M/s | **112.19 M/s** | **+34.0%** | 11.640 ns | 8.557 ns | 8.909 ns |
+| 4 rounds | 55.36 M/s | **67.58 M/s** | **+22.1%** | 18.035 ns | 14.738 ns | 14.791 ns |
+| 8 rounds | 35.56 M/s | **43.39 M/s** | **+22.0%** | 28.099 ns | 22.979 ns | 23.047 ns |
+| 16 rounds | 21.53 M/s | **25.55 M/s** | **+18.7%** | 46.397 ns | 39.056 ns | 39.127 ns |
+
+All retained runs completed with zero validation errors and exact delivered-frame counts.
+
+The worker improves wall-clock throughput by overlapping protocol receive work with delivery preparation, but it does **not** reduce total CPU usage. For example, at one synthetic conversion round the inline path used about 11.116 ns of protocol-thread CPU per result, while the worker path used about 7.041 ns on the protocol thread plus 7.511 ns on the worker. The higher throughput therefore comes from parallel execution across cores, not from less aggregate work.
+
+A preliminary run using the older sender/protocol/consumer CPU placement showed the worker can regress when cache placement is poor. The positive sweep above used the cache-close protocol/worker pair found in the topology experiment. This makes delivery-worker enablement a strong candidate for runtime/AutoTune selection rather than a universal always-on rule.
+
+The conversion loop is synthetic and is intended to explore the break-even behavior of the architecture. It is not a claim about the cost of a specific .NET, Unity, Python, or other language adapter.
+
+**Implementation direction:** keep the high-performance public surface batch-oriented. Per-message convenience APIs can be layered above it, but should not force the protocol core to perform one cross-thread handoff or callback per logical message.
+
+Source: [every_delivery_worker_ab.c](../benchmarks/native-showcase/every_delivery_worker_ab.c)
+
+Raw results: [every-delivery-worker-ab-raw-7run-2026-09-23.csv](../benchmarks/results/every-delivery-worker-ab-raw-7run-2026-09-23.csv)
+
+Summary: [every-delivery-worker-ab-summary-7run-2026-09-23.csv](../benchmarks/results/every-delivery-worker-ab-summary-7run-2026-09-23.csv)
