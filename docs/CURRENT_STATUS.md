@@ -1,4 +1,6 @@
 
+
+> Consolidated architecture comparison and retained default direction: [ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md).
 ### Consumer CAS vs exchange
 
 > Follow-up: transport/runtime tuning is tracked in [TRANSPORT_TUNING_TODO.md](TRANSPORT_TUNING_TODO.md) and should be revisited after the RX -> processor -> output-slab pipeline work.
