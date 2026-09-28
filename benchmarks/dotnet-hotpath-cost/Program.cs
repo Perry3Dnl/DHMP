@@ -91,5 +91,3 @@ static class Program {
   void Store(ReadOnlySpan<byte> input){if(slot==0?u0:u1)throw new InvalidOperationException();input.CopyTo(slot==0?c0:c1);len=input.Length;}
   void Borrow(Action<ReadOnlySpan<byte>> cb){if(slot==0){if(u0)throw new InvalidOperationException();u0=true;try{cb(c0);}finally{u0=false;}return;}if(u1)throw new InvalidOperationException();u1=true;try{cb(c1);}finally{u1=false;}}
  }
- }
-}
