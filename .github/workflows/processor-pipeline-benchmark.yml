@@ -57,7 +57,7 @@ jobs:
 
           native=$(grep '^mode=direct ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
           slab=$(grep '^mode=slab ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
-          managed=$(grep '^mode=dotnet-model ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
+          managed=$(grep '^mode=dotnet-' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
           [[ -n "$native" && "$native" == "$slab" && "$native" == "$managed" ]] || { echo "::error::Checksum mismatch"; exit 1; }
           echo "Checksum validation passed: $native"
 
