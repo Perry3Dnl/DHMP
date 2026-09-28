@@ -1,6 +1,6 @@
 namespace Dhmp.Server;
 
-public sealed class DhmpServerOptions
+public sealed class DHMPServerOptions
 {
     public int Port { get; set; } = 7777;
     public int MaxPayloadBytes { get; set; } = 32;
