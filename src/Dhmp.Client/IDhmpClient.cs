@@ -1,6 +1,6 @@
 namespace Dhmp.Client;
 
-public interface IDhmpClient : IAsyncDisposable
+public interface IDHMPClient : IAsyncDisposable
 {
     bool IsConnected { get; }
     ValueTask ConnectAsync(CancellationToken cancellationToken = default);
