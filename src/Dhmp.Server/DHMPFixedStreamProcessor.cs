@@ -5,6 +5,7 @@ public sealed class DHMPFixedStreamProcessor
 {
     private readonly int _packageSize;
     private readonly int _packageMask;
+    private readonly bool _powerOfTwo;
     private readonly byte[][] _carry;
     private readonly bool[] _borrowed=new bool[2];
     private int _writeSlot,_carryLength;
@@ -13,7 +14,8 @@ public sealed class DHMPFixedStreamProcessor
     {
         if(packageSize<=0) throw new ArgumentOutOfRangeException(nameof(packageSize));
         _packageSize=packageSize;
-        _packageMask=IsPowerOfTwo(packageSize)?packageSize-1:-1;
+        _powerOfTwo=IsPowerOfTwo(packageSize);
+        _packageMask=_powerOfTwo?packageSize-1:0;
         _carry=[new byte[packageSize],new byte[packageSize]];
     }
     public int PackageSize=>_packageSize;
@@ -32,7 +34,7 @@ public sealed class DHMPFixedStreamProcessor
 
         // Division/remainder used to be on every transport chunk. For the overwhelmingly
         // common power-of-two contracts (16/32/64...) this reduces framing to one mask.
-        int remainder=_packageMask>=0
+        int remainder=_powerOfTwo
             ? input.Length&_packageMask
             : input.Length%_packageSize;
         int completeBytes=input.Length-remainder;
