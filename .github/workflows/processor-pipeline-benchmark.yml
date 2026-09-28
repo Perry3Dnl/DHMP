@@ -2,16 +2,6 @@ name: DHMP Stage Isolation Benchmark
 on:
   workflow_dispatch:
     inputs:
-      stage:
-        description: Exact pipeline stage to measure
-        required: true
-        default: raw-read
-        type: choice
-        options:
-          - raw-read
-          - package-model
-          - exchange
-          - exchange-model
       profile:
         description: Benchmark profile
         required: true
@@ -40,15 +30,18 @@ jobs:
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
           : > stage-results.txt
-          echo "stage=${{ inputs.stage }} profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32" | tee -a stage-results.txt
+          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 stages=raw-read,package-model,exchange,exchange-model" | tee -a stage-results.txt
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' | tee -a stage-results.txt || true
-          for ((i=1;i<=RUNS;i++)); do
-            echo "===== RUN $i / $RUNS =====" | tee -a stage-results.txt
-            dotnet benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll "${{ inputs.stage }}" "$MESSAGES" | tee -a stage-results.txt
+          for stage in raw-read package-model exchange exchange-model; do
+            echo "===== STAGE $stage =====" | tee -a stage-results.txt
+            for ((i=1;i<=RUNS;i++)); do
+              echo "----- RUN $i / $RUNS -----" | tee -a stage-results.txt
+              dotnet benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll "$stage" "$MESSAGES" | tee -a stage-results.txt
+            done
           done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: dhmp-stage-${{ inputs.stage }}-${{ github.run_id }}
+          name: dhmp-all-stages-${{ github.run_id }}
           path: stage-results.txt
           retention-days: 7
