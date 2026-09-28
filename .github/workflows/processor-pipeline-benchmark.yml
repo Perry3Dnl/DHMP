@@ -1,4 +1,4 @@
-name: DHMP Parallel Model Write Scaling Benchmark
+name: DHMP Producer Slab Worker Pipeline Benchmark
 on:
   workflow_dispatch:
     inputs:
@@ -24,26 +24,20 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build once
         run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
-      - name: Run fixed worker scaling comparison
+      - name: Run producer slab worker pipeline
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-          STAGES=(baseline-read direct-cast model-write-1w model-write-2w model-write-4w)
-          : > stage-results.txt
-          echo "benchmark=parallel-model-write profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 checksum=A+D" | tee -a stage-results.txt
-          echo "rules=same-runner,same-input-shape,same-message-count,same-checksum,separate-process-per-stage,allocations-outside-timer,contiguous-worker-slices,no-per-message-sync" | tee -a stage-results.txt
-          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' | tee -a stage-results.txt || true
+          STAGES=(baseline-read direct-cast pipeline-1w pipeline-2w pipeline-4w)
+          echo "benchmark=producer-slab-workers profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 slab_size=512 slab_slots=64 checksum=A+D"
+          echo "metrics=end_to_end_mps,producer_stalls,producer_stall_ms,producer_stall_pct,max_depth_slabs,consumed,checksum"
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
           for stage in "${STAGES[@]}"; do
-            echo "===== STAGE $stage =====" | tee -a stage-results.txt
+            echo "===== STAGE $stage ====="
             for ((i=1;i<=RUNS;i++)); do
-              echo "----- RUN $i / $RUNS -----" | tee -a stage-results.txt
-              dotnet benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll "$stage" "$MESSAGES" | tee -a stage-results.txt
+              echo "----- RUN $i / $RUNS -----"
+              dotnet benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll "$stage" "$MESSAGES"
             done
           done
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: dhmp-parallel-model-write-${{ github.run_id }}
-          path: stage-results.txt
-          retention-days: 7
+          echo "===== END BENCHMARK ====="
