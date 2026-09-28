@@ -32,7 +32,7 @@ jobs:
           echo "BENCHMARK_CONTRACT=V1 -- DO NOT CHANGE workloads/layout/slab/chunk-pattern when comparing optimization commits"
           echo "COMMIT=${GITHUB_SHA}"
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
-          dotnet --info | head -40
+          dotnet --info | sed -n '1,40p'
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.profile }}" == "full" ]]; then N=10000000; PASSES=20; RUNS=7; else N=5000000; PASSES=5; RUNS=3; fi
           DLL=benchmarks/dotnet-max-throughput/bin/Release/net10.0/Dhmp.MaxThroughputDemo.dll
           for ((i=1;i<=RUNS;i++)); do echo "===== V1 RUN $i / $RUNS ====="; dotnet "$DLL" "$N" "$PASSES"; done
