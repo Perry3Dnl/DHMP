@@ -9,7 +9,7 @@ public sealed class DHMPFixedStreamProcessor
 {
     private readonly int _packageSize;
     private readonly byte[][] _carry;
-    private readonly bool[] _borrowed;
+    private readonly bool[] _borrowed = new bool[2];
     private int _writeSlot;
     private int _carryLength;
 
