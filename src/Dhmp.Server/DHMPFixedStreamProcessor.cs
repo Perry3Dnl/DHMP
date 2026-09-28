@@ -49,7 +49,12 @@ public sealed class DHMPFixedStreamProcessor
             publishBorrowed(input.Slice(0,completeBytes));
             input=input.Slice(completeBytes);
         }
-        if(input.IsEmpty)return;
+        if(remainder==0)return;
+        StoreRemainder(input);
+    }
+
+    private void StoreRemainder(ReadOnlySpan<byte> input)
+    {
         if((_writeSlot==0?_borrowed0:_borrowed1))throw new InvalidOperationException("No free DHMP carry slot.");
         byte[] target=_writeSlot==0?_carry0:_carry1;
         input.CopyTo(target);
