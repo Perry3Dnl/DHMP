@@ -48,7 +48,7 @@ static class Program {
         });
         using var r=listener.Accept(); r.NoDelay=true;
         byte[] buf=new byte[256*1024];
-        long got=0;
+        long receivedBytes=0;
         DHMPFixedStreamProcessor? p=dhmp?new(Size):null;
         Action<ReadOnlySpan<byte>> consume=ConsumeO44<PlayerState,CountConsumer>;
         long start=Stopwatch.GetTimestamp();
@@ -57,10 +57,13 @@ static class Program {
             if(n==0)break;
             if(dhmp) p!.Process(buf.AsSpan(0,n),consume,consume);
             else RawFixed(buf.AsSpan(0,n),consume);
-            got+=n/Size; // total byte count is exact; final return uses requested message count.
+            receivedBytes+=n;
         }
         long end=Stopwatch.GetTimestamp(); sender.GetAwaiter().GetResult();
-        return (end-start,messages);
+        long expectedBytes=(long)messages*Size;
+        if(receivedBytes!=expectedBytes) throw new InvalidOperationException($"TCP byte count mismatch: {receivedBytes} != {expectedBytes}");
+        if(!dhmp && RawCarryLen!=0) throw new InvalidOperationException($"Raw TCP ended with {RawCarryLen} carry bytes.");
+        return (end-start,receivedBytes/Size);
     }
 
     // Raw TCP control gets the same fixed 32-byte contract. Loopback SendChunk is a multiple of 32,
