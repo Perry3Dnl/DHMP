@@ -1,4 +1,4 @@
-name: DHMP .NET Boundary Cost Ladder
+name: DHMP .NET Transition Benchmark
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: dhmp-dotnet-boundary-benchmark
+  group: dhmp-dotnet-transition-benchmark
   cancel-in-progress: false
 jobs:
   benchmark:
@@ -22,24 +22,22 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Build .NET boundary benchmark
+      - name: Build
         run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
-      - name: Run .NET boundary cost ladder
+      - name: Run transition benchmark
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-          echo "benchmark=dhmp-dotnet-boundary profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 span_packages=512"
-          echo "L0=accept DHMP package spans; no payload copy"
-          echo "L1=zero-copy package->C# model view + consume"
-          echo "L2=zero-copy model view + batch4 consume"
-          echo "L3=explicit copy into model buffer + consume (cost reference, not preferred architecture)"
-          echo "L4=Latest: consume newest C# model per incoming span"
+          echo "benchmark=dhmp-dotnet-transition profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 span_packages=512"
+          echo "scope=DHMP span -> typed zero-copy .NET view + bounded region lease/release"
+          echo "B0=typed span boundary only"
+          echo "B1=Sequential bounded receive-region acquire/view/release"
+          echo "B2=Latest bounded receive-region acquire/newest-view/release"
+          echo "REF=application field consumption; OUT OF SCOPE, comparison only"
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
           DLL=benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll
-          STAGES=(span-accept model-view model-view-batch4 copy-models latest)
-          for stage in "${STAGES[@]}"; do
+          for stage in typed-boundary sequential-lease latest-lease app-reference; do
             echo "===== STAGE $stage ====="
-            for ((i=1;i<=RUNS;i++)); do echo "----- RUN $i / $RUNS -----"; dotnet "$DLL" "$stage" "$MESSAGES"; done
+            for ((i=1;i<=RUNS;i++)); do dotnet "$DLL" "$stage" "$MESSAGES"; done
           done
-          echo "===== END BENCHMARK ====="
