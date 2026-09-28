@@ -1,4 +1,4 @@
-name: DHMP Stage Isolation Benchmark
+name: DHMP Direct Model Buffer Benchmark
 on:
   workflow_dispatch:
     inputs:
@@ -24,15 +24,15 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build
         run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
-      - name: Run one isolated stage
+      - name: Run isolated stages on one runner
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
           : > stage-results.txt
-          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 stages=raw-read,package-model,exchange,exchange-model" | tee -a stage-results.txt
+          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 stages=raw-read,package-model,direct-model-buffer" | tee -a stage-results.txt
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' | tee -a stage-results.txt || true
-          for stage in raw-read package-model exchange exchange-model; do
+          for stage in raw-read package-model direct-model-buffer; do
             echo "===== STAGE $stage =====" | tee -a stage-results.txt
             for ((i=1;i<=RUNS;i++)); do
               echo "----- RUN $i / $RUNS -----" | tee -a stage-results.txt
@@ -42,6 +42,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: dhmp-all-stages-${{ github.run_id }}
+          name: dhmp-direct-model-buffer-${{ github.run_id }}
           path: stage-results.txt
           retention-days: 7
