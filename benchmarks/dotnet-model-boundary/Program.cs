@@ -2,75 +2,17 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
-
-[StructLayout(LayoutKind.Sequential, Pack=1)] struct Package32 { public uint V0,V1,V2,V3,V4,V5,V6,V7; }
-[StructLayout(LayoutKind.Sequential, Pack=1)] struct Model32 { public uint V0,V1,V2,V3,V4,V5,V6,V7; }
-
-sealed class Slab {
-    public readonly Package32[] Items;
-    public int Count;
-    public int State; // 0 free, 1 filling, 2 ready, 3 claimed
-    public Slab(int size) => Items=new Package32[size];
-}
-
-static class Program {
- static long _sink;
- [MethodImpl(MethodImplOptions.AggressiveInlining)] static Model32 Materialize(in Package32 p)=>Unsafe.As<Package32,Model32>(ref Unsafe.AsRef(in p));
- [MethodImpl(MethodImplOptions.AggressiveInlining)] static ulong Consume(in Model32 m)=>(ulong)m.V0+m.V3+m.V7;
- [MethodImpl(MethodImplOptions.AggressiveInlining)] static Package32 Make(int i)=>new(){V0=(uint)i,V1=1,V2=2,V3=3,V4=4,V5=5,V6=6,V7=(uint)((ulong)i^0x9e3779b9u)};
-
- static ulong Expected(int n){ulong s=0;for(int i=0;i<n;i++)s+=(ulong)(uint)i+3+(uint)((ulong)i^0x9e3779b9u);return s;}
-
- static void Counter(int n) {
-   ulong s=0; var sw=Stopwatch.StartNew();
-   for(int i=0;i<n;i++){var p=Make(i);var m=Materialize(in p);s+=Consume(in m);}
-   sw.Stop(); Volatile.Write(ref _sink,(long)s);
-   Console.WriteLine($"mode=dotnet-direct workers=1 messages={n} wall_s={sw.Elapsed.TotalSeconds:F6} mps={n/sw.Elapsed.TotalSeconds/1e6:F3} ns_msg={sw.Elapsed.TotalSeconds*1e9/n:F3} checksum={s}");
- }
-
- static void Exchange(int n,int workers,int slabSize=512,int slabCount=32) {
-   var slabs=new Slab[slabCount]; for(int i=0;i<slabCount;i++)slabs[i]=new Slab(slabSize);
-   var sums=new ulong[workers]; var spins=new long[workers]; var threads=new Thread[workers];
-   using var gate=new ManualResetEventSlim(false);
-   int done=0;
-   for(int w=0;w<workers;w++){int id=w;threads[w]=new Thread(()=>{
-     ulong sum=0; long spin=0; int scan=id%slabCount; gate.Wait();
-     while(true){
-       bool found=false;
-       for(int k=0;k<slabCount;k++){
-         int idx=(scan+k)%slabCount; var slab=slabs[idx];
-         if(Interlocked.CompareExchange(ref slab.State,3,2)!=2) continue;
-         found=true; int count=slab.Count;
-         for(int j=0;j<count;j++){var m=Materialize(in slab.Items[j]);sum+=Consume(in m);}
-         Volatile.Write(ref slab.State,0); scan=(idx+1)%slabCount; break;
-       }
-       if(!found){if(Volatile.Read(ref done)!=0)break;spin++;Thread.SpinWait(1);}
-     }
-     sums[id]=sum;spins[id]=spin;
-   }){IsBackground=true};threads[w].Start();}
-
-   long alloc0=GC.GetTotalAllocatedBytes(true); long producerSpins=0, publications=0;
-   var sw=Stopwatch.StartNew(); gate.Set();
-   int produced=0, next=0;
-   while(produced<n){
-     var slab=slabs[next];
-     if(Interlocked.CompareExchange(ref slab.State,1,0)!=0){producerSpins++;Thread.SpinWait(1);next=(next+1)%slabCount;continue;}
-     int count=Math.Min(slabSize,n-produced);
-     for(int j=0;j<count;j++)slab.Items[j]=Make(produced+j);
-     slab.Count=count; Volatile.Write(ref slab.State,2); publications++; produced+=count; next=(next+1)%slabCount;
-   }
-   while(true){bool busy=false;for(int i=0;i<slabCount;i++)if(Volatile.Read(ref slabs[i].State)!=0){busy=true;break;}if(!busy)break;Thread.SpinWait(1);}
-   Volatile.Write(ref done,1); foreach(var t in threads)t.Join(); sw.Stop();
-   ulong sum=0;long consumerSpins=0;foreach(var x in sums)sum+=x;foreach(var x in spins)consumerSpins+=x;
-   Volatile.Write(ref _sink,(long)sum); long allocated=GC.GetTotalAllocatedBytes(true)-alloc0;
-   Console.WriteLine($"mode=dotnet-exchange workers={workers} messages={n} slab={slabSize} slots={slabCount} wall_s={sw.Elapsed.TotalSeconds:F6} mps={n/sw.Elapsed.TotalSeconds/1e6:F3} ns_msg={sw.Elapsed.TotalSeconds*1e9/n:F3} publications={publications} producer_spins={producerSpins} consumer_spins={consumerSpins} allocated_bytes={allocated} checksum={sum}");
- }
-
- static void Main(string[] args){
-   int n=args.Length>0?int.Parse(args[0]):10_000_000;
-   // JIT warmup outside measured runs.
-   Counter(Math.Min(n,200_000));
-   ulong expected=Expected(n); Volatile.Write(ref _sink,(long)expected);
-   Counter(n); Exchange(n,1); Exchange(n,2); Exchange(n,4);
- }
+[StructLayout(LayoutKind.Sequential,Pack=1)] struct P32{public ulong A,B,C,D;}
+[StructLayout(LayoutKind.Sequential,Pack=1)] struct M32{public ulong A,B,C,D;}
+static class Program{
+ static ulong sink;
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static M32 Model(in P32 p)=>Unsafe.As<P32,M32>(ref Unsafe.AsRef(in p));
+ static void Out(string stage,int n,long ticks,ulong sum){double s=(double)ticks/Stopwatch.Frequency;Console.WriteLine($"stage={stage} messages={n} bytes={n*32L} wall_s={s:F6} GBps={n*32.0/s/1e9:F3} mps={n/s/1e6:F3} ns_msg={s*1e9/n:F3} checksum={sum}");}
+ static P32[] Data(int n){var a=new P32[n];for(int i=0;i<n;i++)a[i]=new P32{A=(ulong)i,B=1,C=2,D=(ulong)i^0x9e3779b97f4a7c15UL};return a;}
+ static void Raw(int n){var a=Data(n);ulong s=0;long t=Stopwatch.GetTimestamp();for(int i=0;i<n;i++)s+=a[i].A+a[i].D;long e=Stopwatch.GetTimestamp();sink=s;Out("raw-read",n,e-t,s);}
+ static void PackageModel(int n){var a=Data(n);ulong s=0;long t=Stopwatch.GetTimestamp();for(int i=0;i<n;i++){var m=Model(in a[i]);s+=m.A+m.D;}long e=Stopwatch.GetTimestamp();sink=s;Out("package-model",n,e-t,s);}
+ static void Exchange(int n,bool model){const int size=512,slots=32;var q=new P32[slots][];for(int x=0;x<slots;x++)q[x]=new P32[size];var state=new int[slots];ulong sum=0;int done=0;using var gate=new ManualResetEventSlim(false);var c=new Thread(()=>{int r=0;gate.Wait();while(true){if(Volatile.Read(ref state[r])==2){var slab=q[r];if(model){for(int j=0;j<size;j++){var m=Model(in slab[j]);sum+=m.A+m.D;}}else{for(int j=0;j<size;j++)sum+=slab[j].A+slab[j].D;}Volatile.Write(ref state[r],0);r=(r+1)%slots;}else if(Volatile.Read(ref done)!=0)break;else Thread.SpinWait(1);}});c.Start();int p=0,w=0;long t=Stopwatch.GetTimestamp();gate.Set();while(p<n){while(Volatile.Read(ref state[w])!=0)Thread.SpinWait(1);int count=Math.Min(size,n-p);for(int j=0;j<count;j++){int i=p+j;q[w][j]=new P32{A=(ulong)i,B=1,C=2,D=(ulong)i^0x9e3779b97f4a7c15UL};}for(int j=count;j<size;j++)q[w][j]=default;Volatile.Write(ref state[w],2);p+=count;w=(w+1)%slots;}while(true){bool busy=false;for(int i=0;i<slots;i++)if(Volatile.Read(ref state[i])!=0){busy=true;break;}if(!busy)break;Thread.SpinWait(1);}Volatile.Write(ref done,1);c.Join();long e=Stopwatch.GetTimestamp();sink=sum;Out(model?"exchange-model":"exchange",n,e-t,sum);}
+ static void Main(string[] args){string stage=args[0];int n=int.Parse(args[1]); // small unmeasured JIT warmup in a separate code path
+ var warm=Data(10000);for(int i=0;i<warm.Length;i++){var m=Model(in warm[i]);sink+=m.A+m.D;}
+ switch(stage){case "raw-read":Raw(n);break;case "package-model":PackageModel(n);break;case "exchange":Exchange(n,false);break;case "exchange-model":Exchange(n,true);break;default:throw new ArgumentException(stage);}}
 }
