@@ -1,0 +1,36 @@
+name: DHMP Current TCP Comparison
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Dhmp.Server/**'
+      - 'benchmarks/tcp-current/**'
+      - '.github/workflows/tcp-current.yml'
+permissions: { contents: read }
+jobs:
+  tcp-current:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Environment
+        shell: bash
+        run: |
+          echo "COMMIT=\${GITHUB_SHA}"
+          lscpu | grep -E 'Model name|CPU\\(s\\)|Thread|Core|Socket' || true
+          dotnet --info | sed -n '1,40p'
+      - name: Build
+        run: dotnet build benchmarks/tcp-current/Dhmp.TcpCurrent.csproj -c Release
+      - name: Raw fixed TCP vs current DHMP O44
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TCP_CURRENT_CONTRACT=V1 -- 32-byte payload, same loopback TCP socket path, same typed O44 consumer"
+          DLL=benchmarks/tcp-current/bin/Release/net10.0/Dhmp.TcpCurrent.dll
+          for i in 1 2 3 4 5; do
+            echo "===== TCP CURRENT RUN $i / 5 ====="
+            dotnet "$DLL" 10000000
+          done
