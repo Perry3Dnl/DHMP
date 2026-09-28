@@ -8,9 +8,7 @@ on:
         required: true
         default: quick
         type: choice
-        options:
-          - quick
-          - full
+        options: [quick, full]
 
 permissions:
   contents: read
@@ -23,71 +21,51 @@ jobs:
   benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Compile benchmark
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compile native exchange benchmark
         working-directory: benchmarks/native-gen2
         run: gcc -O3 -march=native -pthread processor_pipeline_exchange_ab.c -o pipeline-ab
 
-      - name: Run benchmark
-        working-directory: benchmarks/native-gen2
+      - name: Build .NET model boundary benchmark
+        run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
+
+      - name: Run focused boundary benchmark
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-
-          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES"
-          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
-
-          # GitHub-hosted runners vary. Use taskset only when CPUs 0 and 1
-          # are both available to this job; otherwise run normally.
-          RUNNER=""
-          if command -v taskset >/dev/null 2>&1; then
-            ALLOWED=$(taskset -pc $$ 2>/dev/null | sed 's/.*: //')
-            if taskset -c 0,1 true >/dev/null 2>&1; then
-              RUNNER="taskset -c 0,1"
-              echo "affinity=cpus-0-1 allowed=$ALLOWED"
-            else
-              echo "affinity=unavailable allowed=$ALLOWED"
-            fi
-          fi
-
           : > processor-pipeline-results.txt
-
-          run_case() {
-            if [[ -n "$RUNNER" ]]; then
-              $RUNNER "$@"
-            else
-              "$@"
-            fi
-          }
+          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES" | tee -a processor-pipeline-results.txt
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' | tee -a processor-pipeline-results.txt || true
+          dotnet --info | head -20 | tee -a processor-pipeline-results.txt
 
           for ((i=1; i<=RUNS; i++)); do
             {
               echo "===== RUN $i / $RUNS ====="
-              run_case ./pipeline-ab direct "$MESSAGES"
-              run_case ./pipeline-ab spsc "$MESSAGES"
-              for slab in 192 256 320 384 448 512 640; do
-                run_case ./pipeline-ab slab "$MESSAGES" "$slab"
-              done
+              benchmarks/native-gen2/pipeline-ab direct "$MESSAGES"
+              benchmarks/native-gen2/pipeline-ab slab "$MESSAGES" 512
+              dotnet run --project benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release --no-build -- "$MESSAGES"
             } | tee -a processor-pipeline-results.txt
           done
 
-          expected=$(grep '^mode=direct ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
-          [[ $(echo "$expected" | wc -l) -eq 1 ]] || { echo "::error::Direct checksum inconsistent"; exit 1; }
-
-          all=$(sed -n 's/.*checksum=\([0-9]*\).*/\1/p' processor-pipeline-results.txt | sort -u)
-          [[ $(echo "$all" | wc -l) -eq 1 && "$all" == "$expected" ]] || { echo "::error::Checksum validation failed; results invalid"; exit 1; }
-          echo "Checksum validation passed: $expected"
+          native=$(grep '^mode=direct ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
+          slab=$(grep '^mode=slab ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
+          managed=$(grep '^mode=dotnet-model ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
+          [[ -n "$native" && "$native" == "$slab" && "$native" == "$managed" ]] || { echo "::error::Checksum mismatch"; exit 1; }
+          echo "Checksum validation passed: $native"
 
       - name: Upload raw results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: processor-pipeline-${{ inputs.profile }}-${{ github.run_id }}
-          path: benchmarks/native-gen2/processor-pipeline-results.txt
+          name: processor-model-boundary-${{ inputs.profile }}-${{ github.run_id }}
+          path: processor-pipeline-results.txt
           if-no-files-found: warn
           retention-days: 7
