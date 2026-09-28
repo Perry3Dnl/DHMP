@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "UDP_EXPERIMENT_CONTRACT=V1 -- one 32-byte logical message per UDP datagram; fire-and-forget Latest semantics"
+          echo "UDP_EXPERIMENT_CONTRACT=V2 -- concurrent sender/receiver; one 32-byte logical message per datagram; bounded drain"
           DLL=benchmarks/udp-latest-experiment/bin/Release/net10.0/Dhmp.UdpLatestExperiment.dll
           for i in 1 2 3 4 5; do
             echo "===== UDP EXPERIMENT RUN $i / 5 ====="
