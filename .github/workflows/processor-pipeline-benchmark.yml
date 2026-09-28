@@ -1,4 +1,4 @@
-name: DHMP Fixed A-B-C-D Model Pipeline Benchmark
+name: DHMP Parallel Model Write Scaling Benchmark
 on:
   workflow_dispatch:
     inputs:
@@ -24,15 +24,15 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build once
         run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
-      - name: Run fixed A-B-C-D comparison on one runner
+      - name: Run fixed worker scaling comparison
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-          STAGES=(baseline-read direct-cast cast-copy-model-buffer direct-write-model-buffer)
+          STAGES=(baseline-read direct-cast model-write-1w model-write-2w model-write-4w)
           : > stage-results.txt
-          echo "benchmark=fixed-abcd profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 checksum=A+D" | tee -a stage-results.txt
-          echo "rules=same-runner,same-input-shape,same-message-count,same-checksum,separate-process-per-stage,allocations-outside-timer" | tee -a stage-results.txt
+          echo "benchmark=parallel-model-write profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 checksum=A+D" | tee -a stage-results.txt
+          echo "rules=same-runner,same-input-shape,same-message-count,same-checksum,separate-process-per-stage,allocations-outside-timer,contiguous-worker-slices,no-per-message-sync" | tee -a stage-results.txt
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' | tee -a stage-results.txt || true
           for stage in "${STAGES[@]}"; do
             echo "===== STAGE $stage =====" | tee -a stage-results.txt
@@ -44,6 +44,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: dhmp-fixed-abcd-${{ github.run_id }}
+          name: dhmp-parallel-model-write-${{ github.run_id }}
           path: stage-results.txt
           retention-days: 7
