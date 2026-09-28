@@ -3,21 +3,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Dhmp.AspNetCore;
 
-public static class DhmpServiceCollectionExtensions
+public static class DHMPServiceCollectionExtensions
 {
-    /// <summary>
-    /// Adds the DHMP server with safe defaults. Intended developer setup:
-    /// builder.Services.AddDhmp();
-    /// </summary>
-    public static IServiceCollection AddDhmp(
-        this IServiceCollection services,
-        Action<DhmpServerOptions>? configure = null)
+    /// <summary>Adds the DHMP server with safe defaults.</summary>
+    public static IServiceCollection AddDHMP(this IServiceCollection services, Action<DHMPServerOptions>? configure = null)
     {
-        var options = new DhmpServerOptions();
+        var options = new DHMPServerOptions();
         configure?.Invoke(options);
         services.AddSingleton(options);
-        // Transport host is intentionally registered behind the server package boundary.
-        // It will become an IHostedService once the retained Adaptive receive path is ported.
         return services;
     }
 }
