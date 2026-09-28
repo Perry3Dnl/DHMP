@@ -35,6 +35,8 @@ static class Program {
   Run("o9-borrow-try-finally",d,n,passes,9);
   for(int v=10;v<20;v++)Run($"o{v}-o3-derived",d,n,passes,v);
   for(int v=20;v<30;v++)Run($"o{v}-o15-derived",d,n,passes,v);
+  string[] r3={"typed-return","typed-ref-touch","struct-handoff","ref-struct-handoff","cached-adapter","static-generic","first-last-touch","foreach-view","typed-slice","trusted-boundary"};
+  for(int v=30;v<40;v++)Run($"o{v}-{r3[v-30]}",d,n,passes,v);
  }
 
  static void Run(string id,PlayerState[] d,int n,int passes,int variant){
@@ -76,7 +78,17 @@ static class Program {
    case 26: {int off=0;for(int i=0;i<count;i++){sink+=bytes.Slice(off,Batch*Size).Length>>5;off+=Batch*Size;}break;}
    case 27: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountGeneric<PlayerState>(bytes.Slice(off,Batch*Size)); break;
    case 28: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountGenericShift<PlayerState>(bytes.Slice(off,Batch*Size)); break;
-   case 29: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountNoInline<PlayerState>(bytes.Slice(off,Batch*Size)); break;}
+   case 29: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountNoInline<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 30: for(int i=0,off=0;i<count;i++,off+=Batch*Size){var x=TypedView<PlayerState>(bytes.Slice(off,Batch*Size));sink+=x.Length;} break;
+   case 31: for(int i=0,off=0;i<count;i++,off+=Batch*Size)TypedRefTouch<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 32: {var c=new GenericStructConsumer();for(int i=0,off=0;i<count;i++,off+=Batch*Size)StructHandoff<PlayerState,GenericStructConsumer>(bytes.Slice(off,Batch*Size),ref c);break;}
+   case 33: {var c=new RefStructConsumer();for(int i=0,off=0;i<count;i++,off+=Batch*Size)RefStructHandoff(bytes.Slice(off,Batch*Size),ref c);break;}
+   case 34: {var a=new CachedAdapter<PlayerState>();for(int i=0,off=0;i<count;i++,off+=Batch*Size){var x=a.View(bytes.Slice(off,Batch*Size));sink+=x.Length;}break;}
+   case 35: for(int i=0,off=0;i<count;i++,off+=Batch*Size)StaticGeneric<PlayerState>.Consume(bytes.Slice(off,Batch*Size)); break;
+   case 36: for(int i=0,off=0;i<count;i++,off+=Batch*Size)FirstLastTouch<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 37: for(int i=0,off=0;i<count;i++,off+=Batch*Size)ForeachView<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 38: for(int i=0;i<count;i++){ReadOnlySpan<PlayerState>x=typed.Slice(i*Batch,Batch);sink+=x.Length;} break;
+   case 39: {var a=new TrustedBoundary<PlayerState>();for(int i=0,off=0;i<count;i++,off+=Batch*Size)a.Consume(bytes.Slice(off,Batch*Size));break;}}
   }
 
  [MethodImpl(MethodImplOptions.NoInlining)] static void Observe(ReadOnlySpan<PlayerState> x){sink+=x.Length;}
@@ -96,6 +108,19 @@ static class Program {
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void Size32Cast(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
  [MethodImpl(MethodImplOptions.NoInlining)] static void ByteConsume(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
 
+
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static ReadOnlySpan<T> TypedView<T>(ReadOnlySpan<byte>b) where T:unmanaged => MemoryMarshal.Cast<byte,T>(b);
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void TypedRefTouch<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly T r=ref MemoryMarshal.GetReference(x);sink+=x.Length+(Unsafe.IsNullRef(in r)?1:0);}
+ interface ISpanConsumer<T> where T:unmanaged {void Consume(ReadOnlySpan<T>x);}
+ struct GenericStructConsumer:ISpanConsumer<PlayerState>{[MethodImpl(MethodImplOptions.AggressiveInlining)]public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void StructHandoff<T,TConsumer>(ReadOnlySpan<byte>b,ref TConsumer c) where T:unmanaged where TConsumer:struct,ISpanConsumer<T> => c.Consume(MemoryMarshal.Cast<byte,T>(b));
+ ref struct RefStructConsumer {[MethodImpl(MethodImplOptions.AggressiveInlining)] public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void RefStructHandoff(ReadOnlySpan<byte>b,ref RefStructConsumer c)=>c.Consume(MemoryMarshal.Cast<byte,PlayerState>(b));
+ readonly struct CachedAdapter<T> where T:unmanaged {[MethodImpl(MethodImplOptions.AggressiveInlining)] public ReadOnlySpan<T> View(ReadOnlySpan<byte>b)=>MemoryMarshal.Cast<byte,T>(b);}
+ static class StaticGeneric<T> where T:unmanaged {[MethodImpl(MethodImplOptions.AggressiveInlining)] public static void Consume(ReadOnlySpan<byte>b){var x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void FirstLastTouch<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly T a=ref x[0];ref readonly T z=ref x[^1];sink+=x.Length+(Unsafe.IsNullRef(in a)|Unsafe.IsNullRef(in z)?1:0);}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void ForeachView<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly T a=ref MemoryMarshal.GetReference(x);sink+=x.Length+(Unsafe.IsNullRef(in a)?1:0);}
+ struct TrustedBoundary<T> where T:unmanaged {[MethodImpl(MethodImplOptions.AggressiveInlining)] public void Consume(ReadOnlySpan<byte>b){var x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}}
  interface IConsumer{void Consume(ReadOnlySpan<PlayerState>x);}
  sealed class InterfaceConsumer:IConsumer{[MethodImpl(MethodImplOptions.NoInlining)]public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
  struct StructConsumer{[MethodImpl(MethodImplOptions.AggressiveInlining)]public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
