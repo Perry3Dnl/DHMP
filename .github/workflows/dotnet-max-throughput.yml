@@ -14,6 +14,7 @@ on:
       - 'src/Dhmp.Protocol/**'
       - 'benchmarks/dotnet-max-throughput/**'
       - 'benchmarks/dotnet-hotpath-cost/**'
+      - 'benchmarks/dotnet-adapter/**'
       - '.github/workflows/dotnet-max-throughput.yml'
 permissions: { contents: read }
 jobs:
@@ -28,6 +29,8 @@ jobs:
         run: dotnet build benchmarks/dotnet-max-throughput/Dhmp.MaxThroughputDemo.csproj -c Release
       - name: Build hot-path diagnostic
         run: dotnet build benchmarks/dotnet-hotpath-cost/Dhmp.HotPathCost.csproj -c Release
+      - name: Build .NET adapter benchmark
+        run: dotnet build benchmarks/dotnet-adapter/Dhmp.DotNetAdapter.csproj -c Release
       - name: Stable benchmark V1
         shell: bash
         run: |
@@ -46,3 +49,11 @@ jobs:
           echo "DIAGNOSTIC_CONTRACT=HOTPATH_COST_V1 -- V1 benchmark above remains unchanged"
           DLL=benchmarks/dotnet-hotpath-cost/bin/Release/net10.0/Dhmp.HotPathCost.dll
           for i in 1 2 3; do echo "===== HOTPATH RUN $i / 3 ====="; dotnet "$DLL" 5000000 5; done
+
+      - name: Isolated .NET adapter benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ADAPTER_CONTRACT=DOTNET_ADAPTER_V1 -- DHMP stream processor excluded"
+          DLL=benchmarks/dotnet-adapter/bin/Release/net10.0/Dhmp.DotNetAdapter.dll
+          for i in 1 2 3; do echo "===== ADAPTER RUN $i / 3 ====="; dotnet "$DLL" 5000000 5; done
