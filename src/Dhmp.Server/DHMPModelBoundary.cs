@@ -4,8 +4,8 @@ namespace Dhmp.Server;
 public sealed class DHMPModelBoundary<T> where T:unmanaged {
  public DHMPModelBoundary(int packageSize){int s=Unsafe.SizeOf<T>();if(s!=packageSize)throw new InvalidOperationException($"DHMP contract size {packageSize} does not match {typeof(T).Name} size {s}.");PackageSize=packageSize;}
  public int PackageSize{get;}
- [MethodImpl(MethodImplOptions.AggressiveInlining)] public ReadOnlySpan<T> Cast(ReadOnlySpan<byte> packages)=>MemoryMarshal.Cast<byte,T>(packages);
- [MethodImpl(MethodImplOptions.AggressiveInlining)] public void Consume(ReadOnlySpan<byte> packages,Action<ReadOnlySpan<T>> consumer)=>consumer(Cast(packages));
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] public static ReadOnlySpan<T> Cast(ReadOnlySpan<byte> packages)=>MemoryMarshal.Cast<byte,T>(packages);
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] public static void Consume(ReadOnlySpan<byte> packages,Action<ReadOnlySpan<T>> consumer)=>consumer(MemoryMarshal.Cast<byte,T>(packages));
 }
 public static class DHMPModelBoundary {
  public static void Validate<T>(int packageSize) where T:unmanaged {int s=Unsafe.SizeOf<T>();if(s!=packageSize)throw new InvalidOperationException($"DHMP contract size {packageSize} does not match {typeof(T).Name} size {s}.");}
