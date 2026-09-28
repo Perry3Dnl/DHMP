@@ -37,6 +37,8 @@ static class Program {
   for(int v=20;v<30;v++)Run($"o{v}-o15-derived",d,n,passes,v);
   string[] r3={"typed-return","typed-ref-touch","struct-handoff","ref-struct-handoff","cached-adapter","static-generic","first-last-touch","foreach-view","typed-slice","trusted-boundary"};
   for(int v=30;v<40;v++)Run($"o{v}-{r3[v-30]}",d,n,passes,v);
+  string[] r4={"unsafe-cast","unaligned-ref","ref-byte-cast","function-pointer","static-abstract","fused-offset","raw-ref-span","readonly-consumer","byvalue-struct","direct-refstruct"};
+  for(int v=40;v<50;v++)Run($"o{v}-{r4[v-40]}",d,n,passes,v);
  }
 
  static void Run(string id,PlayerState[] d,int n,int passes,int variant){
@@ -88,7 +90,17 @@ static class Program {
    case 36: for(int i=0,off=0;i<count;i++,off+=Batch*Size)FirstLastTouch<PlayerState>(bytes.Slice(off,Batch*Size)); break;
    case 37: for(int i=0,off=0;i<count;i++,off+=Batch*Size)ForeachView<PlayerState>(bytes.Slice(off,Batch*Size)); break;
    case 38: for(int i=0;i<count;i++){ReadOnlySpan<PlayerState>x=typed.Slice(i*Batch,Batch);sink+=x.Length;} break;
-   case 39: {var a=new TrustedBoundary<PlayerState>();for(int i=0,off=0;i<count;i++,off+=Batch*Size)a.Consume(bytes.Slice(off,Batch*Size));break;}}
+   case 39: {var a=new TrustedBoundary<PlayerState>();for(int i=0,off=0;i<count;i++,off+=Batch*Size)a.Consume(bytes.Slice(off,Batch*Size));break;}
+   case 40: for(int i=0,off=0;i<count;i++,off+=Batch*Size)UnsafeCast(bytes.Slice(off,Batch*Size)); break;
+   case 41: for(int i=0,off=0;i<count;i++,off+=Batch*Size)UnalignedRef(bytes.Slice(off,Batch*Size)); break;
+   case 42: for(int i=0,off=0;i<count;i++,off+=Batch*Size)RefByteCast(bytes.Slice(off,Batch*Size)); break;
+   case 43: {unsafe{delegate*<ReadOnlySpan<PlayerState>,void> fp=&FunctionPointerConsume;for(int i=0,off=0;i<count;i++,off+=Batch*Size)fp(MemoryMarshal.Cast<byte,PlayerState>(bytes.Slice(off,Batch*Size)));}break;}
+   case 44: for(int i=0,off=0;i<count;i++,off+=Batch*Size)StaticAbstractHandoff<PlayerState,StaticConsumer>(bytes.Slice(off,Batch*Size)); break;
+   case 45: {int off=0,end=count*Batch*Size;while(off<end){var x=MemoryMarshal.Cast<byte,PlayerState>(bytes.Slice(off,Batch*Size));sink+=x.Length;off+=Batch*Size;}break;}
+   case 46: for(int i=0,off=0;i<count;i++,off+=Batch*Size)RawRefSpan(bytes.Slice(off,Batch*Size)); break;
+   case 47: {var cc=new ReadonlyStructConsumer();for(int i=0,off=0;i<count;i++,off+=Batch*Size)ReadonlyHandoff(bytes.Slice(off,Batch*Size),in cc);break;}
+   case 48: {var cc=new GenericStructConsumer();for(int i=0,off=0;i<count;i++,off+=Batch*Size)ByValueHandoff(bytes.Slice(off,Batch*Size),cc);break;}
+   case 49: {var cc=new RefStructConsumer();for(int i=0,off=0;i<count;i++,off+=Batch*Size){var x=MemoryMarshal.Cast<byte,PlayerState>(bytes.Slice(off,Batch*Size));cc.Consume(x);}break;}}
   }
 
  [MethodImpl(MethodImplOptions.NoInlining)] static void Observe(ReadOnlySpan<PlayerState> x){sink+=x.Length;}
@@ -121,6 +133,17 @@ static class Program {
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void FirstLastTouch<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly T a=ref x[0];ref readonly T z=ref x[^1];sink+=x.Length+(Unsafe.IsNullRef(in a)|Unsafe.IsNullRef(in z)?1:0);}
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void ForeachView<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly T a=ref MemoryMarshal.GetReference(x);sink+=x.Length+(Unsafe.IsNullRef(in a)?1:0);}
  struct TrustedBoundary<T> where T:unmanaged {[MethodImpl(MethodImplOptions.AggressiveInlining)] public void Consume(ReadOnlySpan<byte>b){var x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void UnsafeCast(ReadOnlySpan<byte>b){var x=MemoryMarshal.Cast<byte,PlayerState>(b);sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void UnalignedRef(ReadOnlySpan<byte>b){ref byte r=ref MemoryMarshal.GetReference(b);ref PlayerState p=ref Unsafe.As<byte,PlayerState>(ref r);var x=MemoryMarshal.CreateReadOnlySpan(ref p,b.Length>>5);sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void RefByteCast(ReadOnlySpan<byte>b){ref byte r=ref MemoryMarshal.GetReference(b);ref PlayerState p=ref Unsafe.As<byte,PlayerState>(ref r);sink+=MemoryMarshal.CreateReadOnlySpan(ref p,Batch).Length;}
+ [MethodImpl(MethodImplOptions.NoInlining)] static void FunctionPointerConsume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;
+ interface IStaticSpanConsumer<T> where T:unmanaged {static abstract void Consume(ReadOnlySpan<T>x);}
+ readonly struct StaticConsumer:IStaticSpanConsumer<PlayerState>{[MethodImpl(MethodImplOptions.AggressiveInlining)]public static void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void StaticAbstractHandoff<T,TConsumer>(ReadOnlySpan<byte>b) where T:unmanaged where TConsumer:struct,IStaticSpanConsumer<T> => TConsumer.Consume(MemoryMarshal.Cast<byte,T>(b));
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void RawRefSpan(ReadOnlySpan<byte>b){ref byte r=ref MemoryMarshal.GetReference(b);ref PlayerState p=ref Unsafe.As<byte,PlayerState>(ref r);ReadOnlySpan<PlayerState>x=MemoryMarshal.CreateReadOnlySpan(ref p,b.Length>>5);sink+=x.Length;}
+ readonly struct ReadonlyStructConsumer{[MethodImpl(MethodImplOptions.AggressiveInlining)]public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void ReadonlyHandoff(ReadOnlySpan<byte>b,in ReadonlyStructConsumer c)=>c.Consume(MemoryMarshal.Cast<byte,PlayerState>(b));
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void ByValueHandoff(ReadOnlySpan<byte>b,GenericStructConsumer c)=>c.Consume(MemoryMarshal.Cast<byte,PlayerState>(b));
  interface IConsumer{void Consume(ReadOnlySpan<PlayerState>x);}
  sealed class InterfaceConsumer:IConsumer{[MethodImpl(MethodImplOptions.NoInlining)]public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
  struct StructConsumer{[MethodImpl(MethodImplOptions.AggressiveInlining)]public void Consume(ReadOnlySpan<PlayerState>x)=>sink+=x.Length;}
