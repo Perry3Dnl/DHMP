@@ -22,8 +22,8 @@ public sealed class DHMPReceiveRegion
 /// </summary>
 public readonly ref struct DHMPTypedSpan<T> where T : unmanaged
 {
-    private readonly ReadOnlySpan<byte> _bytes;
-    internal DHMPTypedSpan(ReadOnlySpan<byte> bytes) => _bytes = bytes;
-    public ReadOnlySpan<T> Models => MemoryMarshal.Cast<byte,T>(_bytes);
-    public int Count => _bytes.Length / Unsafe.SizeOf<T>();
+    private readonly ReadOnlySpan<T> _models;
+    internal DHMPTypedSpan(ReadOnlySpan<byte> bytes) => _models = MemoryMarshal.Cast<byte,T>(bytes);
+    public ReadOnlySpan<T> Models => _models;
+    public int Count => _models.Length;
 }
