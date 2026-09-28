@@ -1,6 +1,6 @@
 namespace Dhmp.Client;
 
-public sealed class DhmpClientOptions
+public sealed class DHMPClientOptions
 {
     public required Uri Endpoint { get; set; }
     public int MaxPayloadBytes { get; set; } = 32;
