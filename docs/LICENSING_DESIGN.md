@@ -10,7 +10,13 @@ The guiding principle is:
 
 > **Build for free. Pay when you ship.**
 
-The protocol specification and the official DHMP implementation are separate concerns. The DHMP protocol may remain publicly implementable while the official optimized .NET/Unity implementation can use a commercial application license.
+The protocol specification and the official DHMP implementation are separate concerns.
+
+The DHMP protocol specification is intended to be **royalty-free to implement and use, including for commercial software**, while ownership/copyright in the DHMP specification remains with its owner. Publishing the specification does not place DHMP in the public domain or transfer ownership.
+
+Third parties may create independent DHMP implementations without purchasing the official DHMP implementation. The official optimized .NET/Unity implementations are separate software products and may use a commercial application license.
+
+Protocol conformance and use of the **DHMP Compatible** designation are defined separately in [CONFORMANCE.md](CONFORMANCE.md).
 
 ## 2. Commercial licensing model
 
@@ -398,7 +404,9 @@ The wire protocol must not require both peers to share:
 - an application name;
 - a licensing account.
 
-A third party implementing the public DHMP protocol independently is a separate licensing/legal question from using the official DHMP .NET/Unity implementation.
+A third party may independently implement and use the published DHMP protocol royalty-free, including commercially, subject to the final published protocol/specification license terms. This does not grant ownership of the DHMP specification, the official implementation source code, or unrestricted rights to DHMP branding.
+
+Use of the official DHMP .NET/Unity implementation remains a separate software-licensing matter.
 
 ## 19. Decisions intentionally left open
 
