@@ -1,4 +1,4 @@
-name: DHMP Production Receive Boundary
+name: DHMP Combined Receive Benchmarks
 on:
   workflow_dispatch:
     inputs:
@@ -12,23 +12,42 @@ permissions:
 jobs:
   test-and-benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with: { dotnet-version: '10.0.x' }
-      - name: Build server
-        run: dotnet build src/Dhmp.Server/Dhmp.Server.csproj -c Release
+      - name: Build
+        run: |
+          dotnet build src/Dhmp.Server/Dhmp.Server.csproj -c Release
+          dotnet build benchmarks/dotnet-receive-boundary-bench/Dhmp.ReceiveBoundary.Bench.csproj -c Release
+          dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
       - name: Correctness
         run: dotnet run --project benchmarks/dotnet-receive-boundary-tests/Dhmp.ReceiveBoundary.Tests.csproj -c Release
-      - name: Benchmark fragmented production boundary
+      - name: Run both benchmark families
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; PACKAGES=10000000; PASSES=10; else RUNS=3; PACKAGES=5000000; PASSES=5; fi
-          echo "scope=stream framing -> carry reconstruction -> zero-copy typed .NET boundary"
-          echo "application processing is OUT OF SCOPE"
+          if [[ "${{ inputs.profile }}" == "full" ]]; then
+            RUNS=7; PACKAGES=10000000; PASSES=10; AB_PASSES=100
+          else
+            RUNS=3; PACKAGES=5000000; PASSES=5; AB_PASSES=25
+          fi
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
-          dotnet build benchmarks/dotnet-receive-boundary-bench/Dhmp.ReceiveBoundary.Bench.csproj -c Release
-          DLL=benchmarks/dotnet-receive-boundary-bench/bin/Release/net10.0/Dhmp.ReceiveBoundary.Bench.dll
-          for ((i=1;i<=RUNS;i++)); do echo "----- RUN $i / $RUNS -----"; dotnet "$DLL" "$PACKAGES" "$PASSES"; done
+
+          echo "===== TEST A: PRODUCTION RECEIVE BOUNDARY ====="
+          echo "scope=fragmented stream framing -> carry reconstruction -> zero-copy typed .NET boundary"
+          echo "application processing=OUT OF SCOPE"
+          PROD=benchmarks/dotnet-receive-boundary-bench/bin/Release/net10.0/Dhmp.ReceiveBoundary.Bench.dll
+          for ((i=1;i<=RUNS;i++)); do echo "----- A RUN $i / $RUNS -----"; dotnet "$PROD" "$PACKAGES" "$PASSES"; done
+
+          echo "===== TEST B: .NET TRANSITION / OWNERSHIP A-B ====="
+          echo "scope=typed zero-copy .NET view + bounded receive-region ownership"
+          echo "B0/B1=Sequential without/with lease; B2/B3=Latest without/with lease"
+          echo "REF=application consumption; OUT OF SCOPE"
+          AB=benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll
+          for stage in seq-base seq-lease latest-base latest-lease app-reference; do
+            echo "----- B STAGE $stage -----"
+            for ((i=1;i<=RUNS;i++)); do dotnet "$AB" "$stage" "10000000" "$AB_PASSES"; done
+          done
+          echo "===== END COMBINED BENCHMARK ====="
