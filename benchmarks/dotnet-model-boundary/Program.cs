@@ -14,62 +14,60 @@ static class Program {
  static void Baseline(P32[] a){ulong s=0;long t=Stopwatch.GetTimestamp();for(int i=0;i<a.Length;i++)s+=a[i].A+a[i].D;long e=Stopwatch.GetTimestamp();sink=s;Out("baseline-read",a.Length,e-t,s);}
  static void DirectCast(P32[] a){ulong s=0;long t=Stopwatch.GetTimestamp();for(int i=0;i<a.Length;i++){var m=Cast(in a[i]);s+=m.A+m.D;}long e=Stopwatch.GetTimestamp();sink=s;Out("direct-cast",a.Length,e-t,s);}
 
- // Real bounded producer -> slab pool -> N workers pipeline.
- // Producer copies complete fixed packages into a free slab and publishes once per slab.
- // Workers claim published slabs, materialize models, checksum, then release the slab.
- static void Pipeline(P32[] input,int workers){
-   const int slabSize=512, slots=64;
-   var slabs=new P32[slots][]; for(int i=0;i<slots;i++)slabs[i]=new P32[slabSize];
-   var counts=new int[slots]; var state=new int[slots]; // 0 free, 1 ready
-   var sums=new ulong[workers]; var consumed=new long[workers];
-   long nextClaim=-1, published=0, producerStallTicks=0, producerStalls=0, maxDepth=0;
-   int done=0; using var gate=new ManualResetEventSlim(false); var ts=new Thread[workers];
-
-   for(int w=0;w<workers;w++){int id=w;ts[w]=new Thread(()=>{
-     gate.Wait(); ulong local=0; long localCount=0;
-     while(true){
-       long ticket=Interlocked.Increment(ref nextClaim);
-       if(ticket>=Volatile.Read(ref published)){
-         // Ticket may be ahead of publication: wait for that exact slab sequence unless producer is finished.
-         while(ticket>=Volatile.Read(ref published)){
-           if(Volatile.Read(ref done)!=0){sums[id]=local;consumed[id]=localCount;return;}
-           Thread.SpinWait(1);
-         }
+ // One producer, one independent SPSC slab ring per worker.
+ // No shared claim counter, no MPMC state array, no per-message synchronization.
+ static void SpscPipeline(P32[] input,int workers){
+   const int slabSize=512, ringSlots=32;
+   var rings=new P32[workers][][];
+   var counts=new int[workers][];
+   var published=new long[workers];
+   var consumedSeq=new long[workers];
+   var sums=new ulong[workers];
+   var consumedMsgs=new long[workers];
+   var threads=new Thread[workers];
+   using var gate=new ManualResetEventSlim(false);
+   for(int w=0;w<workers;w++){
+     rings[w]=new P32[ringSlots][]; counts[w]=new int[ringSlots];
+     for(int s=0;s<ringSlots;s++)rings[w][s]=new P32[slabSize];
+     int id=w;
+     threads[w]=new Thread(()=>{
+       gate.Wait(); ulong local=0; long msgs=0, seq=0;
+       while(true){
+         long pub=Volatile.Read(ref published[id]);
+         if(seq>=pub){if(pub<0)break;Thread.SpinWait(4);continue;}
+         int slot=(int)(seq%ringSlots);int count=counts[id][slot];var slab=rings[id][slot];
+         for(int j=0;j<count;j++){var m=Cast(in slab[j]);local+=m.A+m.D;}
+         msgs+=count;seq++;Volatile.Write(ref consumedSeq[id],seq);
        }
-       int slot=(int)(ticket%slots);
-       while(Volatile.Read(ref state[slot])!=1)Thread.SpinWait(1);
-       int count=counts[slot]; var slab=slabs[slot];
-       for(int j=0;j<count;j++){var m=Cast(in slab[j]);local+=m.A+m.D;}
-       localCount+=count;
-       Volatile.Write(ref state[slot],0);
-     }
-   }){IsBackground=true};ts[w].Start();}
-
-   long start=Stopwatch.GetTimestamp(); gate.Set();
-   int p=0; long seq=0;
-   while(p<input.Length){
-     int slot=(int)(seq%slots);
-     if(Volatile.Read(ref state[slot])!=0){
-       producerStalls++; long st=Stopwatch.GetTimestamp();
-       while(Volatile.Read(ref state[slot])!=0)Thread.SpinWait(1);
-       producerStallTicks+=Stopwatch.GetTimestamp()-st;
-     }
-     int count=Math.Min(slabSize,input.Length-p);
-     input.AsSpan(p,count).CopyTo(slabs[slot]);
-     counts[slot]=count;
-     Volatile.Write(ref state[slot],1);
-     seq++; Volatile.Write(ref published,seq);
-     long claimed=Math.Min(Volatile.Read(ref nextClaim)+1,seq);
-     long depth=seq-claimed; if(depth>maxDepth)maxDepth=depth;
-     p+=count;
+       sums[id]=local;consumedMsgs[id]=msgs;
+     }){IsBackground=true};
+     threads[w].Start();
    }
-   // Wait until all published slots have been released before terminating workers.
-   bool busy; do{busy=false;for(int i=0;i<slots;i++)if(Volatile.Read(ref state[i])!=0){busy=true;break;}if(busy)Thread.SpinWait(1);}while(busy);
-   Volatile.Write(ref done,1); for(int w=0;w<workers;w++)ts[w].Join();
-   long end=Stopwatch.GetTimestamp(); ulong sum=0;long totalConsumed=0;for(int w=0;w<workers;w++){sum+=sums[w];totalConsumed+=consumed[w];}
-   sink=sum; double sec=(double)(end-start)/Stopwatch.Frequency, stallSec=(double)producerStallTicks/Stopwatch.Frequency;
-   Console.WriteLine($"stage=pipeline-{workers}w messages={input.Length} bytes={input.Length*32L} wall_s={sec:F6} GBps={input.Length*32.0/sec/1e9:F3} mps={input.Length/sec/1e6:F3} ns_msg={sec*1e9/input.Length:F3} producer_publish_mps={input.Length/sec/1e6:F3} producer_stalls={producerStalls} producer_stall_ms={stallSec*1e3:F3} producer_stall_pct={stallSec/sec*100:F3} max_depth_slabs={maxDepth} slab_slots={slots} slab_size={slabSize} consumed={totalConsumed} checksum={sum}");
+
+   long[] produced=new long[workers], stalls=new long[workers], stallTicks=new long[workers], maxDepth=new long[workers];
+   long start=Stopwatch.GetTimestamp();gate.Set();
+   int p=0,wid=0;
+   while(p<input.Length){
+     long seq=produced[wid];
+     if(seq-Volatile.Read(ref consumedSeq[wid])>=ringSlots){
+       stalls[wid]++;long st=Stopwatch.GetTimestamp();
+       while(seq-Volatile.Read(ref consumedSeq[wid])>=ringSlots)Thread.SpinWait(4);
+       stallTicks[wid]+=Stopwatch.GetTimestamp()-st;
+     }
+     int slot=(int)(seq%ringSlots),count=Math.Min(slabSize,input.Length-p);
+     input.AsSpan(p,count).CopyTo(rings[wid][slot]);counts[wid][slot]=count;
+     produced[wid]=++seq;Volatile.Write(ref published[wid],seq);
+     long depth=seq-Volatile.Read(ref consumedSeq[wid]);if(depth>maxDepth[wid])maxDepth[wid]=depth;
+     p+=count;wid++;if(wid==workers)wid=0;
+   }
+   for(int w=0;w<workers;w++)while(Volatile.Read(ref consumedSeq[w])<produced[w])Thread.SpinWait(4);
+   for(int w=0;w<workers;w++)Volatile.Write(ref published[w],-1);
+   for(int w=0;w<workers;w++)threads[w].Join();
+   long end=Stopwatch.GetTimestamp();ulong sum=0;long msgs=0,totalStalls=0,totalStallTicks=0,maxD=0;
+   for(int w=0;w<workers;w++){sum+=sums[w];msgs+=consumedMsgs[w];totalStalls+=stalls[w];totalStallTicks+=stallTicks[w];maxD=Math.Max(maxD,maxDepth[w]);}
+   sink=sum;double sec=(double)(end-start)/Stopwatch.Frequency,stallSec=(double)totalStallTicks/Stopwatch.Frequency;
+   Console.WriteLine($"stage=spsc-{workers}w messages={input.Length} bytes={input.Length*32L} wall_s={sec:F6} GBps={input.Length*32.0/sec/1e9:F3} mps={input.Length/sec/1e6:F3} ns_msg={sec*1e9/input.Length:F3} producer_stalls={totalStalls} producer_stall_ms={stallSec*1e3:F3} producer_stall_pct={stallSec/sec*100:F3} max_worker_depth_slabs={maxD} ring_slots_per_worker={ringSlots} slab_size={slabSize} consumed={msgs} checksum={sum}");
  }
  static void Warm(P32[] a){int n=Math.Min(10000,a.Length);ulong s=0;for(int i=0;i<n;i++){var m=Cast(in a[i]);s+=m.A+m.D;}sink=s;}
- static void Main(string[] args){string stage=args[0];int n=int.Parse(args[1]);var a=Data(n);Warm(a);switch(stage){case "baseline-read":Baseline(a);break;case "direct-cast":DirectCast(a);break;case "pipeline-1w":Pipeline(a,1);break;case "pipeline-2w":Pipeline(a,2);break;case "pipeline-4w":Pipeline(a,4);break;default:throw new ArgumentException(stage);}}
+ static void Main(string[] args){string stage=args[0];int n=int.Parse(args[1]);var a=Data(n);Warm(a);switch(stage){case "baseline-read":Baseline(a);break;case "direct-cast":DirectCast(a);break;case "spsc-1w":SpscPipeline(a,1);break;case "spsc-2w":SpscPipeline(a,2);break;case "spsc-4w":SpscPipeline(a,4);break;default:throw new ArgumentException(stage);}}
 }
