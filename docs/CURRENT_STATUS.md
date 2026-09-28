@@ -1,6 +1,6 @@
 # DHMP current development status
 
-Updated: 2026-09-23
+Updated: 2026-09-28
 
 The retained direction is now **DHMP Adaptive Fixed-Contract**: the application explicitly chooses `Every` or `Latest`, the handshake fixes the record/block contract, and the runtime selects the fastest validated implementation path that preserves those semantics.
 
@@ -119,16 +119,14 @@ The current common native framing benchmark is **showcase v6**, audited and reru
 
 v6 remains a framing-kernel comparison rather than a full production-stack benchmark. Raw fixed TCP is slightly faster than DHMP in the retained v6 medians, which is the expected transport-floor sanity check.
 
-## Verified delivery
+## Fire-and-forget send invariants
 
-Retained semantic direction:
-
-- no per-frame or periodic hot-path ACK requirement;
-- sender retains uncertain history;
-- reconnect/checkpoint identifies accepted position;
-- replay only the uncertain tail.
-
-The remaining implementation task is bounded asynchronous checkpoint/history reclamation.
+- one application message must fit the negotiated maximum payload;
+- no DHMP fragmentation or reassembly;
+- no DHMP ACK/replay/Verified delivery mode;
+- send budget is derived from the active profile's configured/measured `Pmax` with a safety factor;
+- budget exhaustion rejects/drops according to explicit runtime policy and never creates an unbounded reliability queue;
+- reference .NET guard: `src/Dhmp.Protocol/DhmpSendPolicy.cs`.
 
 ## Current engineering priorities
 
@@ -138,5 +136,5 @@ The remaining implementation task is bounded asynchronous checkpoint/history rec
 4. Tune transport/runtime settings.
 5. Repeat on physical LAN hardware with longer runs and hardware counters.
 6. Measure ComputeBlock accumulation latency and sender-side layout cost with real array-native producers.
-7. Implement bounded Verified checkpoints.
+7. Integrate the payload/Pmax send guard into the production send path and benchmark its overhead.
 8. Continue separating protocol rules from implementation accelerators.
