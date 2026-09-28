@@ -1,0 +1,34 @@
+name: DHMP Production Receive Boundary
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        required: true
+        default: quick
+        type: choice
+        options: [quick, full]
+permissions:
+  contents: read
+jobs:
+  test-and-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Build server
+        run: dotnet build src/Dhmp.Server/Dhmp.Server.csproj -c Release
+      - name: Correctness
+        run: dotnet run --project benchmarks/dotnet-receive-boundary-tests/Dhmp.ReceiveBoundary.Tests.csproj -c Release
+      - name: Benchmark fragmented production boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; PACKAGES=10000000; PASSES=10; else RUNS=3; PACKAGES=5000000; PASSES=5; fi
+          echo "scope=stream framing -> carry reconstruction -> zero-copy typed .NET boundary"
+          echo "application processing is OUT OF SCOPE"
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+          dotnet build benchmarks/dotnet-receive-boundary-bench/Dhmp.ReceiveBoundary.Bench.csproj -c Release
+          DLL=benchmarks/dotnet-receive-boundary-bench/bin/Release/net10.0/Dhmp.ReceiveBoundary.Bench.dll
+          for ((i=1;i<=RUNS;i++)); do echo "----- RUN $i / $RUNS -----"; dotnet "$DLL" "$PACKAGES" "$PASSES"; done
