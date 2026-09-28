@@ -38,17 +38,40 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
+
           echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES"
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+
+          # GitHub-hosted runners vary. Use taskset only when CPUs 0 and 1
+          # are both available to this job; otherwise run normally.
+          RUNNER=""
+          if command -v taskset >/dev/null 2>&1; then
+            ALLOWED=$(taskset -pc $$ 2>/dev/null | sed 's/.*: //')
+            if taskset -c 0,1 true >/dev/null 2>&1; then
+              RUNNER="taskset -c 0,1"
+              echo "affinity=cpus-0-1 allowed=$ALLOWED"
+            else
+              echo "affinity=unavailable allowed=$ALLOWED"
+            fi
+          fi
+
           : > processor-pipeline-results.txt
+
+          run_case() {
+            if [[ -n "$RUNNER" ]]; then
+              $RUNNER "$@"
+            else
+              "$@"
+            fi
+          }
 
           for ((i=1; i<=RUNS; i++)); do
             {
               echo "===== RUN $i / $RUNS ====="
-              ./pipeline-ab direct "$MESSAGES"
-              ./pipeline-ab spsc "$MESSAGES"
-              for slab in 32 128 384 512; do
-                ./pipeline-ab slab "$MESSAGES" "$slab"
+              run_case ./pipeline-ab direct "$MESSAGES"
+              run_case ./pipeline-ab spsc "$MESSAGES"
+              for slab in 192 256 320 384 448 512 640; do
+                run_case ./pipeline-ab slab "$MESSAGES" "$slab"
               done
             } | tee -a processor-pipeline-results.txt
           done
