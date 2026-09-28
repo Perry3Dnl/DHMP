@@ -1,4 +1,4 @@
-name: DHMP Stream Framing Benchmark
+name: DHMP .NET Boundary Cost Ladder
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: dhmp-stream-processor-benchmark
+  group: dhmp-dotnet-boundary-benchmark
   cancel-in-progress: false
 jobs:
   benchmark:
@@ -19,18 +19,27 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - name: Build native DHMP framing benchmark
-        run: gcc -O3 -march=native -std=c11 -Wall -Wextra -Werror benchmarks/native-gen2/stream_processor_optimization.c -o /tmp/dhmp-stream
-      - name: Run protocol-only framing benchmark
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build .NET boundary benchmark
+        run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
+      - name: Run .NET boundary cost ladder
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-          echo "benchmark=dhmp-stream-framing profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32"
-          echo "scope=fixed-frame-boundaries+partial-carry+span-publication"
-          echo "excluded=payload-read,checksum,deserialization,.NET,models,workers,callbacks"
-          echo "sequential=publish contiguous package spans; latest=publish newest complete package per recv chunk"
-          echo "fragmented pattern deliberately crosses 32-byte boundaries"
-          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket|Flags' || true
-          for ((i=1;i<=RUNS;i++)); do echo "===== RUN $i / $RUNS ====="; /tmp/dhmp-stream "$MESSAGES"; done
+          echo "benchmark=dhmp-dotnet-boundary profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 span_packages=512"
+          echo "L0=accept DHMP package spans; no payload copy"
+          echo "L1=zero-copy package->C# model view + consume"
+          echo "L2=zero-copy model view + batch4 consume"
+          echo "L3=explicit copy into model buffer + consume (cost reference, not preferred architecture)"
+          echo "L4=Latest: consume newest C# model per incoming span"
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+          DLL=benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll
+          STAGES=(span-accept model-view model-view-batch4 copy-models latest)
+          for stage in "${STAGES[@]}"; do
+            echo "===== STAGE $stage ====="
+            for ((i=1;i<=RUNS;i++)); do echo "----- RUN $i / $RUNS -----"; dotnet "$DLL" "$stage" "$MESSAGES"; done
+          done
           echo "===== END BENCHMARK ====="
