@@ -485,7 +485,7 @@ The production-facing implementation is being split into small packages while ke
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddDhmp();
+builder.Services.AddDHMP();
 
 var app = builder.Build();
 app.Run();
