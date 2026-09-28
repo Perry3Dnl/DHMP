@@ -34,6 +34,7 @@ static class Program {
   Run("o8-struct-consumer",d,n,passes,8);
   Run("o9-borrow-try-finally",d,n,passes,9);
   for(int v=10;v<20;v++)Run($"o{v}-o3-derived",d,n,passes,v);
+  for(int v=20;v<30;v++)Run($"o{v}-o15-derived",d,n,passes,v);
  }
 
  static void Run(string id,PlayerState[] d,int n,int passes,int variant){
@@ -65,7 +66,17 @@ static class Program {
    case 16: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastNoInline<PlayerState>(bytes.Slice(off,Batch*Size)); break;
    case 17: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastRef<PlayerState>(bytes.Slice(off,Batch*Size)); break;
    case 18: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastLocal<PlayerState>(bytes.Slice(off,Batch*Size)); break;
-   case 19: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastCount<PlayerState>(bytes.Slice(off,Batch*Size)); break;}
+   case 19: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastCount<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 20: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCountKnown<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 21: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCount32(bytes.Slice(off,Batch*Size)); break;
+   case 22: for(int i=0,off=0;i<count;i++,off+=Batch*Size)sink+=bytes.Slice(off,Batch*Size).Length/Size; break;
+   case 23: for(int i=0,off=0;i<count;i++,off+=Batch*Size)sink+=bytes.Slice(off,Batch*Size).Length>>5; break;
+   case 24: for(int off=0,end=count*Batch*Size;off<end;off+=Batch*Size)sink+=Batch; break;
+   case 25: for(int i=0;i<count;i++)sink+=Batch; break;
+   case 26: {int off=0;for(int i=0;i<count;i++){sink+=bytes.Slice(off,Batch*Size).Length>>5;off+=Batch*Size;}break;}
+   case 27: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountGeneric<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 28: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountGenericShift<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 29: for(int i=0,off=0;i<count;i++,off+=Batch*Size)KnownCountNoInline<PlayerState>(bytes.Slice(off,Batch*Size)); break;}
   }
 
  [MethodImpl(MethodImplOptions.NoInlining)] static void Observe(ReadOnlySpan<PlayerState> x){sink+=x.Length;}
@@ -78,6 +89,10 @@ static class Program {
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastRef<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly var first=ref MemoryMarshal.GetReference(x);sink+=x.Length+(Unsafe.IsNullRef(in first)?1:0);}
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastLocal<T>(ReadOnlySpan<byte>b) where T:unmanaged {ReadOnlySpan<T> x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastCount<T>(ReadOnlySpan<byte>b) where T:unmanaged {int count=b.Length/Unsafe.SizeOf<T>();sink+=count;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void KnownCount32(ReadOnlySpan<byte>b)=>sink+=b.Length>>5;
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void KnownCountGeneric<T>(ReadOnlySpan<byte>b) where T:unmanaged => sink+=b.Length/Unsafe.SizeOf<T>();
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void KnownCountGenericShift<T>(ReadOnlySpan<byte>b) where T:unmanaged {int size=Unsafe.SizeOf<T>();sink+=size==32?b.Length>>5:b.Length/size;}
+ [MethodImpl(MethodImplOptions.NoInlining)] static void KnownCountNoInline<T>(ReadOnlySpan<byte>b) where T:unmanaged => sink+=b.Length/Unsafe.SizeOf<T>();
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void Size32Cast(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
  [MethodImpl(MethodImplOptions.NoInlining)] static void ByteConsume(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
 
