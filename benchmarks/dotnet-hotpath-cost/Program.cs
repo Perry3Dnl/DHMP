@@ -31,14 +31,16 @@ static class Program {
   RunProcessor("processor-v2-flat-carry",new ProcessorV2(Size),d,bytes,passes,pat);
   RunProcessor("processor-v3-store-remainder-helper",new ProcessorV3(Size),d,bytes,passes,pat);
   RunProcessor("processor-v4-complete-carry-helper",new ProcessorV4(Size),d,bytes,passes,pat);
+  RunProcessor("processor-v5-flat-carry-no-readall",new ProcessorV2(Size),d,bytes,passes,pat,false);
+  RunProcessor("processor-v6-flat-carry-direct-consumer",new ProcessorV2(Size),d,bytes,passes,pat,true);
  }
  interface IProcessor { void Process(ReadOnlySpan<byte> input,Action<ReadOnlySpan<byte>> cross,Action<ReadOnlySpan<byte>> borrowed); }
- static void RunProcessor(string id,IProcessor sp,PlayerState[] d,ReadOnlySpan<byte> bytes,int passes,int[] pat)
+ static void RunProcessor(string id,IProcessor sp,PlayerState[] d,ReadOnlySpan<byte> bytes,int passes,int[] pat,bool readAll=true)
  {
   long units=0;double g=0;long t=Stopwatch.GetTimestamp();
   for(int p=0;p<passes;p++){int pos=0,k=0;while(pos<bytes.Length){int m=Math.Min(pat[k++%pat.Length],bytes.Length-pos);sp.Process(bytes.Slice(pos,m),Consume,Consume);pos+=m;}}
   long e=Stopwatch.GetTimestamp();guard=g;Out(id,(long)d.Length*passes,units,e-t,g);
-  void Consume(ReadOnlySpan<byte>s){var x=MemoryMarshal.Cast<byte,PlayerState>(s);g+=ReadAll(x);units+=x.Length;}
+  void Consume(ReadOnlySpan<byte>s){var x=MemoryMarshal.Cast<byte,PlayerState>(s);if(readAll)g+=ReadAll(x);else g+=x.Length;units+=x.Length;}
  }
 
  abstract class ProcessorBase : IProcessor {
