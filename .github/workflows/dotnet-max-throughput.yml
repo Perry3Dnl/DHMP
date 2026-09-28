@@ -1,0 +1,29 @@
+name: DHMP .NET Max Throughput
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        required: true
+        default: quick
+        type: choice
+        options: [quick, full]
+permissions: { contents: read }
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Build
+        run: dotnet build benchmarks/dotnet-max-throughput/Dhmp.MaxThroughputDemo.csproj -c Release
+      - name: Run
+        shell: bash
+        run: |
+          set -euo pipefail
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+          if [[ "${{ inputs.profile }}" == "full" ]]; then N=10000000; PASSES=20; RUNS=7; else N=5000000; PASSES=5; RUNS=3; fi
+          DLL=benchmarks/dotnet-max-throughput/bin/Release/net10.0/Dhmp.MaxThroughputDemo.dll
+          echo "All GB/s below are actual 32-byte PlayerState payload consumed by the selected .NET workload."
+          for ((i=1;i<=RUNS;i++)); do echo "===== RUN $i / $RUNS ====="; dotnet "$DLL" "$N" "$PASSES"; done
