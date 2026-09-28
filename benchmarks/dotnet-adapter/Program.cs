@@ -33,6 +33,7 @@ static class Program {
   Run("o7-interface-consumer",d,n,passes,7);
   Run("o8-struct-consumer",d,n,passes,8);
   Run("o9-borrow-try-finally",d,n,passes,9);
+  for(int v=10;v<20;v++)Run($"o{v}-o3-derived",d,n,passes,v);
  }
 
  static void Run(string id,PlayerState[] d,int n,int passes,int variant){
@@ -55,12 +56,29 @@ static class Program {
    case 7: {IConsumer c=new InterfaceConsumer();for(int i=0;i<count;i++)c.Consume(MemoryMarshal.Cast<byte,PlayerState>(bytes.Slice(i*Batch*Size,Batch*Size)));break;}
    case 8: {var c=new StructConsumer();for(int i=0;i<count;i++)ConsumeStruct(bytes.Slice(i*Batch*Size,Batch*Size),ref c);break;}
    case 9: {bool borrowed=false;for(int i=0;i<count;i++){if(borrowed)throw new InvalidOperationException();borrowed=true;try{Observe(MemoryMarshal.Cast<byte,PlayerState>(bytes.Slice(i*Batch*Size,Batch*Size)));}finally{borrowed=false;}}break;}
+   case 10: for(int i=0;i<count;i++)GenericCast<PlayerState>(bytes.Slice(i*Batch*Size,Batch*Size)); break;
+   case 11: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCast<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 12: for(int off=0,end=count*Batch*Size;off<end;off+=Batch*Size)GenericCast<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 13: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastUnchecked<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 14: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCount<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 15: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCountKnown<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 16: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastNoInline<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 17: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastRef<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 18: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastLocal<PlayerState>(bytes.Slice(off,Batch*Size)); break;
+   case 19: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastCount<PlayerState>(bytes.Slice(off,Batch*Size)); break;}
   }
  }
 
  [MethodImpl(MethodImplOptions.NoInlining)] static void Observe(ReadOnlySpan<PlayerState> x){sink+=x.Length;}
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void StaticCast(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCast<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastUnchecked<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCount<T>(ReadOnlySpan<byte>b) where T:unmanaged {sink+=MemoryMarshal.Cast<byte,T>(b).Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCountKnown<T>(ReadOnlySpan<byte>b) where T:unmanaged {sink+=b.Length/Unsafe.SizeOf<T>();}
+ [MethodImpl(MethodImplOptions.NoInlining)] static void GenericCastNoInline<T>(ReadOnlySpan<byte>b) where T:unmanaged {sink+=MemoryMarshal.Cast<byte,T>(b).Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastRef<T>(ReadOnlySpan<byte>b) where T:unmanaged {var x=MemoryMarshal.Cast<byte,T>(b);ref readonly var first=ref MemoryMarshal.GetReference(x);sink+=x.Length+(Unsafe.IsNullRef(in first)?1:0);}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastLocal<T>(ReadOnlySpan<byte>b) where T:unmanaged {ReadOnlySpan<T> x=MemoryMarshal.Cast<byte,T>(b);sink+=x.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void GenericCastCount<T>(ReadOnlySpan<byte>b) where T:unmanaged {int count=b.Length/Unsafe.SizeOf<T>();sink+=count;}
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void Size32Cast(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
  [MethodImpl(MethodImplOptions.NoInlining)] static void ByteConsume(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
 
