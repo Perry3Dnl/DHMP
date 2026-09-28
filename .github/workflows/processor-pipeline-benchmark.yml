@@ -1,4 +1,4 @@
-name: DHMP Stream Processor Optimization Benchmark
+name: DHMP Stream Processor Cost Ladder
 on:
   workflow_dispatch:
     inputs:
@@ -21,14 +21,18 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build native stream processor benchmark
         run: gcc -O3 -march=native -std=c11 -Wall -Wextra -Werror benchmarks/native-gen2/stream_processor_optimization.c -o /tmp/dhmp-stream
-      - name: Run protocol-only processor search
+      - name: Run protocol-only cost ladder
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-          echo "benchmark=dhmp-stream-processor-only profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32"
-          echo "scope=byte-stream-to-DHMP-package-observation,no-dotnet,no-models,no-workers,no-callbacks"
-          echo "target=measure-real-processor-ceiling;50GBps-is-a-target-not-an-assumption"
-          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+          echo "benchmark=dhmp-stream-processor-cost-ladder profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32"
+          echo "L0=framing/cursor arithmetic only; logical throughput, bytes not read"
+          echo "L1=Latest: touch only retained package per chunk; logical throughput"
+          echo "L2=read every package scalar"
+          echo "L3=read every package batch4"
+          echo "L4=real stream boundary handling + batch4 inner kernel"
+          echo "IMPORTANT: logical_GBps for L0/L1 is advance/discard capacity, not memory/network bandwidth"
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket|Flags' || true
           for ((i=1;i<=RUNS;i++)); do echo "===== RUN $i / $RUNS ====="; /tmp/dhmp-stream "$MESSAGES"; done
           echo "===== END BENCHMARK ====="
