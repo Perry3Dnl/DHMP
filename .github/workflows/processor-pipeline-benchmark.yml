@@ -1,4 +1,4 @@
-name: DHMP Direct Model Buffer Benchmark
+name: DHMP Fixed A-B-C-D Model Pipeline Benchmark
 on:
   workflow_dispatch:
     inputs:
@@ -16,23 +16,25 @@ concurrency:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Build
+      - name: Build once
         run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
-      - name: Run isolated stages on one runner
+      - name: Run fixed A-B-C-D comparison on one runner
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
+          STAGES=(baseline-read direct-cast cast-copy-model-buffer direct-write-model-buffer)
           : > stage-results.txt
-          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 stages=raw-read,package-model,direct-model-buffer" | tee -a stage-results.txt
+          echo "benchmark=fixed-abcd profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 checksum=A+D" | tee -a stage-results.txt
+          echo "rules=same-runner,same-input-shape,same-message-count,same-checksum,separate-process-per-stage,allocations-outside-timer" | tee -a stage-results.txt
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' | tee -a stage-results.txt || true
-          for stage in raw-read package-model direct-model-buffer; do
+          for stage in "${STAGES[@]}"; do
             echo "===== STAGE $stage =====" | tee -a stage-results.txt
             for ((i=1;i<=RUNS;i++)); do
               echo "----- RUN $i / $RUNS -----" | tee -a stage-results.txt
@@ -42,6 +44,6 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: dhmp-direct-model-buffer-${{ github.run_id }}
+          name: dhmp-fixed-abcd-${{ github.run_id }}
           path: stage-results.txt
           retention-days: 7
