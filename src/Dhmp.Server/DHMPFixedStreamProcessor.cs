@@ -20,7 +20,6 @@ public sealed class DHMPFixedStreamProcessor
     }
     public int PackageSize=>_packageSize;
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     public void Process(ReadOnlySpan<byte> input,Action<ReadOnlySpan<byte>> publishCrossBoundary,Action<ReadOnlySpan<byte>> publishBorrowed)
     {
         if(_carryLength!=0)
@@ -51,7 +50,6 @@ public sealed class DHMPFixedStreamProcessor
         _carryLength=input.Length;
     }
 
-    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private void BorrowCarry(int slot,Action<ReadOnlySpan<byte>> publish)
     {
         if(_borrowed[slot])throw new InvalidOperationException("DHMP carry slot is still borrowed.");
