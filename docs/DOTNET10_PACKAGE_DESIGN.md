@@ -36,6 +36,14 @@ app.Run();
 
 TCP/TLS may split a fixed DHMP package across receive buffers. Reconstructing that one fixed package is transport-stream boundary handling, not DHMP application fragmentation.
 
+## Scope boundary
+
+The .NET NuGet/framework ends at the efficient transition from a complete DHMP package span to a usable typed data view. What an application does with that data afterwards is explicitly outside DHMP performance scope.
+
+DHMP benchmarks therefore MUST NOT include game logic, callbacks, databases, application worker scheduling, copying into developer-owned state, ECS updates, or other downstream processing when reporting protocol/framework throughput. Those operations may be substantially slower and are the developer/application's responsibility.
+
+The framework may provide a safe API for consuming the typed view, but application execution time is not a DHMP throughput metric.
+
 ## Receive architecture
 
 ```text
@@ -53,10 +61,12 @@ DHMP Stream Processor
         |
         | zero-copy ReadOnlySpan<T>
         v
-Latest or Sequential consumer
+Latest or Sequential typed view
+        |
+        +---- DHMP/.NET PERFORMANCE SCOPE ENDS HERE ---->
         |
         v
-application code
+application-owned processing
 ```
 
 ### DHMP Stream Processor
@@ -143,4 +153,4 @@ Implement and benchmark the bounded receive-region ownership boundary first:
 5. separate `Latest` and `Sequential` overflow semantics;
 6. deliberately fragmented receive chunks in correctness/performance tests.
 
-Only after that boundary is measured should worker scheduling or application callback dispatch be added.
+Worker scheduling and application callback execution are outside the DHMP/.NET throughput benchmark scope and must be benchmarked separately by applications that choose to use them.
