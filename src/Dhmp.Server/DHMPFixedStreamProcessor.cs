@@ -24,18 +24,7 @@ public sealed class DHMPFixedStreamProcessor
 
     public void Process(ReadOnlySpan<byte> input,Action<ReadOnlySpan<byte>> publishCrossBoundary,Action<ReadOnlySpan<byte>> publishBorrowed)
     {
-        if(_carryLength!=0)
-        {
-            int needed=_packageSize-_carryLength;
-            int take=input.Length<needed?input.Length:needed;
-            byte[] carry=_writeSlot==0?_carry0:_carry1;
-            input[..take].CopyTo(carry.AsSpan(_carryLength));
-            _carryLength+=take;
-            input=input.Slice(take);
-            if(_carryLength!=_packageSize)return;
-            BorrowCarry(_writeSlot,publishCrossBoundary);
-            _carryLength=0; _writeSlot^=1;
-        }
+        if(_carryLength!=0 && !CompleteCarry(ref input,publishCrossBoundary))return;
 
         // Division/remainder used to be on every transport chunk. For the overwhelmingly
         // common power-of-two contracts (16/32/64...) this reduces framing to one mask.
@@ -51,6 +40,21 @@ public sealed class DHMPFixedStreamProcessor
         }
         if(remainder==0)return;
         StoreRemainder(input);
+    }
+
+    private bool CompleteCarry(ref ReadOnlySpan<byte> input,Action<ReadOnlySpan<byte>> publish)
+    {
+        int needed=_packageSize-_carryLength;
+        int take=input.Length<needed?input.Length:needed;
+        byte[] carry=_writeSlot==0?_carry0:_carry1;
+        input[..take].CopyTo(carry.AsSpan(_carryLength));
+        _carryLength+=take;
+        input=input.Slice(take);
+        if(_carryLength!=_packageSize)return false;
+        BorrowCarry(_writeSlot,publish);
+        _carryLength=0;
+        _writeSlot^=1;
+        return true;
     }
 
     private void StoreRemainder(ReadOnlySpan<byte> input)
