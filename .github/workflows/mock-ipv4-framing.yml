@@ -1,0 +1,29 @@
+name: DHMP Mock IPv4 Framing
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['benchmarks/mock-ipv4-framing/**','.github/workflows/mock-ipv4-framing.yml']
+permissions: { contents: read }
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Environment
+        run: |
+          echo "COMMIT=${GITHUB_SHA}"
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+      - name: Build
+        run: dotnet build benchmarks/mock-ipv4-framing/Dhmp.MockIpv4Framing.csproj -c Release
+      - name: Benchmark
+        run: |
+          echo "MOCK_IPV4_CONTRACT=V1 -- real 20-byte IPv4 header build/checksum/parse in memory; protocol 253; no kernel/socket/NIC"
+          DLL=benchmarks/mock-ipv4-framing/bin/Release/net10.0/Dhmp.MockIpv4Framing.dll
+          for i in 1 2 3 4 5; do
+            echo "===== MOCK IPV4 RUN $i / 5 ====="
+            dotnet "$DLL" 100000000
+          done
