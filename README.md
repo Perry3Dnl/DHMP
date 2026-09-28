@@ -479,6 +479,31 @@ Do not compare a processor-only 1.610 B results/s number directly with a socket 
 
 Raw source, CSV data, summaries, methodology and historical results are retained in the repository.
 
+# .NET 10 package direction
+
+The production-facing implementation is being split into small packages while keeping the normal ASP.NET Core setup plug-and-play:
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddDhmp();
+
+var app = builder.Build();
+app.Run();
+```
+
+The target is **one DHMP-specific line** for the common server setup. Advanced transport/runtime tuning remains optional and must not leak into the normal developer experience.
+
+| Package | Purpose |
+| --- | --- |
+| `DHMP.Protocol` | smallest wire-contract/invariant core |
+| `DHMP.Client` | client-only connection/send surface |
+| `DHMP.Server` | server-only listener/session/runtime surface |
+| `DHMP.AspNetCore` | ASP.NET Core DI and hosted lifecycle integration |
+
+Client and server remain independently separable. The ASP.NET package is the convenience composition layer, not the protocol implementation.
+
+[Full .NET 10 package design](docs/DOTNET10_PACKAGE_DESIGN.md)
+
 # Current engineering priorities
 
 1. **Port the retained Adaptive paths into the .NET implementation.**
