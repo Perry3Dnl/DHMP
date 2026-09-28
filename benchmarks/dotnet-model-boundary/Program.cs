@@ -11,19 +11,30 @@ readonly struct M32 { public readonly ulong A,B,C,D; }
 static class Program {
  static ulong sink;
  static P32[] Data(int n){var a=new P32[n];for(int i=0;i<n;i++)a[i]=new P32((ulong)i);return a;}
- static void Out(string stage,int n,long ticks,ulong guard,long spans){double s=(double)ticks/Stopwatch.Frequency;Console.WriteLine($"stage={stage} messages={n} bytes={n*32L} spans={spans} wall_s={s:F6} logical_GBps={n*32.0/s/1e9:F3} logical_mps={n/s/1e6:F3} ns_msg={s*1e9/n:F3} ns_span={s*1e9/spans:F3} guard={guard}");}
- [MethodImpl(MethodImplOptions.NoInlining)] static void Boundary(ReadOnlySpan<M32> models,ref ulong guard){guard^=(ulong)models.Length;}
- static void TypedBoundary(P32[] a){const int slab=512;ulong g=0;long spans=0;long t=Stopwatch.GetTimestamp();for(int p=0;p<a.Length;p+=slab){int n=Math.Min(slab,a.Length-p);ReadOnlySpan<M32> m=MemoryMarshal.Cast<P32,M32>(a.AsSpan(p,n));Boundary(m,ref g);spans++;}long e=Stopwatch.GetTimestamp();sink=g;Out("B0-typed-span-boundary",a.Length,e-t,g,spans);}
- static void Ownership(P32[] a,bool latest){const int slab=512,slots=32;var state=new int[slots];ulong g=0;long spans=0;int slot=0;long t=Stopwatch.GetTimestamp();
-   for(int p=0;p<a.Length;p+=slab){int n=Math.Min(slab,a.Length-p);
-     if(Interlocked.CompareExchange(ref state[slot],1,0)!=0)throw new InvalidOperationException("region busy");
+ static void Out(string stage,long messages,long ticks,ulong guard,long spans){double s=(double)ticks/Stopwatch.Frequency;Console.WriteLine($"stage={stage} messages={messages} bytes={messages*32L} spans={spans} wall_s={s:F6} logical_GBps={messages*32.0/s/1e9:F3} logical_mps={messages/s/1e6:F3} ns_msg={s*1e9/messages:F3} ns_span={s*1e9/spans:F3} guard={guard}");}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void ObserveSpan(ReadOnlySpan<M32> m,ref ulong g){g^=(ulong)m.Length;}
+ [MethodImpl(MethodImplOptions.AggressiveInlining)] static void ObserveLatest(ReadOnlySpan<M32> m,ref ulong g){g^=(ulong)m.Length;g^=m[m.Length-1].A;}
+
+ static void Run(P32[] a,int passes,bool lease,bool latest,string name){
+   const int slab=512,slots=32;var state=new int[slots];ulong g=0;long spans=0;int slot=0;long messages=(long)a.Length*passes;
+   long t=Stopwatch.GetTimestamp();
+   for(int pass=0;pass<passes;pass++)for(int p=0;p<a.Length;p+=slab){int n=Math.Min(slab,a.Length-p);
+     if(lease && Interlocked.CompareExchange(ref state[slot],1,0)!=0)throw new InvalidOperationException("region busy");
      ReadOnlySpan<M32> m=MemoryMarshal.Cast<P32,M32>(a.AsSpan(p,n));
-     if(latest){ref readonly var newest=ref m[m.Length-1];g^=(ulong)m.Length;g^=newest.A;} else Boundary(m,ref g);
-     Volatile.Write(ref state[slot],0);spans++;slot++;if(slot==slots)slot=0;
+     if(latest)ObserveLatest(m,ref g);else ObserveSpan(m,ref g);
+     if(lease)Volatile.Write(ref state[slot],0);
+     spans++;slot++;if(slot==slots)slot=0;
    }
-   long e=Stopwatch.GetTimestamp();sink=g;Out(latest?"B2-latest-lease":"B1-sequential-lease",a.Length,e-t,g,spans);
+   long e=Stopwatch.GetTimestamp();sink=g;Out(name,messages,e-t,g,spans);
  }
- static void ModelConsumeReference(P32[] a){ulong s=0;long t=Stopwatch.GetTimestamp();ReadOnlySpan<M32> m=MemoryMarshal.Cast<P32,M32>(a);for(int i=0;i<m.Length;i++)s+=m[i].A+m[i].D;long e=Stopwatch.GetTimestamp();sink=s;Out("REF-app-consume-out-of-scope",a.Length,e-t,s,a.Length);}
- static void Warm(P32[] a){ulong g=0;ReadOnlySpan<M32> m=MemoryMarshal.Cast<P32,M32>(a.AsSpan(0,Math.Min(512,a.Length)));Boundary(m,ref g);sink=g;}
- static void Main(string[] args){string stage=args[0];int n=int.Parse(args[1]);var a=Data(n);Warm(a);switch(stage){case "typed-boundary":TypedBoundary(a);break;case "sequential-lease":Ownership(a,false);break;case "latest-lease":Ownership(a,true);break;case "app-reference":ModelConsumeReference(a);break;default:throw new ArgumentException(stage);}}
+ static void AppRef(P32[] a,int passes){ulong s=0;long messages=(long)a.Length*passes;long t=Stopwatch.GetTimestamp();for(int pass=0;pass<passes;pass++){ReadOnlySpan<M32> m=MemoryMarshal.Cast<P32,M32>(a);for(int i=0;i<m.Length;i++)s+=m[i].A+m[i].D;}long e=Stopwatch.GetTimestamp();sink=s;Out("REF-app-consume-out-of-scope",messages,e-t,s,messages);}
+ static void Warm(P32[] a){for(int i=0;i<4;i++)Run(a,1,false,false,"warm");}
+ static void Main(string[] args){string stage=args[0];int n=int.Parse(args[1]);int passes=int.Parse(args[2]);var a=Data(n);Warm(a);switch(stage){
+  case "seq-base":Run(a,passes,false,false,"B0-sequential-base");break;
+  case "seq-lease":Run(a,passes,true,false,"B1-sequential-lease");break;
+  case "latest-base":Run(a,passes,false,true,"B2-latest-base");break;
+  case "latest-lease":Run(a,passes,true,true,"B3-latest-lease");break;
+  case "app-reference":AppRef(a,passes);break;
+  default:throw new ArgumentException(stage);
+ }}
 }
