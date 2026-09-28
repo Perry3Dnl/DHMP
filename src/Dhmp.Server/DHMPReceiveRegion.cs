@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Dhmp.Server;
@@ -24,5 +25,5 @@ public readonly ref struct DHMPTypedSpan<T> where T : unmanaged
     private readonly ReadOnlySpan<byte> _bytes;
     internal DHMPTypedSpan(ReadOnlySpan<byte> bytes) => _bytes = bytes;
     public ReadOnlySpan<T> Models => MemoryMarshal.Cast<byte,T>(_bytes);
-    public int Count => Models.Length;
+    public int Count => _bytes.Length / Unsafe.SizeOf<T>();
 }
