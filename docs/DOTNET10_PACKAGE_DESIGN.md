@@ -14,8 +14,6 @@ var app = builder.Build();
 app.Run();
 ```
 
-The target is one DHMP-specific line for the normal server case.
-
 ## Package boundaries
 
 | Package | Responsibility |
@@ -24,81 +22,125 @@ The target is one DHMP-specific line for the normal server case.
 | `DHMP.Client` | client connection/send API |
 | `DHMP.Server` | server listener, sessions, receive/dispatch runtime |
 | `DHMP.AspNetCore` | DI + hosted lifecycle + configuration |
-| future `DHMP` | convenience/meta package if a single install is useful |
+| future `DHMP` | convenience/meta package if useful |
 
 `DHMP.Protocol` MUST NOT depend on ASP.NET Core. Client MUST NOT depend on Server. Server MUST NOT depend on Client. `DHMP.AspNetCore` is composition only.
 
 ## Hard invariants
 
-The .NET API must preserve the protocol rules:
-
 1. one application message fits one negotiated DHMP payload;
-2. no application fragmentation/reassembly;
+2. no application-message fragmentation/reassembly;
 3. fire-and-forget, with no DHMP ACK/replay;
 4. Pmax-derived bounded send rate;
 5. no unbounded reliability queue.
 
-## API direction
+TCP/TLS may split a fixed DHMP package across receive buffers. Reconstructing that one fixed package is transport-stream boundary handling, not DHMP application fragmentation.
 
-Defaults should work. Advanced settings remain optional. The normal developer should not need to understand rings, slabs, SIMD, socket buffers, affinity, or benchmark-derived tuning.
-
-The ASP.NET package will own lifecycle through DI / hosted services so developers do not manually start or stop a DHMP listener.
-
-
-## Processing pipeline
-
-DHMP deliberately separates network/package extraction from model materialization and from developer code:
+## Receive architecture
 
 ```text
-transport stream
-      |
-      v
+TCP / TLS receive storage
+        |
+        v
 DHMP Stream Processor
-  bytes -> complete fixed-contract package
-      |
-      v
-DHMP Package Exchange
-  bounded post-processor handoff
-      |
-      v
-DHMP Model Processor<T>
-  package -> negotiated connection model T
-      |
-      v
+  fixed-size framing only
+  payload remains opaque
+        |
+        | borrowed contiguous package span
+        | (base, count, package size)
+        v
+.NET DHMP boundary
+        |
+        | zero-copy ReadOnlySpan<T>
+        v
+Latest or Sequential consumer
+        |
+        v
 application code
 ```
 
-These are separate processing stages and MUST remain separate in code and benchmarks.
-
 ### DHMP Stream Processor
 
-The Stream Processor is the network hot path. It reads the incoming transport stream, recognizes complete fixed-size packages and publishes them to the Package Exchange. It MUST NOT construct developer models, invoke application callbacks, perform business logic, or wait for slow application work.
+The Stream Processor is protocol-side framing. It determines complete fixed-contract packages in arbitrary TCP/TLS chunks and handles at most the partial package at a chunk boundary.
 
-### DHMP Package Exchange
+It MUST NOT inspect payload fields, calculate payload checksums, construct C# models, choose application workers, invoke callbacks, or perform business logic.
 
-The Package Exchange is the bounded handoff after stream/package processing. A package in this exchange is complete but is not yet the developer model. It lets the Stream Processor publish completed work and immediately continue reading the stream while another DHMP processor consumes completed packages.
+For a contiguous run of complete packages, the preferred output is one batch/span descriptor rather than one descriptor per package. Package boundaries inside the span are implicit from the negotiated fixed package size.
 
-The exchange MUST be bounded. It is not a reliability queue and MUST NOT silently grow to preserve delivery.
+### Borrowed span boundary
 
-### DHMP Model Processor
+The fast path is a **borrowed span**, not a payload copy. Conceptually the handoff is:
 
-The Model Processor belongs to the DHMP library but is outside the stream hot path. Because one DHMP connection has exactly one immutable negotiated model contract, its processor can be selected/prepared once at connection setup. It consumes a complete package, materializes the correct model `T`, and only then hands that model to application code.
+```text
+{ base address / receive region, package count, fixed package size }
+```
 
-Per-package type discovery, reflection-based dispatch, or application callbacks MUST NOT be added to the Stream Processor.
+The receiver owns the underlying storage. The consumer may use the span only during its valid lease/lifetime. The receive region MUST NOT be reused or overwritten until the consumer releases it.
 
-### Application processor
+This ownership rule is the central coupling constraint between the protocol processor and the .NET implementation. It must be solved without making the Stream Processor perform model materialization or worker dispatch.
 
-Developer/application processing starts after model materialization. Database work, game logic, service calls, and other application work are not DHMP Stream Processor work and must not block the stream hot path.
+A span descriptor is metadata; it does not transfer ownership of each package and does not imply a reliability queue.
 
-### Processing modes
+### Partial package
 
-`Latest` and `Sequential` describe how completed packages cross the post-processor handoff; neither is a delivery guarantee.
+When a transport chunk ends inside one fixed package, only those partial bytes are copied into the connection's fixed-size carry storage. Once the next chunk completes that package, it can be exposed as one complete package. Complete packages MUST NOT be copied merely because another package crossed a transport boundary.
 
-- `Latest`: older unconsumed state may be replaced by newer state.
-- `Sequential`: complete received packages are offered to the Model Processor in receive order, within bounded capacity.
+### .NET model boundary
 
-The concrete exchange implementations remain an optimization task and must be benchmarked rather than assumed.
+For compatible unmanaged fixed-layout contracts, .NET should expose complete package storage as a zero-copy `ReadOnlySpan<T>` (or an equivalent lifetime-safe internal view). It MUST NOT copy every package into a second `T[]` merely to materialize the model.
+
+Contract validation is established once for the connection; per-package reflection or schema discovery is not part of this path.
+
+### Latest
+
+`Latest` may discard stale unconsumed packages. When a receive span contains multiple packages, the framework can select the newest complete package directly. It does not need to enqueue every preceding package first.
+
+The underlying receive storage still cannot be reused while the selected model/span is being consumed.
+
+### Sequential
+
+`Sequential` offers every complete package in receive order. It remains bounded and fire-and-forget: a slow consumer MUST NOT cause an unbounded reliability queue.
+
+The preferred unit of handoff is a span/batch. If bounded receive storage is exhausted, the configured overflow policy must act explicitly rather than silently allocating an ever-growing queue.
+
+## Ownership implementation direction
+
+Use a small bounded pool/ring of receive regions. Each region moves through a simple lifecycle:
+
+```text
+FREE -> RECEIVING -> BORROWED -> FREE
+```
+
+Only the receive owner writes a `FREE/RECEIVING` region. A published `BORROWED` region is immutable. Releasing the borrow returns the region to `FREE`.
+
+Do not add per-package reference counting. Ownership should be tracked per receive region/span so synchronization cost scales with publications, not message count.
+
+For `Latest`, a newer unconsumed region may replace an older one according to the mode's discard semantics, provided a region actively borrowed by a consumer is never overwritten.
+
+For `Sequential`, region publication is FIFO and bounded.
+
+## Benchmark evidence and interpretation
+
+The protocol framing benchmark shows that fixed framing itself is far above the original 50 GB/s processor target on the current GitHub runner; fragmented Sequential framing remained in the hundreds of logical GB/s. These are logical framing-capacity measurements, not network or memory bandwidth.
+
+The independent .NET boundary benchmark measured roughly 52 GB/s for span acceptance / Latest span selection, about 15 GB/s while actually reading model fields from every package through a zero-copy model view, and about 5.7 GB/s when copying into a second model buffer. These are benchmark-family measurements, not end-to-end network throughput.
+
+Therefore the implementation direction is:
+- keep payload opaque in the Stream Processor;
+- publish batches/spans, not per-package work;
+- preserve zero-copy across the .NET boundary where lifetime permits;
+- avoid a mandatory second model buffer;
+- benchmark region ownership/publication before choosing the concrete ring implementation.
 
 ## Next implementation slice
 
-Port the retained fixed-contract receive/send path behind `DHMP.Server` and `DHMP.Client`, then make `AddDHMP()` register the server as an `IHostedService`. After correctness tests, benchmark the managed implementation before adding convenience APIs.
+Implement and benchmark the bounded receive-region ownership boundary first:
+
+1. preallocated receive regions;
+2. one publication per complete package span;
+3. zero-copy managed model view while borrowed;
+4. explicit release back to the receive pool;
+5. separate `Latest` and `Sequential` overflow semantics;
+6. deliberately fragmented receive chunks in correctness/performance tests.
+
+Only after that boundary is measured should worker scheduling or application callback dispatch be added.
