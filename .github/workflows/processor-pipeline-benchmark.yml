@@ -37,22 +37,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          if [[ "${{ inputs.profile }}" == "full" ]]; then
-            RUNS=7
-            MESSAGES=50000000
-          else
-            RUNS=3
-            MESSAGES=10000000
-          fi
-
-          echo "profile=${{ inputs.profile }}"
-          echo "runs=$RUNS messages=$MESSAGES"
-          echo "runner=$(uname -a)"
-          echo "cpu:"
+          if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
+          echo "profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES"
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
-          echo
-
           : > processor-pipeline-results.txt
 
           for ((i=1; i<=RUNS; i++)); do
@@ -60,24 +47,18 @@ jobs:
               echo "===== RUN $i / $RUNS ====="
               ./pipeline-ab direct "$MESSAGES"
               ./pipeline-ab spsc "$MESSAGES"
-              ./pipeline-ab batch "$MESSAGES" 384
+              for slab in 32 128 384 512; do
+                ./pipeline-ab slab "$MESSAGES" "$slab"
+              done
             } | tee -a processor-pipeline-results.txt
           done
 
-          direct_checksum=$(grep '^mode=direct ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
-          spsc_checksum=$(grep '^mode=spsc ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
-          batch_checksum=$(grep '^mode=batch ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
+          expected=$(grep '^mode=direct ' processor-pipeline-results.txt | sed -n 's/.*checksum=\([0-9]*\).*/\1/p' | sort -u)
+          [[ $(echo "$expected" | wc -l) -eq 1 ]] || { echo "::error::Direct checksum inconsistent"; exit 1; }
 
-          if [[ $(echo "$direct_checksum" | wc -l) -ne 1 ||
-                $(echo "$spsc_checksum" | wc -l) -ne 1 ||
-                $(echo "$batch_checksum" | wc -l) -ne 1 ||
-                "$direct_checksum" != "$spsc_checksum" ||
-                "$direct_checksum" != "$batch_checksum" ]]; then
-            echo "::error::Checksum validation failed; benchmark results are invalid."
-            exit 1
-          fi
-
-          echo "Checksum validation passed: $direct_checksum"
+          all=$(sed -n 's/.*checksum=\([0-9]*\).*/\1/p' processor-pipeline-results.txt | sort -u)
+          [[ $(echo "$all" | wc -l) -eq 1 && "$all" == "$expected" ]] || { echo "::error::Checksum validation failed; results invalid"; exit 1; }
+          echo "Checksum validation passed: $expected"
 
       - name: Upload raw results
         if: always()
