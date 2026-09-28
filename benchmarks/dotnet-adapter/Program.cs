@@ -22,6 +22,28 @@ static class Program {
   Measure("a3-byte-boundary-delegate",n,passes,()=>byteBoundary(MemoryMarshal.AsBytes(d.AsSpan())));
   var adapter=new Adapter<PlayerState>(Size);
   Measure("a4-validated-adapter",n,passes,()=>adapter.Consume(MemoryMarshal.AsBytes(d.AsSpan()),typed));
+
+  // B-series: adapter/boundary ceiling only. No application field consumption.
+  // Keep a tiny observable count so the JIT cannot discard the boundary work.
+  Measure("b0-typed-observe",n,passes,()=>sink+=d.Length);
+  Measure("b1-byte-cast-observe",n,passes,()=>sink+=MemoryMarshal.Cast<byte,PlayerState>(MemoryMarshal.AsBytes(d.AsSpan())).Length);
+  Action<ReadOnlySpan<PlayerState>> observe=x=>sink+=x.Length;
+  Measure("b2-adapter-observe",n,passes,()=>adapter.Consume(MemoryMarshal.AsBytes(d.AsSpan()),observe));
+  var boundary=new BorrowedBoundary<PlayerState>(Size);
+  Measure("b3-borrowed-boundary-observe",n,passes,()=>boundary.Consume(MemoryMarshal.AsBytes(d.AsSpan()),observe));
+ }
+ sealed class BorrowedBoundary<T> where T:unmanaged {
+  readonly int size;
+  bool borrowed;
+  public BorrowedBoundary(int packageSize){int actual=Unsafe.SizeOf<T>();if(packageSize!=actual)throw new ArgumentException($"Contract {packageSize} != model {actual}");size=actual;}
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public void Consume(ReadOnlySpan<byte>b,Action<ReadOnlySpan<T>> consumer){
+   if(b.Length%size!=0)throw new ArgumentException("Incomplete package span");
+   if(borrowed)throw new InvalidOperationException("Boundary is already borrowed.");
+   borrowed=true;
+   try{consumer(MemoryMarshal.Cast<byte,T>(b));}
+   finally{borrowed=false;}
+  }
  }
  sealed class Adapter<T> where T:unmanaged {
   readonly int size;
