@@ -8,7 +8,7 @@ The public developer experience must stay small while client, server, protocol, 
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddDhmp();
+builder.Services.AddDHMP();
 
 var app = builder.Build();
 app.Run();
@@ -46,4 +46,4 @@ The ASP.NET package will own lifecycle through DI / hosted services so developer
 
 ## Next implementation slice
 
-Port the retained fixed-contract receive/send path behind `DHMP.Server` and `DHMP.Client`, then make `AddDhmp()` register the server as an `IHostedService`. After correctness tests, benchmark the managed implementation before adding convenience APIs.
+Port the retained fixed-contract receive/send path behind `DHMP.Server` and `DHMP.Client`, then make `AddDHMP()` register the server as an `IHostedService`. After correctness tests, benchmark the managed implementation before adding convenience APIs.
