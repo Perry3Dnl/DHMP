@@ -1,4 +1,4 @@
-name: DHMP SPSC Slab Pipeline Benchmark
+name: DHMP Stream Processor Optimization Benchmark
 on:
   workflow_dispatch:
     inputs:
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: dhmp-stage-benchmark
+  group: dhmp-stream-processor-benchmark
   cancel-in-progress: false
 jobs:
   benchmark:
@@ -19,22 +19,16 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - name: Build once
-        run: dotnet build benchmarks/dotnet-model-boundary/Dhmp.ModelBoundary.Bench.csproj -c Release
-      - name: Run SPSC slab pipeline
+      - name: Build native stream processor benchmark
+        run: gcc -O3 -march=native -std=c11 -Wall -Wextra -Werror benchmarks/native-gen2/stream_processor_optimization.c -o /tmp/dhmp-stream
+      - name: Run protocol-only processor search
         shell: bash
         run: |
           set -euo pipefail
           if [[ "${{ inputs.profile }}" == "full" ]]; then RUNS=7; MESSAGES=50000000; else RUNS=3; MESSAGES=10000000; fi
-          STAGES=(baseline-read direct-cast spsc-1w spsc-2w spsc-4w)
-          echo "benchmark=spsc-slab-workers profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32 slab_size=512 ring_slots_per_worker=32 checksum=A+D"
-          echo "design=one-independent-SPSC-slab-ring-per-worker,no-shared-claim-counter,no-per-message-sync"
+          echo "benchmark=dhmp-stream-processor-only profile=${{ inputs.profile }} runs=$RUNS messages=$MESSAGES package_bytes=32"
+          echo "scope=byte-stream-to-DHMP-package-observation,no-dotnet,no-models,no-workers,no-callbacks"
+          echo "target=measure-real-processor-ceiling;50GBps-is-a-target-not-an-assumption"
           lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
-          for stage in "${STAGES[@]}"; do
-            echo "===== STAGE $stage ====="
-            for ((i=1;i<=RUNS;i++)); do echo "----- RUN $i / $RUNS -----"; dotnet benchmarks/dotnet-model-boundary/bin/Release/net10.0/Dhmp.ModelBoundary.Bench.dll "$stage" "$MESSAGES"; done
-          done
+          for ((i=1;i<=RUNS;i++)); do echo "===== RUN $i / $RUNS ====="; /tmp/dhmp-stream "$MESSAGES"; done
           echo "===== END BENCHMARK ====="
