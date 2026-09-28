@@ -67,7 +67,6 @@ static class Program {
    case 18: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastLocal<PlayerState>(bytes.Slice(off,Batch*Size)); break;
    case 19: for(int i=0,off=0;i<count;i++,off+=Batch*Size)GenericCastCount<PlayerState>(bytes.Slice(off,Batch*Size)); break;}
   }
- }
 
  [MethodImpl(MethodImplOptions.NoInlining)] static void Observe(ReadOnlySpan<PlayerState> x){sink+=x.Length;}
  [MethodImpl(MethodImplOptions.AggressiveInlining)] static void StaticCast(ReadOnlySpan<byte>b)=>Observe(MemoryMarshal.Cast<byte,PlayerState>(b));
