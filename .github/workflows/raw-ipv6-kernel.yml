@@ -1,0 +1,28 @@
+name: DHMP Raw IPv6 Kernel Experiment
+on:
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Environment and raw-socket capability
+        run: |
+          echo "COMMIT=${GITHUB_SHA}"
+          uname -a
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+          grep CapEff /proc/self/status
+      - name: Build
+        run: dotnet build benchmarks/raw-ipv6-kernel/Dhmp.RawIpv6Kernel.csproj -c Release
+      - name: Raw IPv6 benchmark
+        run: |
+          echo "RAW_IPV6_CONTRACT=V1 -- Linux raw IPv6 loopback, next-header 253, 32-byte DHMP messages, batch 44, exact receive accounting"
+          DLL=benchmarks/raw-ipv6-kernel/bin/Release/net10.0/Dhmp.RawIpv6Kernel.dll
+          for i in 1 2 3 4 5; do
+            echo "===== RAW IPV6 RUN $i / 5 ====="
+            dotnet "$DLL" 5000000 44
+          done
