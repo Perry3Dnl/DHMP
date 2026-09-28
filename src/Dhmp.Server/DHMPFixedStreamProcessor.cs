@@ -24,9 +24,11 @@ public sealed class DHMPFixedStreamProcessor
     {
         if(_carryLength!=0)
         {
-            int take=Math.Min(_packageSize-_carryLength,input.Length);
+            int needed=_packageSize-_carryLength;
+            int take=input.Length<needed?input.Length:needed;
             input[..take].CopyTo(_carry[_writeSlot].AsSpan(_carryLength));
-            _carryLength+=take; input=input[take..];
+            _carryLength+=take;
+            input=input.Slice(take);
             if(_carryLength!=_packageSize)return;
             BorrowCarry(_writeSlot,publishCrossBoundary);
             _carryLength=0; _writeSlot^=1;
@@ -41,8 +43,8 @@ public sealed class DHMPFixedStreamProcessor
 
         if(completeBytes!=0)
         {
-            publishBorrowed(input[..completeBytes]);
-            input=input[completeBytes..];
+            publishBorrowed(input.Slice(0,completeBytes));
+            input=input.Slice(completeBytes);
         }
         if(input.IsEmpty)return;
         if(_borrowed[_writeSlot])throw new InvalidOperationException("No free DHMP carry slot.");
