@@ -6,8 +6,9 @@ public sealed class DHMPFixedStreamProcessor
     private readonly int _packageSize;
     private readonly int _packageMask;
     private readonly bool _powerOfTwo;
-    private readonly byte[][] _carry;
-    private readonly bool[] _borrowed=new bool[2];
+    private readonly byte[] _carry0;
+    private readonly byte[] _carry1;
+    private bool _borrowed0,_borrowed1;
     private int _writeSlot,_carryLength;
 
     public DHMPFixedStreamProcessor(int packageSize)
@@ -16,7 +17,8 @@ public sealed class DHMPFixedStreamProcessor
         _packageSize=packageSize;
         _powerOfTwo=IsPowerOfTwo(packageSize);
         _packageMask=_powerOfTwo?packageSize-1:0;
-        _carry=[new byte[packageSize],new byte[packageSize]];
+        _carry0=new byte[packageSize];
+        _carry1=new byte[packageSize];
     }
     public int PackageSize=>_packageSize;
 
@@ -25,7 +27,8 @@ public sealed class DHMPFixedStreamProcessor
         if(_carryLength!=0)
         {
             int take=Math.Min(_packageSize-_carryLength,input.Length);
-            input[..take].CopyTo(_carry[_writeSlot].AsSpan(_carryLength));
+            byte[] carry=_writeSlot==0?_carry0:_carry1;
+            input[..take].CopyTo(carry.AsSpan(_carryLength));
             _carryLength+=take; input=input[take..];
             if(_carryLength!=_packageSize)return;
             BorrowCarry(_writeSlot,publishCrossBoundary);
@@ -43,17 +46,26 @@ public sealed class DHMPFixedStreamProcessor
             input=input[completeBytes..];
         }
         if(input.IsEmpty)return;
-        if(_borrowed[_writeSlot])throw new InvalidOperationException("No free DHMP carry slot.");
-        input.CopyTo(_carry[_writeSlot]);
+        if((_writeSlot==0?_borrowed0:_borrowed1))throw new InvalidOperationException("No free DHMP carry slot.");
+        byte[] target=_writeSlot==0?_carry0:_carry1;
+        input.CopyTo(target);
         _carryLength=input.Length;
     }
 
     private void BorrowCarry(int slot,Action<ReadOnlySpan<byte>> publish)
     {
-        if(_borrowed[slot])throw new InvalidOperationException("DHMP carry slot is still borrowed.");
-        _borrowed[slot]=true;
-        try{publish(_carry[slot]);}
-        finally{_borrowed[slot]=false;}
+        if(slot==0)
+        {
+            if(_borrowed0)throw new InvalidOperationException("DHMP carry slot is still borrowed.");
+            _borrowed0=true;
+            try{publish(_carry0);}
+            finally{_borrowed0=false;}
+            return;
+        }
+        if(_borrowed1)throw new InvalidOperationException("DHMP carry slot is still borrowed.");
+        _borrowed1=true;
+        try{publish(_carry1);}
+        finally{_borrowed1=false;}
     }
 
     private static bool IsPowerOfTwo(int value)=>(value&(value-1))==0;
