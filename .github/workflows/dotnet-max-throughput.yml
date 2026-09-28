@@ -15,6 +15,7 @@ on:
       - 'benchmarks/dotnet-max-throughput/**'
       - 'benchmarks/dotnet-hotpath-cost/**'
       - 'benchmarks/dotnet-adapter/**'
+      - 'benchmarks/tcp-current/**'
       - '.github/workflows/dotnet-max-throughput.yml'
 permissions: { contents: read }
 jobs:
@@ -31,6 +32,8 @@ jobs:
         run: dotnet build benchmarks/dotnet-hotpath-cost/Dhmp.HotPathCost.csproj -c Release
       - name: Build .NET adapter benchmark
         run: dotnet build benchmarks/dotnet-adapter/Dhmp.DotNetAdapter.csproj -c Release
+      - name: Build current TCP comparison
+        run: dotnet build benchmarks/tcp-current/Dhmp.TcpCurrent.csproj -c Release
       - name: Stable benchmark V1
         shell: bash
         run: |
@@ -57,3 +60,11 @@ jobs:
           echo "ADAPTER_CONTRACT=DOTNET_ADAPTER_V1 -- DHMP stream processor excluded"
           DLL=benchmarks/dotnet-adapter/bin/Release/net10.0/Dhmp.DotNetAdapter.dll
           for i in 1 2 3; do echo "===== ADAPTER RUN $i / 3 ====="; dotnet "$DLL" 5000000 5; done
+
+      - name: Current DHMP vs raw fixed TCP
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "TCP_CURRENT_CONTRACT=V1 -- same 32-byte payload, loopback socket path, same typed consumer"
+          DLL=benchmarks/tcp-current/bin/Release/net10.0/Dhmp.TcpCurrent.dll
+          for i in 1 2 3; do echo "===== TCP CURRENT RUN $i / 3 ====="; dotnet "$DLL" 5000000; done
