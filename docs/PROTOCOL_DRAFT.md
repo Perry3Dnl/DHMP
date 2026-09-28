@@ -1,6 +1,6 @@
 # DHMP protocol draft
 
-This document captures the protocol model as of 2026-09-23. It is a working draft, not yet a frozen interoperability specification.
+This document captures the protocol model as of 2026-09-28. It is a working draft, not yet a frozen interoperability specification.
 
 ## 1. Purpose
 
@@ -36,54 +36,28 @@ There is no DHMP length field on every frame because length is already known fro
 
 TCP may split or combine writes arbitrarily. DHMP reconstructs logical frames from the ordered byte stream using the negotiated frame size. A socket write is therefore not required to correspond 1:1 with a logical DHMP frame.
 
-## 4. Delivery semantics
+## 4. Delivery semantics and hard invariants
 
-### 4.1 Unconfirmed
+DHMP is **fire-and-forget**. There is no DHMP-level per-message acknowledgement, replay, reconnect history, or Verified delivery mode.
 
-Unconfirmed means DHMP does not require application-level proof that every logical frame was accepted.
+### 4.1 One message must fit the contract
 
-The sender may continuously push data without waiting for a reply.
+A logical DHMP application message MUST fit completely inside the negotiated fixed payload/frame contract. DHMP MUST NOT fragment one application message into multiple logical DHMP messages and MUST NOT provide reassembly.
 
-If a session breaks, uncertain application frames do not have to be replayed.
+If `payload.Length > MaxPayload`, the sender API MUST reject the send before bytes enter the DHMP send path.
 
-TCP still handles normal packet loss, ordering and retransmission while a connection is alive. DHMP does not attempt to replace TCP's packet-recovery algorithms.
+TCP or TLS may split/coalesce bytes internally. That is transport segmentation only; it does not relax the DHMP message-size invariant.
 
-### 4.2 Verified
+### 4.2 Processing-rate ceiling
 
-Verified deliberately keeps the same hot data path:
-
-```text
-sender                         receiver
-
-frame  ----------------------->
-frame  ----------------------->
-frame  ----------------------->
-frame  ----------------------->
-...
-```
-
-There are no per-frame ACKs and no periodic ACKs merely because data is flowing.
-
-The sender retains unverified logical frames locally. When a session breaks, the reconnect handshake obtains the receiver's authoritative accepted stream position. The sender can then replay the uncertain tail and continue.
-
-Because the underlying stream is ordered, normal recovery is a tail/resume problem, not a search for arbitrary holes in the middle of a live TCP stream.
-
-Conceptually:
+A DHMP sender MUST be bounded by a configured maximum receiver/processor capacity `Pmax`, expressed as logical messages per second for the active contract/profile. Implementations SHOULD apply a safety factor below the measured/configured ceiling:
 
 ```text
-sender emitted through:       50137
-receiver accepted through:    50112
-
-resume/replay:                 50113..50137
+AllowedSendRate = floor(Pmax * SafetyFactor)
+0 < SafetyFactor <= 1
 ```
 
-### 4.3 Verification boundaries
-
-Verified cannot retain an infinite amount of history while also refusing all reverse communication forever.
-
-The intended next step is asynchronous checkpointing. A verification boundary can ask the receiver for its accepted position without stopping the sender's data stream. Once the answer arrives, older retained history can be discarded.
-
-The protocol should optimize verification for bounded memory rather than turn normal sends into request/reply operations.
+Exceeding the rate budget MUST NOT create an unbounded queue. The API may reject/drop an attempted send according to its explicit runtime policy, but MUST NOT silently turn fire-and-forget traffic into queued reliable delivery.
 
 ## 5. Consumption semantics
 
@@ -132,18 +106,18 @@ The prototype currently assumes trusted peers and trusted contracts. The final p
 - schema/version compatibility rules;
 - authentication and certificate/service identity expectations;
 - resource limits and malicious-peer behavior;
-- checkpoint and retention policy for Verified mode;
-- reconnect/session identity;
+- reconnect/session identity and fresh-session behavior;
 - application processing versus transport acceptance semantics;
-- flow control and bounded sender history;
+- rate-limit negotiation/configuration and overload policy;
 - route/endpoint negotiation for higher-level service APIs.
 
 ## 8. Design rules
 
 1. Anything known before steady-state transmission should not be repeated on every frame.
-2. Do not reproduce TCP's packet-loss recovery at the DHMP layer.
-3. Reliability above TCP should address logical DHMP acceptance/session recovery.
-4. Sending should not become synchronous merely because a caller wants delivery verification.
-5. Latest-state applications should not be forced to spend CPU reconstructing obsolete states.
-6. Retained state capacity should be bounded independently from transport I/O batch size.
-7. Steady-state receive paths should prefer fixed reusable memory over per-frame allocation, shifting, or clearing.
+2. One logical application message MUST fit the negotiated fixed payload/frame contract.
+3. DHMP MUST NOT fragment or reassemble application messages.
+4. DHMP is fire-and-forget: no DHMP ACK, replay, or delivery-recovery mode.
+5. Send rate MUST remain bounded by the configured `Pmax`; overload MUST NOT create an unbounded queue.
+6. Latest-state applications should not be forced to spend CPU reconstructing obsolete states.
+7. Retained state capacity should be bounded independently from transport I/O batch size.
+8. Steady-state receive paths should prefer fixed reusable memory over per-frame allocation, shifting, or clearing.
