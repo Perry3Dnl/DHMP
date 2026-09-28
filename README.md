@@ -10,6 +10,17 @@ The goal is straightforward:
 
 > **Negotiate what can be known once, then keep repeated metadata, unnecessary copies, per-message synchronization, queue growth, and avoidable processing out of the steady-state path.**
 
+## Hard protocol boundaries
+
+DHMP is deliberately **fire-and-forget and fixed-contract**. One logical application message must fit completely inside the negotiated fixed payload/frame contract.
+
+- **No fragmentation or reassembly.** A message larger than the negotiated maximum payload is invalid and MUST be rejected by the sender API.
+- **No DHMP delivery acknowledgement, replay, or message recovery.** The sender does not wait for proof that an application message was consumed.
+- **No unbounded send queue.** A sender MUST be rate-limited to a configured processing ceiling `Pmax`; implementations SHOULD operate below that ceiling with a safety margin.
+- TCP/TLS may internally segment bytes on the wire. That transport segmentation does **not** make DHMP messages fragmentable.
+
+Large application objects belong on another transport; DHMP can carry a small state/event indicating that such data changed.
+
 # Performance showcase
 
 ## Fair benchmark status
@@ -426,7 +437,7 @@ DHMP keeps interoperability rules separate from platform-specific acceleration.
 | Fixed-contract handshake | Ring-3 ownership |
 | Fixed record or fixed block layout | Slab size/count |
 | `Every` / `Latest` semantics | 32-bit ownership token |
-| Unconfirmed / Verified delivery | Fixed-width carry path |
+| Fire-and-forget delivery | Fixed-width carry path |
 | Optional ComputeBlock layout | Fused/SIMD routine selection |
 | DHMP / DHMPS | Delivery worker |
 |  | CPU/cache placement |
@@ -438,22 +449,11 @@ This allows other implementations in .NET, C/C++, Rust, Go, Java, Unity, Python 
 
 # Delivery semantics
 
-Receive semantics and recovery semantics are separate.
+DHMP has one delivery rule: **fire-and-forget**.
 
-### Unconfirmed
+The sender may stream complete fixed-contract messages without waiting for DHMP-level acknowledgement. DHMP does not define per-message ACKs, replay, reconnect history, or a Verified mode. TCP still provides its own ordered byte-stream recovery while a live TCP connection exists; that transport behavior is not a DHMP application-delivery guarantee.
 
-The sender streams without requiring DHMP-level proof/replay for every logical record. TCP still provides ordered reliable byte delivery while the connection remains alive.
-
-### Verified
-
-Verified keeps the normal hot path streaming:
-
-- no per-frame DHMP ACK;
-- sender retains uncertain logical history;
-- reconnect/checkpoint establishes the receiver's accepted position;
-- only the uncertain tail is replayed.
-
-The remaining implementation work is bounded asynchronous checkpoint/history reclamation.
+A sender is bounded by a configured processing ceiling `Pmax`. The reference guard uses a safety factor below `Pmax` and rejects oversize messages before they enter the send path. This is a runtime safety rule, not permission to fragment messages.
 
 # DHMP and DHMPS
 
@@ -486,7 +486,7 @@ Raw source, CSV data, summaries, methodology and historical results are retained
 3. Tune receive workspace, sender batch, `SO_RCVBUF`, `SO_SNDBUF`, polling, CPU placement, and TLS.
 4. Repeat combined tests on physical LAN hardware with longer runs and hardware counters.
 5. Measure ComputeBlock accumulation latency and sender-side layout/repacking costs.
-6. Implement bounded Verified checkpoints.
+6. Enforce payload and Pmax send-rate invariants in each production implementation.
 
 # Documentation
 
