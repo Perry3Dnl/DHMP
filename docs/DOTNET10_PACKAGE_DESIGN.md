@@ -12,7 +12,7 @@ Namespaces also use `DHMP.*`. There are no case-only alternate projects.
 
 `DhmpProtocol.CurrentVersion` identifies the current pre-1.0 session/wire contract version.
 
-`DhmpProtocol.ExperimentalIpv6NextHeader` records the experimental Next Header value used by the raw IPv6 research path. It is not a permanent protocol assignment.
+`DhmpProtocol.ExperimentalIpv6DataNextHeader` is experimental value 253 for headerless data. `DhmpProtocol.ExperimentalIpv6ControlNextHeader` is experimental value 254 for Control V1. Neither is a permanent assignment.
 
 ## Wire contract and local policies
 
@@ -59,11 +59,21 @@ There is no `ConnectAsync`, port, hidden socket choice or default compatibility 
 
 `DHMP.RawIpv6` is the first concrete network implementation of that boundary. It is intentionally Linux-only until other operating-system raw-socket semantics are validated separately.
 
-`DhmpRawIpv6Options` binds one local IPv6 address, one expected remote IPv6 address, a payload ceiling and an experimental protocol number (`253` or `254`).
+`DhmpRawIpv6Options` binds one local IPv6 address, one expected remote IPv6 address and a backend payload ceiling. Data and control protocol numbers are fixed by the experimental profile: 253 for data and 254 for control.
 
 `DhmpRawIpv6PacketSender` sends the DHMP V1 payload directly through an IPv6 raw socket. `DhmpRawIpv6Receiver` accepts payloads only from the configured peer, rejects truncated/malformed packets and hands valid payloads to one `DhmpServer` session.
 
-The backend does not perform session negotiation and cannot multiplex different DHMP contracts between the same address pair because V1 carries no protocol-owned session ID.
+`DhmpRawIpv6Handshake` performs a one-shot HELLO/ACCEPT/REJECT exchange on the control binding. It validates wire version, record size and schema UUID, advertises receive capability and returns a `DhmpNegotiatedPeer` with an effective outbound packet ceiling. It does not discover peers or authenticate identity. The backend still cannot multiplex different DHMP contracts between the same address pair because V1 data carries no protocol-owned session ID.
+
+## Control plane
+
+`DhmpControlCodec` encodes a fixed 32-byte Control V1 packet. `DhmpControlNegotiator` contains pure compatibility logic with no socket dependency.
+
+The current control packet carries magic, control version, message type, data wire version, record size, maximum receive payload, schema UUID and correlation ID.
+
+Pmax and Sequential/Latest are intentionally not negotiated.
+
+See [Control V1](CONTROL_PLANE_V1.md) for the byte layout and security limitations.
 
 ## Hosting and licensing
 
