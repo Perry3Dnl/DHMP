@@ -51,4 +51,22 @@ public readonly record struct DhmpCongestionFeedback
     public int PendingBatches { get; }
     public int Capacity { get; }
     public long LostPendingWork { get; }
+
+    public void Validate()
+    {
+        if (Pressure is not DhmpCongestionPressure.None and
+            not DhmpCongestionPressure.Soft and
+            not DhmpCongestionPressure.Hard)
+            throw new ArgumentException(
+                "A supported congestion pressure is required.");
+
+        if (RateScalePermille < MinimumScalePermille ||
+            RateScalePermille > MaximumScalePermille ||
+            PendingBatches < 0 ||
+            Capacity <= 0 ||
+            PendingBatches > Capacity ||
+            LostPendingWork < 0)
+            throw new ArgumentException(
+                "A valid DHMP congestion feedback value is required.");
+    }
 }
