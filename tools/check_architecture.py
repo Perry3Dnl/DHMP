@@ -39,6 +39,8 @@ required_paths = {
     "src/DHMP.Protocol/DhmpCongestionPressure.cs",
     "src/DHMP.Protocol/DhmpCongestionFeedback.cs",
     "src/DHMP.Protocol/DhmpAdaptiveRateController.cs",
+    "src/DHMP.Protocol/DhmpPathTelemetry.cs",
+    "src/DHMP.Protocol/DhmpPathRateAdvisor.cs",
     "src/DHMP.Protocol/DhmpPacketProcessor.cs",
     "src/DHMP.Protocol/DhmpControlCodec.cs",
     "src/DHMP.Protocol/DhmpControlNegotiator.cs",
