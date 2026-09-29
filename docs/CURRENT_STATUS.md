@@ -20,7 +20,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - `DhmpServer` uses the same wire contract with its own local receive policy.
 - `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: data on experimental protocol 253 and control/handshake on 254. It includes bounded source-IPv6 multi-peer routing plus `DhmpIpv6PathBudget` for known-PMTU payload calculation.
 - `DHMP.Security` provides an experimental PSK security profile using authenticated control setup, HKDF-derived directional keys, ChaCha20-Poly1305 packet protection and a bounded replay window.
-- `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential.
+- `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 
