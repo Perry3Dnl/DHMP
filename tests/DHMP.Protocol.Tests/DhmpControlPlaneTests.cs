@@ -336,6 +336,31 @@ public sealed class DhmpControlPlaneTests
     }
 
     [Fact]
+    public void NegotiatedPolicy_CanBeClampedToProtectedSenderLimit()
+    {
+        var remote = new DhmpPeerProfile(
+            new DhmpWireContract(32),
+            1408,
+            SchemaId);
+
+        var negotiated = new DhmpNegotiatedPeer(
+            remote,
+            new DhmpSendPolicy(
+                5000,
+                1408,
+                DhmpRatePolicy.SmoothPacing));
+
+        var finalPolicy =
+            negotiated.ConstrainToPayloadLimit(1384);
+
+        Assert.Equal(1376, finalPolicy.MaximumPayloadBytes);
+        Assert.Equal(5000, finalPolicy.Pmax);
+        Assert.Equal(
+            DhmpRatePolicy.SmoothPacing,
+            finalPolicy.RatePolicy);
+    }
+
+    [Fact]
     public void DataAndControlBindings_AreDistinctExperimentalValues()
     {
         Assert.Equal(
