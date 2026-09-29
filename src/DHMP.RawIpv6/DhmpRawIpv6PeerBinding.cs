@@ -34,6 +34,14 @@ public sealed class DhmpRawIpv6PeerBinding
                 "Packet decoder overhead cannot be negative.",
                 nameof(decoder));
 
+        if (decoder is not null &&
+            decoder.OverheadBytes >
+                ushort.MaxValue -
+                server.ReceivePolicy.MaximumPayloadBytes)
+            throw new ArgumentException(
+                "Packet decoder overhead cannot fit within the supported raw IPv6 payload range.",
+                nameof(decoder));
+
         RemoteAddress = remoteAddress;
         Server = server;
         PublishBatch = publishBatch;
