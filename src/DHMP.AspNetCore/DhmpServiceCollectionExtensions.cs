@@ -4,7 +4,9 @@ namespace DHMP.AspNetCore;
 
 public static class DhmpServiceCollectionExtensions
 {
-    private sealed class DhmpRegistrationMarker;
+    private sealed class DhmpRegistrationMarker
+    {
+    }
 
     public static IServiceCollection AddDHMP(
         this IServiceCollection services,
