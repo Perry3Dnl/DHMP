@@ -14,8 +14,8 @@ public sealed class DhmpStartupIntegrationTests
         var applicationId = Guid.NewGuid();
         using var host = BuildHost(applicationId, issuer.Issue(applicationId), issuer.PublicKey);
 
-        await host.StartAsync();
-        await host.StopAsync();
+        await host.StartAsync(TestContext.Current.CancellationToken);
+        await host.StopAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public sealed class DhmpStartupIntegrationTests
         var applicationId = Guid.NewGuid();
         using var host = BuildHost(applicationId, "", issuer.PublicKey);
 
-        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync());
+        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal(DhmpLicenseValidationStatus.MissingKey, exception.Status);
     }
@@ -36,7 +36,7 @@ public sealed class DhmpStartupIntegrationTests
         using var issuer = new TestLicenseIssuer();
         using var host = BuildHost(Guid.NewGuid(), issuer.Issue(Guid.NewGuid()), issuer.PublicKey);
 
-        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync());
+        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal(DhmpLicenseValidationStatus.ApplicationMismatch, exception.Status);
     }
@@ -53,7 +53,7 @@ public sealed class DhmpStartupIntegrationTests
         var tampered = $"DHMP1.{parts[1]}.{Encode(signature)}";
         using var host = BuildHost(applicationId, tampered, issuer.PublicKey);
 
-        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync());
+        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal(DhmpLicenseValidationStatus.InvalidSignature, exception.Status);
     }
@@ -66,7 +66,7 @@ public sealed class DhmpStartupIntegrationTests
         var applicationId = Guid.NewGuid();
         using var host = BuildHost(applicationId, untrustedIssuer.Issue(applicationId), trustedIssuer.PublicKey);
 
-        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync());
+        var exception = await Assert.ThrowsAsync<DhmpLicenseException>(() => host.StartAsync(TestContext.Current.CancellationToken));
 
         Assert.Equal(DhmpLicenseValidationStatus.InvalidSignature, exception.Status);
     }
