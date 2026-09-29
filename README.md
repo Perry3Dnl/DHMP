@@ -22,9 +22,9 @@ IPv6 packet
 
 There are **zero DHMP header bytes** before the first record, between records or after the last record.
 
-The current raw IPv6 research path uses IPv6 Next Header value `253` as an experimental protocol binding. That value is not presented as a permanent IANA assignment for DHMP.
+The current raw IPv6 research path uses experimental IPv6 protocol / Next Header `253` for headerless DHMP data and `254` for DHMP control/handshake packets. Neither value is a permanent DHMP assignment.
 
-Before packets are exchanged, both endpoints must agree on the `DhmpWireContract`: protocol version and fixed record size. Pmax, packet ceilings and Latest/Sequential are local endpoint policies, not V1 wire identity. Session discovery/negotiation still needs to be built. The first real .NET network backend is `DHMP.RawIpv6`, currently Linux-only.
+Before data packets are exchanged, endpoints can run the implemented Control V1 HELLO/ACCEPT/REJECT handshake for an already configured IPv6 peer. It verifies wire version, fixed record size and schema identity, exchanges receive capability and clamps the local send ceiling. Pmax and Latest/Sequential remain local. Peer discovery and authentication are still separate future work.
 
 ## Active architecture
 
@@ -52,8 +52,8 @@ Latest or Sequential publication -> typed/application boundary.
 | Server packet facade | Processes already-received complete IP payloads |
 | Licensing and ASP.NET host integration | Offline validation at host startup |
 | Raw IPv6 kernel experiment | Experimental loopback harness |
-| `DHMP.RawIpv6` Linux backend | Implemented first direct-IP sender/receiver; not production-hardened |
-| Session discovery/negotiation | Still to build |
+| `DHMP.RawIpv6` Linux backend | Direct data sender/receiver plus Control V1 handshake for a configured peer |
+| Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery/authentication still pending |
 | Reordering/freshness, congestion policy and secure direct-IP profile | Still to specify/build |
 
 Removing the old transports does **not** mean a production-ready network stack already exists. The repository now intentionally favors a clean protocol boundary over temporary compatibility.
@@ -64,12 +64,12 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 
 | Project | Responsibility |
 | --- | --- |
-| DHMP.Protocol | Wire contract, local send/receive policies, packet processor, budget and direct-IP sender boundary |
+| DHMP.Protocol | Wire contract, local policies, packet processor, control codec/negotiation, budget and direct-IP sender boundary |
 | DHMP.Client | Per-session sending facade |
 | DHMP.Server | Per-session receiving facade and typed/buffer ownership building blocks |
 | DHMP.Licensing | Offline key verification |
 | DHMP.AspNetCore | Dependency injection and license/startup gating |
-| DHMP.RawIpv6 | Linux raw-IPv6 sender/receiver for one explicit peer/session |
+| DHMP.RawIpv6 | Linux raw-IPv6 data path plus one-shot control handshake for one explicit peer |
 
 `AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license gate. It does not bind an endpoint or create a hidden transport.
 
@@ -96,6 +96,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 ## Documentation
 
 - [DHMP wire contract V1](docs/WIRE_CONTRACT_V1.md)
+- [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
 - [Current implementation status](docs/CURRENT_STATUS.md)
 - [Protocol design notes](docs/PROTOCOL_DRAFT.md)
