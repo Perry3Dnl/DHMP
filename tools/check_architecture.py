@@ -45,6 +45,7 @@ required_paths = {
     "src/DHMP.RawIpv6/DhmpRawIpv6ControlChannel.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6Handshake.cs",
     "docs/WIRE_CONTRACT_V1.md",
+    "docs/CONTROL_PLANE_V1.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
 }
 for required in sorted(required_paths):
@@ -92,6 +93,7 @@ for file in files:
 client_file = ROOT / "src" / "DHMP.Client" / "DhmpClient.cs"
 server_file = ROOT / "src" / "DHMP.Server" / "DhmpServer.cs"
 wire_file = ROOT / "docs" / "WIRE_CONTRACT_V1.md"
+protocol_file = ROOT / "src" / "DHMP.Protocol" / "DhmpProtocol.cs"
 
 if client_file.is_file():
     client_text = client_file.read_text(encoding="utf-8-sig")
@@ -107,6 +109,13 @@ if wire_file.is_file():
     wire_text = wire_file.read_text(encoding="utf-8")
     if "zero DHMP header bytes" not in wire_text:
         errors.append("V1 wire contract must explicitly preserve the headerless data-plane rule")
+
+if protocol_file.is_file():
+    protocol_text = protocol_file.read_text(encoding="utf-8-sig")
+    if "ExperimentalIpv6DataNextHeader = 253" not in protocol_text:
+        errors.append("Experimental DHMP data binding must remain explicit")
+    if "ExperimentalIpv6ControlNextHeader = 254" not in protocol_text:
+        errors.append("Experimental DHMP control binding must remain separate from data")
 
 for directory in (ROOT / "benchmarks").iterdir():
     if directory.is_dir() and not re.match(r"(?:mock-ip|raw-ipv6|packet-|direct-ip-)", directory.name):
