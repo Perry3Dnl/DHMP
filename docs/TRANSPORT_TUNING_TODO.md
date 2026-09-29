@@ -19,15 +19,14 @@ Do not add a compatibility transport to make this phase easier.
 
 ## Phase 2: control-plane/session establishment
 
-The data plane assumes both endpoints already know the same `DhmpSessionContract`.
+The data plane assumes both endpoints already know the same `DhmpWireContract`. Local send and receive policies are independent.
 
 Add a separate control-plane mechanism for:
 
 - version agreement;
 - record size;
-- Sequential/Latest mode;
-- maximum packet payload;
-- Pmax/pacing parameters;
+- remote receive capability / safe outbound packet ceiling;
+- pacing capability when the deployment needs it;
 - peer/path association;
 - application schema identity if needed;
 - future security profile.
