@@ -8,10 +8,10 @@ See [the authoritative direction](DIRECT_TRANSPORT_DIRECTION.md) and [DHMP wire 
 | --- | --- | --- |
 | Packet I/O | Direct IP, IPv6 target | Explicit sender boundary and experimental raw IPv6 harness; production backend pending |
 | Protocol identification | Direct IPv6 protocol binding | Experimental Next Header 253 in current research path |
-| Session | Explicit versioned agreement before data traffic | `DhmpSessionContract`; remote negotiation pending |
+| Wire compatibility | Version + fixed record size | `DhmpWireContract`; remote negotiation pending |
 | Data wire format | Headerless batch of whole fixed-size records | Implemented packet-length validation |
-| Latest | Bounded newest useful state | Last record within one received packet; cross-packet freshness pending |
-| Sequential | Bounded records in receive arrival order | Synchronous packet-batch publication |
+| Receive policy | Local Sequential/Latest + receive ceiling | `DhmpReceivePolicy`; cross-packet freshness pending |
+| Send policy | Local Pmax + outbound packet ceiling | `DhmpSendPolicy` plus fixed-window budget |
 | Ownership | Bounded storage and explicit lifetime | Borrowed synchronous spans plus existing ownership building blocks |
 | Model boundary | Payload-opaque protocol core | Typed .NET boundary; application schema remains separate |
 | Sending | MTU-safe data batch and bounded local rate | `IDhmpPacketSender` plus fixed-window Pmax budget |
