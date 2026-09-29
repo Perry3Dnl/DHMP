@@ -144,6 +144,39 @@ public sealed class DhmpStartupHardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_DuplicateAddDhmpRegistrationIsRejected()
+    {
+        using var issuer =
+            new TestLicenseIssuer();
+
+        var services =
+            new ServiceCollection();
+
+        Guid firstApplication =
+            Guid.NewGuid();
+
+        Guid secondApplication =
+            Guid.NewGuid();
+
+        services.AddDHMP(
+            firstApplication,
+            issuer.Issue(firstApplication),
+            issuer.PublicKey);
+
+        var error =
+            Assert.Throws<InvalidOperationException>(() =>
+                services.AddDHMP(
+                    secondApplication,
+                    issuer.Issue(secondApplication),
+                    issuer.PublicKey));
+
+        Assert.Contains(
+            "already registered",
+            error.Message,
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void CriticalFlow_AddDhmpRejectsNullServiceCollection()
     {
         IServiceCollection? services =
