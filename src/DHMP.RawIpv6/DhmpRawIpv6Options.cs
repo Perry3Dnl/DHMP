@@ -47,6 +47,25 @@ public sealed class DhmpRawIpv6Options
         SocketBufferBytes = socketBufferBytes;
     }
 
+    public static DhmpRawIpv6Options FromPathMtu(
+        IPAddress localAddress,
+        IPAddress remoteAddress,
+        int pathMtu,
+        int socketBufferBytes = 4 * 1024 * 1024,
+        int additionalIpv6HeaderBytes = 0)
+    {
+        var budget =
+            new DhmpIpv6PathBudget(
+                pathMtu,
+                additionalIpv6HeaderBytes);
+
+        return new DhmpRawIpv6Options(
+            localAddress,
+            remoteAddress,
+            budget.MaximumProtocolPayloadBytes,
+            socketBufferBytes);
+    }
+
     public IPAddress LocalAddress { get; }
     public IPAddress RemoteAddress { get; }
     public int MaximumPayloadBytes { get; }
