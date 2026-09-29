@@ -4,7 +4,7 @@ The protocol is independently implementable; these packages are the .NET referen
 
 ## Canonical projects
 
-Use only `src/DHMP.Protocol`, `src/DHMP.Client`, `src/DHMP.Server`, `src/DHMP.Licensing`, `src/DHMP.AspNetCore` and `src/DHMP.RawIpv6`.
+Use only `src/DHMP.Protocol`, `src/DHMP.Client`, `src/DHMP.Server`, `src/DHMP.Licensing`, `src/DHMP.AspNetCore`, `src/DHMP.RawIpv6` and `src/DHMP.Security`.
 
 Namespaces also use `DHMP.*`. There are no case-only alternate projects.
 
@@ -77,6 +77,20 @@ The current control packet carries magic, control version, message type, data wi
 Pmax and Sequential/Latest are intentionally not negotiated.
 
 See [Control V1](CONTROL_PLANE_V1.md) for the byte layout and security limitations.
+
+## Security profile
+
+`DHMP.Security` is an explicit optional layer, not part of the base V1 framing core.
+
+`DhmpPskChaCha20Poly1305Session` derives separate send/receive keys and nonce prefixes from a 256-bit PSK plus a fresh session ID using HKDF-SHA256. Protected data carries an 8-byte counter and 16-byte ChaCha20-Poly1305 tag.
+
+`DhmpProtectedPacketSender` wraps any `IDhmpPacketSender`. Its `MaximumPayloadBytes` subtracts the 24-byte security overhead.
+
+`IDhmpPacketDecoder` is the receive-side protocol boundary. `DhmpRawIpv6Receiver` can use a decoder before V1 validation and clears decrypted packet storage after the synchronous callback returns.
+
+`DhmpRawIpv6SecurityHandshake` exchanges a 48-byte HMAC-SHA256-authenticated PSK security setup over control protocol 254. It proves possession of the configured shared key but does not provide forward secrecy.
+
+See [PSK security profile V1](SECURITY_PSK_V1.md).
 
 ## Hosting and licensing
 
