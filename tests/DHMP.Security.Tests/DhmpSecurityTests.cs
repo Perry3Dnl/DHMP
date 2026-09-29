@@ -513,6 +513,291 @@ public sealed class DhmpSecurityTests
     }
 
     [Fact]
+    public void SecureReceiveSnapshot_TracksRollingLossAndLateRecovery()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var initiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        byte[][] packets =
+            Enumerable.Range(0, 3)
+                .Select(_ =>
+                {
+                    byte[] packet =
+                        new byte[
+                            16 +
+                            DhmpPskChaCha20Poly1305Session.Overhead];
+
+                    initiator.Protect(
+                        new byte[16],
+                        packet);
+
+                    return packet;
+                })
+                .ToArray();
+
+        byte[] plaintext = new byte[16];
+
+        Assert.True(
+            responder.TryDecode(
+                packets[0],
+                plaintext,
+                out _));
+
+        Assert.True(
+            responder.TryDecode(
+                packets[2],
+                plaintext,
+                out _));
+
+        var missing =
+            responder.GetReceiveSnapshot();
+
+        Assert.Equal(3UL, missing.HighestPacketCounter);
+        Assert.Equal(3, missing.WindowSpan);
+        Assert.Equal(1, missing.MissingWithinWindow);
+        Assert.Equal(333, missing.LossPermille);
+        Assert.Equal(2, missing.AcceptedPackets);
+
+        Assert.True(
+            responder.TryDecode(
+                packets[1],
+                plaintext,
+                out _));
+
+        var recovered =
+            responder.GetReceiveSnapshot();
+
+        Assert.Equal(0, recovered.MissingWithinWindow);
+        Assert.Equal(1, recovered.ReorderedPackets);
+        Assert.Equal(3, recovered.AcceptedPackets);
+    }
+
+    [Fact]
+    public void SecureReceiveSnapshot_CountsAuthenticationAndReplayFailures()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var initiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        byte[] packet =
+            new byte[
+                16 +
+                DhmpPskChaCha20Poly1305Session.Overhead];
+
+        initiator.Protect(
+            new byte[16],
+            packet);
+
+        byte[] plaintext = new byte[16];
+
+        Assert.True(
+            responder.TryDecode(
+                packet,
+                plaintext,
+                out _));
+
+        Assert.False(
+            responder.TryDecode(
+                packet,
+                plaintext,
+                out _));
+
+        byte[] tampered =
+            packet.ToArray();
+
+        tampered[10] ^= 1;
+
+        Assert.False(
+            responder.TryDecode(
+                tampered,
+                plaintext,
+                out _));
+
+        var snapshot =
+            responder.GetReceiveSnapshot();
+
+        Assert.Equal(1, snapshot.ReplayRejectedPackets);
+        Assert.Equal(1, snapshot.AuthenticationFailures);
+    }
+
+    [Fact]
+    public void PathProbe_IsDirectionalAuthenticatedAndReplayProtected()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var initiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        var request =
+            new DhmpPathProbeMessage(
+                DhmpPathProbeType.Request,
+                probeId: 7,
+                senderTimestamp: 123456,
+                highestPacketCounter: 10,
+                windowSpan: 10,
+                missingWithinWindow: 2,
+                acceptedPackets: 8);
+
+        byte[] requestPacket =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .PathProbePacketSize];
+
+        initiator.EncodePathProbe(
+            request,
+            requestPacket);
+
+        Assert.False(
+            initiator.TryDecodePathProbe(
+                requestPacket,
+                out _));
+
+        Assert.True(
+            responder.TryDecodePathProbe(
+                requestPacket,
+                out var decodedRequest));
+
+        Assert.Equal(
+            request,
+            decodedRequest);
+
+        var response =
+            new DhmpPathProbeMessage(
+                DhmpPathProbeType.Response,
+                decodedRequest.ProbeId,
+                decodedRequest.SenderTimestamp,
+                highestPacketCounter: 20,
+                windowSpan: 20,
+                missingWithinWindow: 1,
+                acceptedPackets: 19);
+
+        byte[] responsePacket =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .PathProbePacketSize];
+
+        responder.EncodePathProbe(
+            response,
+            responsePacket);
+
+        Assert.True(
+            initiator.TryDecodePathProbe(
+                responsePacket,
+                out var decodedResponse));
+
+        Assert.Equal(
+            response,
+            decodedResponse);
+
+        Assert.False(
+            initiator.TryDecodePathProbe(
+                responsePacket,
+                out _));
+    }
+
+    [Fact]
+    public void PathProbe_TamperAndWrongSessionAreRejected()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        using var wrongInitiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                Guid.Parse(
+                    "11112233-4455-6677-8899-aabbccddeeff"),
+                DhmpSecurityRole.Initiator);
+
+        var request =
+            new DhmpPathProbeMessage(
+                DhmpPathProbeType.Request,
+                1,
+                123,
+                0,
+                0,
+                0,
+                0);
+
+        byte[] packet =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .PathProbePacketSize];
+
+        wrongInitiator.EncodePathProbe(
+            request,
+            packet);
+
+        Assert.False(
+            responder.TryDecodePathProbe(
+                packet,
+                out _));
+
+        using var correctInitiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        correctInitiator.EncodePathProbe(
+            request,
+            packet);
+
+        packet[50] ^= 1;
+
+        Assert.False(
+            responder.TryDecodePathProbe(
+                packet,
+                out _));
+    }
+
+    [Fact]
     public async Task ProtectedSender_AccountsForSecurityOverhead()
     {
         using var key =
