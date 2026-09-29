@@ -198,7 +198,8 @@ public sealed class DhmpBoundedReceiveDispatcherTests
 
         var error =
             await Assert.ThrowsAsync<InvalidOperationException>(
-                () => dispatcher.RunAsync());
+                () => dispatcher.RunAsync(
+                    TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "application failed",
