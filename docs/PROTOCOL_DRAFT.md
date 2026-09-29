@@ -59,7 +59,7 @@ Consequences:
 
 If protocol-owned cross-packet freshness becomes necessary, it requires an explicit versioned wire-format change. It must not be added invisibly to V1.
 
-An application may include its own generation field inside its fixed record schema without changing DHMP V1.
+An application may include its own generation field inside its fixed record schema without changing DHMP V1. The .NET `DhmpLatestGenerationFilter` now implements this option with a configurable 64-bit field offset/byte order and modulo-2^64 half-range comparison, including normal wraparound.
 
 ## MTU and packet sizing
 
@@ -71,17 +71,14 @@ Automatic path-MTU discovery/response is not implemented yet.
 
 ## Pacing and congestion
 
-The current `DhmpPmaxBudget` is only a fixed local one-second logical-message budget.
+Two local Pmax policies now exist:
 
-It is not:
+- `RejectWindow`: the original fixed one-second logical-message budget that rejects excess work;
+- `SmoothPacing`: spaces packet submissions according to logical message count and configured Pmax.
 
-- smooth pacing;
-- congestion control;
-- receiver feedback;
-- fairness;
-- a network-capacity measurement.
+`SmoothPacing` is intentionally only pacing. It is not congestion control, receiver feedback, fairness or a network-capacity measurement.
 
-A direct-IP deployment needs a bounded pacing/congestion policy before production use on shared networks.
+A production direct-IP deployment still needs a congestion/backpressure design suitable for shared networks.
 
 ## Ownership and overload
 
