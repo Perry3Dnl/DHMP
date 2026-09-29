@@ -29,7 +29,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         ArgumentNullException.ThrowIfNull(server);
         EnsureSupportedPlatform();
 
-        if (server.Session.MaxPacketPayloadBytes > options.MaximumPayloadBytes)
+        if (server.ReceivePolicy.MaximumPayloadBytes > options.MaximumPayloadBytes)
             throw new ArgumentException(
                 "DHMP session payload limit exceeds the raw IPv6 backend limit.",
                 nameof(server));
@@ -123,10 +123,10 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
     private bool IsValidPacketLength(int length)
     {
-        var contract = _server.Session.FixedContract;
+        var wire = _server.WireContract;
         return length > 0 &&
-               length <= contract.MaxPacketPayloadBytes &&
-               length % contract.PayloadSize == 0;
+               length <= _server.ReceivePolicy.MaximumPayloadBytes &&
+               length % wire.RecordSize == 0;
     }
 
     public void Dispose()
