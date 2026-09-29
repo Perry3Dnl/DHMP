@@ -53,7 +53,8 @@ Latest or Sequential publication -> typed/application boundary.
 | Licensing and ASP.NET host integration | Offline validation at host startup |
 | Raw IPv6 kernel experiment | Experimental loopback harness |
 | `DHMP.RawIpv6` Linux backend | Direct data sender/receiver plus Control V1 handshake for a configured peer |
-| Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery/authentication still pending |
+| Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery still pending |
+| Multi-peer server routing | Implemented by source IPv6 address; one V1 session per source address |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
 | Smooth local pacing | Implemented opt-in Pmax pacing; congestion feedback still pending |
 | PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
@@ -72,7 +73,7 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 | DHMP.Server | Per-session receiving facade and typed/buffer ownership building blocks |
 | DHMP.Licensing | Offline key verification |
 | DHMP.AspNetCore | Dependency injection and license/startup gating |
-| DHMP.RawIpv6 | Linux raw-IPv6 data path plus compatibility and PSK security handshakes for one explicit peer |
+| DHMP.RawIpv6 | Linux raw-IPv6 data path, bounded source-address multi-peer routing, compatibility and PSK security handshakes |
 | DHMP.Security | Experimental PSK packet protection, replay window and protected sender wrapper |
 
 `AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license gate. It does not bind an endpoint or create a hidden transport.
