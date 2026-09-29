@@ -40,7 +40,7 @@ Latest or Sequential publication -> typed/application boundary.
 - V1 has no protocol-owned cross-packet sequence field. Optional `DhmpLatestGenerationFilter` can use an application-owned 64-bit generation inside the record to drop stale/duplicate Latest state without adding DHMP bytes.
 - DHMP adds no delivery ACK, retransmission, replay history or hidden reliable queue.
 - Buffer ownership must be explicit across asynchronous boundaries.
-- Pmax is local sender policy. `RejectWindow` preserves the hard fixed-window budget; `SmoothPacing` spaces packet submissions over time. Neither is congestion control.
+- Pmax is local sender policy. `RejectWindow` preserves the hard fixed-window budget; `SmoothPacing` spaces packet submissions over time. With the PSK profile, authenticated receiver overload feedback can adapt SmoothPacing downward and recover gradually; this is still not a complete network congestion-control algorithm.
 
 ## What exists today
 
@@ -60,7 +60,8 @@ Latest or Sequential publication -> typed/application boundary.
 | IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
 | PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
-| Congestion control and forward-secret/public-key security | Still to specify/build |
+| Authenticated receiver backpressure | Implemented experimental pressure feedback + bounded adaptive pacing |
+| Full network congestion control and forward-secret/public-key security | Still to specify/build |
 
 Removing the old transports does **not** mean a production-ready network stack already exists. The repository now intentionally favors a clean protocol boundary over temporary compatibility.
 
@@ -107,6 +108,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
 - [DHMP PSK security profile V1](docs/SECURITY_PSK_V1.md)
 - [Bounded overload behavior](docs/OVERLOAD_BEHAVIOR.md)
+- [Authenticated congestion feedback](docs/CONGESTION_FEEDBACK.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
 - [Current implementation status](docs/CURRENT_STATUS.md)
 - [Protocol design notes](docs/PROTOCOL_DRAFT.md)
