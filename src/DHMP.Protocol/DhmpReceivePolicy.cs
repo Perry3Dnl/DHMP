@@ -6,13 +6,22 @@ namespace DHMP.Protocol;
 /// </summary>
 public readonly record struct DhmpReceivePolicy
 {
+    public DhmpReceivePolicy()
+        : this(
+            DhmpProcessingMode.Sequential,
+            1408)
+    {
+    }
+
     public DhmpReceivePolicy(
-        DhmpProcessingMode mode = DhmpProcessingMode.Sequential,
+        DhmpProcessingMode mode,
         int maximumPayloadBytes = 1408)
     {
         if (mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
             throw new ArgumentOutOfRangeException(nameof(mode));
-        if (maximumPayloadBytes <= 0 || maximumPayloadBytes > ushort.MaxValue)
+
+        if (maximumPayloadBytes <= 0 ||
+            maximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(maximumPayloadBytes));
 
         Mode = mode;
@@ -27,7 +36,8 @@ public readonly record struct DhmpReceivePolicy
         wireContract.Validate();
 
         if (Mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
-            throw new ArgumentException("A supported DHMP receive mode is required.");
+            throw new ArgumentException(
+                "A supported DHMP receive mode is required.");
 
         if (MaximumPayloadBytes < wireContract.RecordSize ||
             MaximumPayloadBytes > ushort.MaxValue)
