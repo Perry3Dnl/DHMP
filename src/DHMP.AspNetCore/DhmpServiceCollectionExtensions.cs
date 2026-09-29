@@ -4,6 +4,8 @@ namespace DHMP.AspNetCore;
 
 public static class DhmpServiceCollectionExtensions
 {
+    private sealed class DhmpRegistrationMarker;
+
     public static IServiceCollection AddDHMP(
         this IServiceCollection services,
         Guid applicationId,
@@ -12,19 +14,36 @@ public static class DhmpServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        var publicKey = publicVerificationKey.ToArray();
+        if (services.Any(
+                descriptor =>
+                    descriptor.ServiceType ==
+                    typeof(DhmpRegistrationMarker)))
+            throw new InvalidOperationException(
+                "DHMP is already registered in this service collection.");
 
-        services.AddOptions<DhmpOptions>().Configure(options =>
-        {
-            options.ApplicationId = applicationId;
-            options.LicenseKey = licenseKey;
-            options.PublicVerificationKey = publicKey;
-        });
+        var publicKey =
+            publicVerificationKey.ToArray();
+
+        services.AddSingleton<DhmpRegistrationMarker>();
+
+        services
+            .AddOptions<DhmpOptions>()
+            .Configure(options =>
+            {
+                options.ApplicationId =
+                    applicationId;
+
+                options.LicenseKey =
+                    licenseKey;
+
+                options.PublicVerificationKey =
+                    publicKey;
+            });
 
         services.AddSingleton<DhmpRuntimeState>();
         services.AddHostedService<DhmpLicenseStartupGate>();
         services.AddHostedService<DhmpRuntimeHostedService>();
+
         return services;
     }
 }
-
