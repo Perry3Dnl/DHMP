@@ -26,7 +26,8 @@ public static class DhmpServiceCollectionExtensions
         var publicKey =
             publicVerificationKey.ToArray();
 
-        services.AddSingleton<DhmpRegistrationMarker>();
+        services.AddSingleton(
+            new DhmpRegistrationMarker());
 
         services
             .AddOptions<DhmpOptions>()
