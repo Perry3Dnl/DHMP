@@ -132,7 +132,8 @@ public static class DhmpControlNegotiator
             remoteProfile,
             new DhmpSendPolicy(
                 localSendPolicy.Pmax,
-                effectiveMaximum));
+                effectiveMaximum,
+                localSendPolicy.RatePolicy));
     }
 
     private static DhmpHelloEvaluation Reject(
