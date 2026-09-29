@@ -209,6 +209,70 @@ public sealed class DhmpPacketIntegrationTests
     }
 
     [Fact]
+    public async Task SmoothClient_UsesAdaptiveRateController()
+    {
+        var sender = new TestSender();
+
+        var controller =
+            new DhmpAdaptiveRateController(
+                maximumMessagesPerSecond: 100_000,
+                minimumMessagesPerSecond: 1_000);
+
+        var client =
+            new DhmpClient(
+                sender,
+                new DhmpWireContract(4),
+                new DhmpSendPolicy(
+                    pmax: 100_000,
+                    maximumPayloadBytes: 1408,
+                    ratePolicy: DhmpRatePolicy.SmoothPacing),
+                controller);
+
+        controller.ApplyFeedback(
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Hard,
+                500,
+                1,
+                1,
+                1));
+
+        Assert.Equal(
+            50_000,
+            client.CurrentMessagesPerSecond);
+
+        await client.SendAsync(
+            new byte[4],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, sender.Calls);
+    }
+
+    [Fact]
+    public void AdaptiveController_RequiresSmoothPacingAndCannotExceedPmax()
+    {
+        var sender = new TestSender();
+        var wire = new DhmpWireContract(4);
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpClient(
+                sender,
+                wire,
+                new DhmpSendPolicy(
+                    pmax: 1000,
+                    ratePolicy: DhmpRatePolicy.RejectWindow),
+                new DhmpAdaptiveRateController(1000)));
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpClient(
+                sender,
+                wire,
+                new DhmpSendPolicy(
+                    pmax: 1000,
+                    ratePolicy: DhmpRatePolicy.SmoothPacing),
+                new DhmpAdaptiveRateController(1001)));
+    }
+
+    [Fact]
     public async Task BackendFailure_PropagatesWithoutRetry()
     {
         var error = new InvalidOperationException("backend failed");
