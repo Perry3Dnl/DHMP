@@ -10,11 +10,11 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - One canonical `DHMP.*` .NET project tree.
 - `DhmpProtocol` defines data wire version, control version, experimental data binding 253 and experimental control binding 254.
 - `DhmpWireContract` contains only protocol version and fixed record size.
-- `DhmpSendPolicy` contains local Pmax and outbound packet ceiling.
+- `DhmpSendPolicy` contains local Pmax, `RejectWindow`/`SmoothPacing` behavior and outbound packet ceiling.
 - `DhmpReceivePolicy` contains local Sequential/Latest mode and inbound packet ceiling.
 - `DhmpPacketProcessor` consumes a headerless payload containing complete fixed records only.
 - Sequential publishes the complete received batch.
-- Latest publishes the final record from the received packet.
+- Latest publishes the final record from the received packet. Optional `DhmpLatestGenerationFilter` drops stale/duplicate Latest state across packets using an application-owned 64-bit generation field.
 - No carry storage or cross-packet message reassembly exists.
 - `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
 - `DhmpServer` uses the same wire contract with its own local receive policy.
@@ -47,8 +47,8 @@ Historical versions remain available through git history.
 2. Add separately validated backend behavior for other operating systems rather than assuming raw-socket portability.
 3. Peer discovery, authentication and a multiplexing strategy beyond the current one-peer/one-contract binding. Compatibility/capability negotiation for a configured peer is implemented.
 4. Bounded asynchronous packet-buffer ownership beyond the first receive loop.
-5. Loss/duplicate/reordering/freshness policy beyond V1 packet-local semantics.
-6. MTU/path-MTU handling and pacing/congestion policy.
+5. Broader loss/duplicate/reordering policy beyond the implemented optional Latest generation filter.
+6. MTU/path-MTU handling and real congestion/backpressure policy beyond the implemented local smooth pacer.
 7. Reviewed direct-packet security profile.
 8. Kernel, NIC and physical two-host validation.
 
