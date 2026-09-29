@@ -87,6 +87,7 @@ dotnet test tests/DHMP.Protocol.Tests -c Release
 dotnet test tests/DHMP.AspNetCore.Tests -c Release
 dotnet test tests/DHMP.Licensing.Tests -c Release
 dotnet test tests/DHMP.RawIpv6.Tests -c Release
+dotnet test tests/DHMP.Security.Tests -c Release
 ```
 
 CI guards the architecture, unit/integration tests and compilation of the direct-IP backend. Physical two-host measurements and privileged raw-socket validation remain separate.
