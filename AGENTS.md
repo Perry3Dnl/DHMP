@@ -13,8 +13,9 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - Process complete IP payloads containing whole fixed-size records.
 - Never carry partial record bytes between packets.
 - Reject empty, incomplete and oversized packet payloads.
-- Keep session/control-plane state out of the hot data packet unless a later wire version explicitly defines otherwise.
-- The current raw IPv6 research binding uses Next Header 253. Treat it as experimental and configurable, not a permanent assignment.
+- Keep control-plane state out of the hot data packet unless a later wire version explicitly defines otherwise.
+- Control V1 may validate compatibility/capabilities for a configured peer but must never be described as authentication.
+- The current raw IPv6 experimental profile reserves protocol / Next Header 253 for headerless data and 254 for control. Treat both as experimental, not permanent assignments.
 
 ## Architecture boundaries
 
