@@ -1,5 +1,6 @@
 using DHMP.Protocol;
 using DHMP.Security;
+using DHMP.Server;
 
 namespace DHMP.RawIpv6;
 
@@ -101,6 +102,56 @@ public sealed class DhmpRawIpv6CongestionChannel :
 
             controller.ApplyFeedback(
                 feedback);
+        }
+    }
+
+    /// <summary>
+    /// Periodically compare bounded application pressure and send one authenticated
+    /// feedback report to the remote sender. This loop owns no application data.
+    /// </summary>
+    public async Task RunReporterLoopAsync(
+        DhmpBoundedReceiveDispatcher dispatcher,
+        TimeSpan interval,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dispatcher);
+
+        if (interval <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(
+                nameof(interval));
+
+        DhmpReceiveDispatchSnapshot previous =
+            dispatcher.GetSnapshot();
+
+        using var timer =
+            new PeriodicTimer(interval);
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(
+                    cancellationToken)
+                .ConfigureAwait(false))
+            {
+                DhmpReceiveDispatchSnapshot current =
+                    dispatcher.GetSnapshot();
+
+                DhmpCongestionFeedback feedback =
+                    DhmpCongestionAdvisor.Evaluate(
+                        previous,
+                        current);
+
+                await SendAsync(
+                    feedback,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+                previous = current;
+            }
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken
+                .IsCancellationRequested)
+        {
         }
     }
 
