@@ -24,11 +24,24 @@ jobs:
       - name: Build
         run: dotnet build benchmarks/raw-ipv6-kernel/Dhmp.RawIpv6Kernel.csproj -c Release
       - name: Raw IPv6 benchmark
+        shell: bash
         run: |
+          set -uo pipefail
           echo "RAW_IPV6_CONTRACT=V1 -- sanity run: Linux raw IPv6 loopback, DHMP data next-header 253, control 254 off hot path, 32-byte messages, batch 44; no physical-NIC claim"
           DLL=benchmarks/raw-ipv6-kernel/bin/Release/net10.0/Dhmp.RawIpv6Kernel.dll
           for i in 1 2 3 4 5; do
             echo "===== RAW IPV6 RUN $i / 5 ====="
-            dotnet "$DLL" 5000000 44
+            set +e
+            output=$(dotnet "$DLL" 5000000 44 2>&1)
+            status=$?
+            set -e
+            echo "$output"
+            if [ "$status" -ne 0 ]; then
+              if grep -Eq "Protocol not supported|Operation not permitted|Permission denied" <<< "$output"; then
+                echo "::notice::Raw IPv6 benchmark skipped: this hosted runner does not expose the required raw IPv6 protocol capability."
+                exit 0
+              fi
+              exit "$status"
+            fi
           done
 
