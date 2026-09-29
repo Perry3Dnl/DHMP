@@ -32,6 +32,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - `SmoothPacing` is local pacing only. Do not call it congestion control unless receiver/network feedback and overload behavior are actually implemented.
 - Neither mode adds delivery ACKs, retransmission or recovery.
 - Native IP can lose, duplicate and reorder packets. Do not claim protocol-owned freshness, ordering, authentication, congestion safety or interoperability that has not been implemented.
+- Treat `DhmpIpv6PathBudget` as calculation from a known PMTU, not as dynamic PMTU discovery. Normal DHMP operation should not intentionally rely on IPv6 fragmentation.
 
 ## Repository rules
 
