@@ -8,5 +8,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../DHMP.Licensing/DHMP.Licensing.csproj" />
+    <ProjectReference Include="../DHMP.Client/DHMP.Client.csproj" />
+    <ProjectReference Include="../DHMP.Server/DHMP.Server.csproj" />
   </ItemGroup>
 </Project>
