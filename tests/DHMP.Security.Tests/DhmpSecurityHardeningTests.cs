@@ -645,7 +645,7 @@ public sealed class DhmpSecurityHardeningTests
     }
 
     [Fact]
-    public void CriticalFlow_ProtectedSender_RejectsImpossibleBackendAndPayloadBounds()
+    public async Task CriticalFlow_ProtectedSender_RejectsImpossibleBackendAndPayloadBounds()
     {
         using var key =
             new DhmpPreSharedKey(
@@ -672,14 +672,18 @@ public sealed class DhmpSecurityHardeningTests
                     _ => ValueTask.CompletedTask),
                 session);
 
-        Assert.Throws<DhmpProtocolException>(() =>
-            sender.SendPacketAsync(
-                ReadOnlyMemory<byte>.Empty));
+        await Assert.ThrowsAsync<DhmpProtocolException>(
+            async () =>
+                await sender.SendPacketAsync(
+                    ReadOnlyMemory<byte>.Empty,
+                    TestContext.Current.CancellationToken));
 
-        Assert.Throws<DhmpProtocolException>(() =>
-            sender.SendPacketAsync(
-                new byte[
-                    sender.MaximumPayloadBytes + 1]));
+        await Assert.ThrowsAsync<DhmpProtocolException>(
+            async () =>
+                await sender.SendPacketAsync(
+                    new byte[
+                        sender.MaximumPayloadBytes + 1],
+                    TestContext.Current.CancellationToken));
     }
 
     private static DhmpSecurityControlMessage ValidOffer()
