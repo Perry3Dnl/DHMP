@@ -138,8 +138,12 @@ public sealed class DhmpRawIpv6PeerRouter
                     plaintextScratch,
                     out plaintextBytes))
             {
+                CryptographicOperations.ZeroMemory(
+                    plaintextScratch);
+
                 Interlocked.Increment(
                     ref _protectionRejectedPackets);
+
                 return false;
             }
 
