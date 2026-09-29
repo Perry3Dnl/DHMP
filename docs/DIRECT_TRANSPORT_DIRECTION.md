@@ -25,7 +25,7 @@ The wire contract supplies only the protocol-owned information needed to interpr
 
 Pmax, Sequential/Latest mode and packet ceilings are endpoint-local policies. They are intentionally not part of V1 wire identity.
 
-The current IPv6 research binding uses Next Header `253`. It is experimental, not a permanent protocol assignment.
+The current IPv6 experimental profile uses protocol / Next Header `253` for data and `254` for the separate control plane. Neither is a permanent protocol assignment.
 
 ## Required boundaries
 
@@ -50,13 +50,15 @@ Implemented:
 - client/server protocol facades;
 - offline licensing/host startup integration;
 - raw/mock IP research harnesses;
+- fixed 32-byte Control V1 codec and HELLO/ACCEPT/REJECT compatibility negotiation;
+- Linux raw-IPv6 control channel for one configured peer;
 - architecture checks preventing legacy transport restoration.
 
 Pending:
 
-- production direct-IPv6 packet I/O;
-- peer/path binding;
-- session discovery and negotiation;
+- production hardening of direct-IPv6 packet I/O;
+- peer discovery beyond an explicitly configured peer;
+- peer authentication and secure negotiation;
 - bounded asynchronous packet-buffer ownership;
 - path-MTU behavior;
 - cross-packet freshness/reordering policy;
@@ -67,8 +69,8 @@ Removing the legacy transports is not evidence that these pending pieces already
 
 ## Work order
 
-1. Build the production direct-IPv6 send/receive backend around the V1 headerless payload contract.
-2. Define peer/path binding and control-plane session establishment.
+1. Harden the direct-IPv6 data/control backend around the V1 contracts.
+2. Add peer discovery/authentication beyond the implemented configured-peer compatibility handshake.
 3. Add bounded packet-buffer ownership for asynchronous I/O.
 4. Define overload, loss, duplicate and reordering behavior.
 5. Add MTU/path handling and pacing/congestion policy.
