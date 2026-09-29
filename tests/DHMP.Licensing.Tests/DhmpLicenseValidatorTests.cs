@@ -104,15 +104,14 @@ public sealed class DhmpLicenseValidatorTests
     [Fact]
     public void CriticalPath_InvalidPublicKey_FailsClosed()
     {
+        using var issuer = new TestLicenseIssuer();
+        var applicationId = Guid.NewGuid();
         var validator = new DhmpLicenseValidator(RandomNumberGenerator.GetBytes(32));
-        var result = validator.Validate("DHMP1.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA.AQ", Guid.NewGuid());
+
+        var result = validator.Validate(issuer.Issue(applicationId), applicationId);
 
         Assert.False(result.IsValid);
-        Assert.Contains(result.Status, new[]
-        {
-            DhmpLicenseValidationStatus.MalformedKey,
-            DhmpLicenseValidationStatus.InvalidSignature
-        });
+        Assert.Equal(DhmpLicenseValidationStatus.InvalidSignature, result.Status);
     }
 
     private static byte[] Decode(string value)
