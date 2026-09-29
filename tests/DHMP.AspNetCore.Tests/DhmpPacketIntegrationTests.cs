@@ -5,7 +5,7 @@ using Xunit;
 
 namespace DHMP.AspNetCore.Tests;
 
-/// <summary>Packet contract integration using an explicit in-memory test sender, not a network measurement.</summary>
+/// <summary>Packet integration through explicit in-memory packet I/O, not a network measurement.</summary>
 public sealed class DhmpPacketIntegrationTests
 {
     private sealed class TestSender : IDhmpPacketSender
@@ -15,66 +15,148 @@ public sealed class DhmpPacketIntegrationTests
         public Action<ReadOnlyMemory<byte>>? Deliver { get; init; }
         public Exception? Failure { get; init; }
 
-        public ValueTask SendPacketAsync(ReadOnlyMemory<byte> packet, CancellationToken cancellationToken = default)
+        public ValueTask SendPacketAsync(
+            ReadOnlyMemory<byte> packet,
+            CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             Calls++;
-            if (Failure is not null) throw Failure;
+
+            if (Failure is not null)
+                throw Failure;
+
             Deliver?.Invoke(packet);
             return ValueTask.CompletedTask;
         }
     }
 
     [Fact]
-    public async Task WholeBatch_CrossesExplicitPacketBoundary()
+    public async Task WholeBatch_CrossesSharedWireContract_WithDifferentLocalPolicies()
     {
-        var session = new DhmpSessionContract(new DhmpFixedContract(4, 100));
-        var receiver = new DhmpServer(session);
+        var wire = new DhmpWireContract(4);
+
+        var receiver = new DhmpServer(
+            wire,
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Sequential,
+                maximumPayloadBytes: 32));
+
         byte[]? actual = null;
         int callbacks = 0;
 
         var sender = new TestSender
         {
-            Deliver = packet => receiver.ProcessPacket(packet.Span, batch =>
-            {
-                callbacks++;
-                actual = batch.ToArray();
-            })
+            Deliver = packet =>
+                receiver.ProcessPacket(packet.Span, batch =>
+                {
+                    callbacks++;
+                    actual = batch.ToArray();
+                })
         };
 
-        var client = new DhmpClient(sender, session);
+        var client = new DhmpClient(
+            sender,
+            wire,
+            new DhmpSendPolicy(
+                pmax: 100,
+                maximumPayloadBytes: 16));
+
         byte[] data = [1, 2, 3, 4, 5, 6, 7, 8];
 
-        await client.SendBatchAsync(data, TestContext.Current.CancellationToken);
+        await client.SendBatchAsync(
+            data,
+            TestContext.Current.CancellationToken);
 
         Assert.Equal(data, actual);
         Assert.Equal(1, callbacks);
         Assert.Equal(1, sender.Calls);
+        Assert.Equal(16, client.SendPolicy.MaximumPayloadBytes);
+        Assert.Equal(32, receiver.ReceivePolicy.MaximumPayloadBytes);
+    }
+
+    [Fact]
+    public async Task LocalLatestPolicy_DoesNotChangeWireContract()
+    {
+        var wire = new DhmpWireContract(4);
+        var receiver = new DhmpServer(
+            wire,
+            new DhmpReceivePolicy(DhmpProcessingMode.Latest));
+
+        byte[]? actual = null;
+
+        var sender = new TestSender
+        {
+            Deliver = packet =>
+                receiver.ProcessPacket(
+                    packet.Span,
+                    batch => actual = batch.ToArray())
+        };
+
+        var client = new DhmpClient(
+            sender,
+            wire,
+            new DhmpSendPolicy(100));
+
+        await client.SendBatchAsync(
+            new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(new byte[] { 5, 6, 7, 8 }, actual);
+        Assert.Equal(wire, client.WireContract);
+        Assert.Equal(wire, receiver.WireContract);
     }
 
     [Fact]
     public async Task InvalidPackets_DoNotReachBackend()
     {
         var sender = new TestSender();
-        var session = new DhmpSessionContract(new DhmpFixedContract(4, 100, 8));
-        var client = new DhmpClient(sender, session);
+        var client = new DhmpClient(
+            sender,
+            new DhmpWireContract(4),
+            new DhmpSendPolicy(
+                pmax: 100,
+                maximumPayloadBytes: 8));
 
-        await Assert.ThrowsAsync<DhmpProtocolException>(() => client.SendBatchAsync(new byte[3], TestContext.Current.CancellationToken).AsTask());
-        await Assert.ThrowsAsync<DhmpProtocolException>(() => client.SendBatchAsync(new byte[12], TestContext.Current.CancellationToken).AsTask());
-        await Assert.ThrowsAsync<DhmpProtocolException>(() => client.SendBatchAsync(ReadOnlyMemory<byte>.Empty, TestContext.Current.CancellationToken).AsTask());
-        await Assert.ThrowsAsync<DhmpProtocolException>(() => client.SendAsync(new byte[8], TestContext.Current.CancellationToken).AsTask());
+        await Assert.ThrowsAsync<DhmpProtocolException>(() =>
+            client.SendBatchAsync(
+                new byte[3],
+                TestContext.Current.CancellationToken).AsTask());
+
+        await Assert.ThrowsAsync<DhmpProtocolException>(() =>
+            client.SendBatchAsync(
+                new byte[12],
+                TestContext.Current.CancellationToken).AsTask());
+
+        await Assert.ThrowsAsync<DhmpProtocolException>(() =>
+            client.SendBatchAsync(
+                ReadOnlyMemory<byte>.Empty,
+                TestContext.Current.CancellationToken).AsTask());
+
+        await Assert.ThrowsAsync<DhmpProtocolException>(() =>
+            client.SendAsync(
+                new byte[8],
+                TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(0, sender.Calls);
     }
 
     [Fact]
-    public async Task ExhaustedBudget_DoesNotQueueOrSend()
+    public async Task ExhaustedLocalSendBudget_DoesNotQueueOrSend()
     {
         var sender = new TestSender();
-        var client = new DhmpClient(sender, new DhmpSessionContract(new DhmpFixedContract(4, 2)));
+        var client = new DhmpClient(
+            sender,
+            new DhmpWireContract(4),
+            new DhmpSendPolicy(2));
 
-        await client.SendBatchAsync(new byte[8], TestContext.Current.CancellationToken);
-        await Assert.ThrowsAsync<DhmpProtocolException>(() => client.SendAsync(new byte[4], TestContext.Current.CancellationToken).AsTask());
+        await client.SendBatchAsync(
+            new byte[8],
+            TestContext.Current.CancellationToken);
+
+        await Assert.ThrowsAsync<DhmpProtocolException>(() =>
+            client.SendAsync(
+                new byte[4],
+                TestContext.Current.CancellationToken).AsTask());
 
         Assert.Equal(1, sender.Calls);
     }
@@ -83,14 +165,23 @@ public sealed class DhmpPacketIntegrationTests
     public async Task CancelledSend_DoesNotReserveBudget()
     {
         var sender = new TestSender();
-        var client = new DhmpClient(sender, new DhmpSessionContract(new DhmpFixedContract(4, 1)));
+        var client = new DhmpClient(
+            sender,
+            new DhmpWireContract(4),
+            new DhmpSendPolicy(1));
+
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            client.SendAsync(new byte[4], cancellation.Token).AsTask());
+            client.SendAsync(
+                new byte[4],
+                cancellation.Token).AsTask());
 
-        await client.SendAsync(new byte[4], TestContext.Current.CancellationToken);
+        await client.SendAsync(
+            new byte[4],
+            TestContext.Current.CancellationToken);
+
         Assert.Equal(1, sender.Calls);
     }
 
@@ -99,32 +190,59 @@ public sealed class DhmpPacketIntegrationTests
     {
         var error = new InvalidOperationException("backend failed");
         var sender = new TestSender { Failure = error };
-        var client = new DhmpClient(sender, new DhmpSessionContract(new DhmpFixedContract(4, 100)));
+
+        var client = new DhmpClient(
+            sender,
+            new DhmpWireContract(4),
+            new DhmpSendPolicy(100));
 
         var actual = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            client.SendAsync(new byte[4], TestContext.Current.CancellationToken).AsTask());
+            client.SendAsync(
+                new byte[4],
+                TestContext.Current.CancellationToken).AsTask());
 
         Assert.Same(error, actual);
         Assert.Equal(1, sender.Calls);
     }
 
     [Fact]
-    public void Setup_RejectsInvalidContractAndBackendLimit()
+    public void Setup_RejectsInvalidContractsPoliciesAndBackendLimit()
     {
-        Assert.Throws<ArgumentException>(() => new DhmpClient(new TestSender(), default));
-        Assert.Throws<ArgumentException>(() => new DhmpServer(default));
+        var wire = new DhmpWireContract(4);
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpClient(
+                new TestSender(),
+                default,
+                new DhmpSendPolicy(100)));
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpClient(
+                new TestSender(),
+                wire,
+                default));
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpServer(default));
+
         Assert.Throws<ArgumentException>(() =>
             new DhmpClient(
                 new TestSender { MaximumPayloadBytes = 32 },
-                new DhmpSessionContract(new DhmpFixedContract(4, 100))));
+                wire,
+                new DhmpSendPolicy(
+                    pmax: 100,
+                    maximumPayloadBytes: 64)));
     }
 
     [Fact]
     public void TypedBoundary_RejectsPartialModels()
     {
         var boundary = new DhmpModelBoundary<int>(4);
+
         Assert.Equal(2, boundary.Cast(new byte[8]).Length);
-        Assert.Throws<ArgumentException>(() => boundary.Cast(new byte[7]));
-        Assert.Throws<ArgumentException>(() => new DhmpModelBoundary<int>(3));
+        Assert.Throws<ArgumentException>(() =>
+            boundary.Cast(new byte[7]));
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpModelBoundary<int>(3));
     }
 }
