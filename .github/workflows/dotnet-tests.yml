@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   licensing-tests:
-    name: Licensing happy / critical / blocked paths
+    name: Licensing unit + startup integration paths
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -25,11 +25,20 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Restore
+      - name: Restore licensing tests
         run: dotnet restore tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj
 
-      - name: Build
+      - name: Restore ASP.NET integration tests
+        run: dotnet restore tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj
+
+      - name: Build licensing tests
         run: dotnet build tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj --configuration Release --no-restore
 
-      - name: Test
+      - name: Build ASP.NET integration tests
+        run: dotnet build tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj --configuration Release --no-restore
+
+      - name: Test licensing unit paths
         run: dotnet test tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Test ASP.NET startup paths
+        run: dotnet test tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
