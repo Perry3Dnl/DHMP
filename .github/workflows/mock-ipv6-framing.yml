@@ -23,7 +23,7 @@ jobs:
         run: dotnet build benchmarks/mock-ipv6-framing/Dhmp.MockIpv6Framing.csproj -c Release
       - name: Benchmark
         run: |
-          echo "MOCK_IPV6_CONTRACT=V1 -- real 40-byte IPv6 header build/parse in memory; no IP header checksum; next-header 253; no kernel/socket/NIC"
+          echo "MOCK_IPV6_CONTRACT=V1 -- sanity run: 40-byte IPv6 header build/parse in memory; DHMP data next-header 253; control 254 stays off data path; no kernel/socket/NIC"
           DLL=benchmarks/mock-ipv6-framing/bin/Release/net10.0/Dhmp.MockIpv6Framing.dll
           for i in 1 2 3 4 5; do
             echo "===== MOCK IPV6 RUN $i / 5 ====="
