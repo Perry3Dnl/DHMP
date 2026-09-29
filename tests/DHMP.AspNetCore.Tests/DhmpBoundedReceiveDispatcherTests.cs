@@ -206,6 +206,36 @@ public sealed class DhmpBoundedReceiveDispatcherTests
     }
 
     [Fact]
+    public void ReceivePolicyFactory_MapsLatestAndSequentialExplicitly()
+    {
+        using var latest =
+            DhmpBoundedReceiveDispatcher.FromReceivePolicy(
+                new DHMP.Protocol.DhmpReceivePolicy(
+                    DHMP.Protocol.DhmpProcessingMode.Latest,
+                    64),
+                sequentialCapacity: 8,
+                (_, _) => ValueTask.CompletedTask);
+
+        using var sequential =
+            DhmpBoundedReceiveDispatcher.FromReceivePolicy(
+                new DHMP.Protocol.DhmpReceivePolicy(
+                    DHMP.Protocol.DhmpProcessingMode.Sequential,
+                    64),
+                sequentialCapacity: 8,
+                (_, _) => ValueTask.CompletedTask);
+
+        Assert.Equal(
+            DhmpReceiveDispatchMode.LatestReplace,
+            latest.Mode);
+        Assert.Equal(1, latest.Capacity);
+
+        Assert.Equal(
+            DhmpReceiveDispatchMode.SequentialReject,
+            sequential.Mode);
+        Assert.Equal(8, sequential.Capacity);
+    }
+
+    [Fact]
     public void InvalidConfiguration_IsRejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
