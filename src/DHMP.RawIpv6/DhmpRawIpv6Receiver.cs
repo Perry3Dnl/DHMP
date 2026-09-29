@@ -41,7 +41,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         _socket = new Socket(
             AddressFamily.InterNetworkV6,
             SocketType.Raw,
-            (ProtocolType)options.ProtocolNumber);
+            (ProtocolType)options.DataProtocolNumber);
 
         try
         {
