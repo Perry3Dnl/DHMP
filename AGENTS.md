@@ -18,7 +18,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 
 ## Architecture boundaries
 
-- Use `DhmpSessionContract` as the explicit protocol/session agreement.
+- Use `DhmpWireContract` for protocol compatibility. Keep `DhmpSendPolicy` and `DhmpReceivePolicy` local to endpoints; do not merge them back into wire identity.
 - Keep direct-IP packet I/O, session establishment, packet processing, storage ownership and application execution separate.
 - Batch publication and bounded memory are the baseline.
 - No per-message allocation or synchronization in the framing core.
