@@ -25,8 +25,10 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - No per-message allocation or synchronization in the framing core.
 - Do not remove real cross-thread ownership protection merely to improve a benchmark.
 - Latest may discard obsolete state; Sequential preserves received arrival order within its bounded processing path.
+- Cross-packet freshness in V1 may only come from explicitly application-owned record fields/profiles such as `DhmpLatestGenerationFilter`; do not add hidden DHMP sequence bytes.
+- `SmoothPacing` is local pacing only. Do not call it congestion control unless receiver/network feedback and overload behavior are actually implemented.
 - Neither mode adds delivery ACKs, retransmission or recovery.
-- Native IP can lose, duplicate and reorder packets. Do not claim freshness, ordering, authentication, congestion safety or interoperability that has not been implemented.
+- Native IP can lose, duplicate and reorder packets. Do not claim protocol-owned freshness, ordering, authentication, congestion safety or interoperability that has not been implemented.
 
 ## Repository rules
 
