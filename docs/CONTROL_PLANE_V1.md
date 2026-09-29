@@ -115,8 +115,8 @@ The 32-byte control packet is not repeated on data packets.
 
 ## Security boundary
 
-Control V1 is currently unauthenticated.
+Base compatibility Control V1 is unauthenticated.
 
 Do not interpret successful compatibility negotiation as proof that the remote endpoint is trusted.
 
-A production security profile must define peer authentication, key establishment, replay handling and authenticated control/data behavior without silently modifying the existing V1 data layout.
+The separate [PSK security profile V1](SECURITY_PSK_V1.md) adds a distinct 48-byte HMAC-authenticated security-control exchange on the same experimental control binding plus authenticated-encryption/replay handling for protected data. Base Control V1 itself remains only compatibility negotiation.
