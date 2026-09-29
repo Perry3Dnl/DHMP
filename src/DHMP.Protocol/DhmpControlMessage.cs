@@ -26,7 +26,7 @@ public readonly record struct DhmpControlMessage
         if (recordSize <= 0 || recordSize > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(recordSize));
 
-        if (maximumReceivePayloadBytes < recordSize ||
+        if (maximumReceivePayloadBytes <= 0 ||
             maximumReceivePayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(maximumReceivePayloadBytes));
 
@@ -76,7 +76,7 @@ public readonly record struct DhmpControlMessage
         if (DataWireVersion == 0 ||
             RecordSize <= 0 ||
             RecordSize > ushort.MaxValue ||
-            MaximumReceivePayloadBytes < RecordSize ||
+            MaximumReceivePayloadBytes <= 0 ||
             MaximumReceivePayloadBytes > ushort.MaxValue ||
             CorrelationId == 0 ||
             !Enum.IsDefined(RejectReason))
