@@ -1,10 +1,16 @@
 # DHMP current development status
 
-Updated: 2026-09-28
+Updated: 2026-09-29
 
 The retained direction is now **DHMP Adaptive Fixed-Contract**: the application explicitly chooses `Every` or `Latest`, the handshake fixes the record/block contract, and the runtime selects the fastest validated implementation path that preserves those semantics.
 
 See the consolidated design: [ARCHITECTURE_COMPARISON.md](ARCHITECTURE_COMPARISON.md).
+
+The .NET fixed stream framer now uses one reusable carry buffer per ordered stream.
+Calls are serialized and non-reentrant; callbacks borrow spans synchronously, and callback
+failure requires aborting the stream and discarding the instance. See
+[FIXED_STREAM_PROCESSOR.md](FIXED_STREAM_PROCESSOR.md) for the contract and A/B validation.
+This is an implementation simplification, not a wire-protocol change or an established speedup.
 
 ## Current retained profiles
 
