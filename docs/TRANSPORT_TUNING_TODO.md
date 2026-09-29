@@ -17,19 +17,26 @@ The first Linux sender/receiver now moves complete headerless DHMP payloads thro
 
 Do not add a compatibility transport to make this phase easier.
 
-## Phase 2: control-plane/session establishment
+## Phase 2: harden and extend Control V1
 
-The data plane assumes both endpoints already know the same `DhmpWireContract`. Local send and receive policies are independent.
+The initial configured-peer control plane is implemented:
 
-Add a separate control-plane mechanism for:
+- separate experimental protocol 254;
+- fixed 32-byte HELLO/ACCEPT/REJECT packet;
+- wire version and record-size compatibility;
+- schema UUID compatibility;
+- remote receive-capability exchange;
+- correlation matching;
+- local outbound ceiling clamped to remote capability.
 
-- version agreement;
-- record size;
-- remote receive capability / safe outbound packet ceiling;
-- pacing capability when the deployment needs it;
-- peer/path association;
-- application schema identity if needed;
-- future security profile.
+Remaining work:
+
+- peer discovery;
+- authenticated peer identity;
+- secure key establishment;
+- retry/timeout policy for lost control packets;
+- multi-peer/session routing;
+- capability extension/versioning if future profiles need it.
 
 Keep negotiation off the steady-state record-processing hot path.
 
