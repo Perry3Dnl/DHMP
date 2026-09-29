@@ -64,6 +64,7 @@ required_paths = {
     "docs/WIRE_CONTRACT_V1.md",
     "docs/CONTROL_PLANE_V1.md",
     "docs/SECURITY_PSK_V1.md",
+    "docs/OVERLOAD_BEHAVIOR.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
 }
 for required in sorted(required_paths):
