@@ -40,3 +40,38 @@ allocations and alternates baseline/current order. It includes typical receive c
 a fragment-heavy pattern. Tiered compilation is disabled for both in this controlled A/B.
 Results are framing plus typed-boundary costs on a shared GitHub runner, not network throughput
 or proof of a universal speedup. Historical results from the old harness are not directly comparable.
+
+## Measured result — 2026-09-29
+
+[Validated A/B run](https://github.com/Perry3Dnl/DHMP/actions/runs/36529678013),
+current commit `7c3640fe5245a13bc9666f3f36e189aa1a39ca90` (processor change
+`11adddfaa23fbf491aa64fb67f9192097bd567f7`).
+
+Both variants passed the expanded correctness suite and allocated **0 managed bytes**
+during every timed sample. Release builds reported zero warnings and errors.
+Five runs per variant, alternating order, .NET 10 on the same hosted Ubuntu runner,
+`DOTNET_TieredCompilation=0`. Each timed sample lasted approximately 2.1–2.9 seconds.
+
+| Profile | Logical packages per sample | Baseline median time | Single-buffer median time | Time change |
+| --- | ---: | ---: | ---: | ---: |
+| Receive chunks | 100,000,000,000 | 2.431210 s | 2.085630 s | -14.21% |
+| Fragment-heavy | 200,000,000 | 2.809414 s | 2.417343 s | -13.96% |
+
+These are framing plus typed-boundary measurements. The receive profile batches many
+packages per callback and does **not** inspect every payload byte or process every model.
+Its logical package count must not be interpreted as network throughput or application
+message processing throughput. The measured reduction is specific to this harness and
+runner; no claim of a universal 14% improvement is made.
+
+Raw wall-clock seconds, in per-variant run order:
+
+| Profile / variant | Run 1 | Run 2 | Run 3 | Run 4 | Run 5 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Receive / baseline | 2.431652 | 2.431210 | 2.402490 | 2.403354 | 2.445380 |
+| Receive / current | 2.106471 | 2.085630 | 2.079144 | 2.086630 | 2.085255 |
+| Fragmented / baseline | 2.840599 | 2.880531 | 2.789859 | 2.780468 | 2.809414 |
+| Fragmented / current | 2.452681 | 2.451235 | 2.411780 | 2.399211 | 2.417343 |
+
+The workflow artifact contains full output, environment information and `summary.json`.
+An initial short-sample run was used to calibrate duration; the table above uses the
+longer samples only. Absolute timings from separate runners should not be compared.
