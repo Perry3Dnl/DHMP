@@ -188,6 +188,79 @@ public sealed class DhmpControlPlaneTests
     }
 
     [Fact]
+    public void ReceiveLimitTooSmall_HelloIsDecodedThenExplicitlyRejected()
+    {
+        var local =
+            new DhmpPeerProfile(
+                new DhmpWireContract(64),
+                1408,
+                SchemaId);
+
+        var hello =
+            new DhmpControlMessage(
+                DhmpControlMessageType.Hello,
+                DhmpProtocol.CurrentVersion,
+                recordSize: 64,
+                maximumReceivePayloadBytes: 32,
+                SchemaId,
+                correlationId: 91);
+
+        byte[] packet =
+            new byte[DhmpProtocol.ControlPacketSize];
+
+        DhmpControlCodec.Encode(
+            hello,
+            packet);
+
+        Assert.True(
+            DhmpControlCodec.TryDecode(
+                packet,
+                out var decoded));
+
+        var evaluation =
+            DhmpControlNegotiator.EvaluateHello(
+                local,
+                decoded);
+
+        Assert.False(evaluation.Accepted);
+
+        Assert.Equal(
+            DhmpControlRejectReason.ReceiveLimitTooSmall,
+            evaluation.Response.RejectReason);
+    }
+
+    [Fact]
+    public void CriticalPath_AcceptWithTooSmallReceiveLimitFailsNegotiation()
+    {
+        var local =
+            new DhmpPeerProfile(
+                new DhmpWireContract(64),
+                1408,
+                SchemaId);
+
+        var response =
+            new DhmpControlMessage(
+                DhmpControlMessageType.Accept,
+                DhmpProtocol.CurrentVersion,
+                recordSize: 64,
+                maximumReceivePayloadBytes: 32,
+                SchemaId,
+                correlationId: 92);
+
+        var error =
+            Assert.Throws<DhmpNegotiationException>(() =>
+                DhmpControlNegotiator.CompleteResponse(
+                    local,
+                    new DhmpSendPolicy(1000),
+                    expectedCorrelationId: 92,
+                    response));
+
+        Assert.Equal(
+            DhmpControlRejectReason.ReceiveLimitTooSmall,
+            error.Reason);
+    }
+
+    [Fact]
     public void SchemaMismatch_IsRejected()
     {
         var local = new DhmpPeerProfile(
