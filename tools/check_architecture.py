@@ -55,6 +55,7 @@ required_paths = {
     "src/DHMP.Server/DhmpLatestGenerationFilter.cs",
     "docs/WIRE_CONTRACT_V1.md",
     "docs/CONTROL_PLANE_V1.md",
+    "docs/SECURITY_PSK_V1.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
 }
 for required in sorted(required_paths):
