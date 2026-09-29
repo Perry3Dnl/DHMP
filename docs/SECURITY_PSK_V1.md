@@ -129,7 +129,7 @@ The raw IPv6 receiver decrypts into caller-owned reusable storage. That plaintex
 
 The same security session derives separate directional HMAC keys for ongoing congestion feedback.
 
-Feedback packets use magic `DHMF`, carry a directional sequence number plus bounded receive-pressure evidence, and are authenticated with a 16-byte truncated HMAC-SHA256 tag.
+Feedback packets use magic `DHMF`, carry a directional sequence number plus bounded receive-pressure evidence, and are authenticated with a 16-byte truncated HMAC-SHA256 tag. Authenticated `DHMR` path probes use separately derived directional HMAC keys and echo an opaque monotonic timestamp plus rolling secure receive-counter telemetry.
 
 The feedback replay window is separate from the encrypted-data replay window.
 
