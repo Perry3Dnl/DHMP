@@ -2,20 +2,18 @@
 
 The protocol direction is now fixed enough to build the missing network path around [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 
-## Phase 1: production raw IPv6 backend
+## Phase 1: harden the initial raw IPv6 backend
 
-Build a real sender/receiver that moves one complete headerless DHMP payload per IP packet.
+The first Linux sender/receiver now moves complete headerless DHMP payloads through raw IPv6 sockets. Remaining hardening work:
 
-Required work:
-
-- bind the current DHMP session to source/destination IPv6 peer context;
-- use the configured direct-IP protocol/Next Header value;
-- send one validated DHMP payload as one IP packet;
-- receive one complete DHMP payload and pass it to the correct `DhmpServer` session;
+- validate real two-host peer/path behavior;
+- validate raw-socket permissions and operational diagnostics;
+- validate path-MTU/error behavior;
 - keep packet buffers alive through asynchronous kernel ownership;
 - make receive/send buffer counts bounded;
-- define shutdown and cancellation behavior;
-- reject payloads that exceed the configured path budget.
+- strengthen shutdown/cancellation under concurrent I/O;
+- retain bounded rejection/drop accounting under sustained overload;
+- add separately validated non-Linux backends instead of assuming portability.
 
 Do not add a compatibility transport to make this phase easier.
 
