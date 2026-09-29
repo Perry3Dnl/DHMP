@@ -65,6 +65,35 @@ public readonly record struct DhmpControlMessage
     public uint CorrelationId { get; }
     public DhmpControlRejectReason RejectReason { get; }
 
+    public void Validate()
+    {
+        if (Type is not DhmpControlMessageType.Hello and
+            not DhmpControlMessageType.Accept and
+            not DhmpControlMessageType.Reject)
+            throw new ArgumentException(
+                "A supported DHMP control message type is required.");
+
+        if (DataWireVersion == 0 ||
+            RecordSize <= 0 ||
+            RecordSize > ushort.MaxValue ||
+            MaximumReceivePayloadBytes < RecordSize ||
+            MaximumReceivePayloadBytes > ushort.MaxValue ||
+            CorrelationId == 0 ||
+            !Enum.IsDefined(RejectReason))
+            throw new ArgumentException(
+                "A valid DHMP control message is required.");
+
+        if (Type == DhmpControlMessageType.Reject &&
+            RejectReason == DhmpControlRejectReason.None)
+            throw new ArgumentException(
+                "A reject control message requires a reason.");
+
+        if (Type != DhmpControlMessageType.Reject &&
+            RejectReason != DhmpControlRejectReason.None)
+            throw new ArgumentException(
+                "Only reject control messages may carry a reason.");
+    }
+
     public static DhmpControlMessage Hello(
         DhmpPeerProfile profile,
         uint correlationId)
