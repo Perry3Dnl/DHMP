@@ -10,7 +10,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - One canonical `DHMP.*` .NET project tree.
 - `DhmpProtocol` defines data wire version, control version, experimental data binding 253 and experimental control binding 254.
 - `DhmpWireContract` contains only protocol version and fixed record size.
-- `DhmpSendPolicy` contains local Pmax, `RejectWindow`/`SmoothPacing` behavior and outbound packet ceiling.
+- `DhmpSendPolicy` contains local Pmax, `RejectWindow`/`SmoothPacing` behavior and outbound packet ceiling. `DhmpAdaptiveRateController` can now reduce/recover SmoothPacing from authenticated receiver pressure without exceeding local Pmax.
 - `DhmpReceivePolicy` contains local Sequential/Latest mode and inbound packet ceiling.
 - `DhmpPacketProcessor` consumes a headerless payload containing complete fixed records only.
 - Sequential publishes the complete received batch.
@@ -20,7 +20,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - `DhmpServer` uses the same wire contract with its own local receive policy.
 - `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: data on experimental protocol 253 and control/handshake on 254. It includes bounded source-IPv6 multi-peer routing plus `DhmpIpv6PathBudget` for known-PMTU payload calculation.
 - `DHMP.Security` provides an experimental PSK security profile using authenticated control setup, HKDF-derived directional keys, ChaCha20-Poly1305 packet protection and a bounded replay window.
-- `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics.
+- `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics. `DhmpCongestionAdvisor` converts snapshot deltas into bounded receiver pressure recommendations.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 
@@ -50,7 +50,7 @@ Historical versions remain available through git history.
 3. Peer discovery and multiplexing beyond the implemented one-session-per-source-IPv6 routing model. Compatibility negotiation and PSK authentication are implemented for explicitly configured peers.
 4. Production hardening/metrics around the implemented bounded async receive dispatcher; the unbounded receive-queue gap is closed.
 5. Broader loss/duplicate/reordering policy beyond the implemented optional Latest generation filter.
-6. Dynamic IPv6 PMTU discovery/feedback and real congestion/backpressure policy. Known-PMTU budgeting and `MessageSize` surfacing are implemented.
+6. Dynamic IPv6 PMTU discovery plus broader network congestion control. Authenticated receiver-overload feedback and adaptive pacing are implemented, but RTT/loss/ECN/fairness behavior remains open.
 7. Independent review/hardening of the implemented PSK security profile, plus a decision on forward-secret/public-key profiles.
 8. Kernel, NIC and physical two-host validation.
 
