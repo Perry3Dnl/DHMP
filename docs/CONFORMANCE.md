@@ -17,10 +17,10 @@ A conforming V1 data-plane implementation must:
 - accept only payloads containing one or more complete records;
 - reject empty, incomplete and oversized payloads;
 - never reconstruct a record by joining separate IP packets;
-- preserve the declared Sequential/Latest publication semantics;
+- correctly interpret the declared V1 wire version and fixed record size;
 - avoid claiming delivery, uniqueness, sender ordering or cross-packet freshness that V1 does not provide;
 - keep memory and pending work bounded;
-- respect the configured local Pmax budget where that contract applies;
+- keep any local send budget and receive publication policy separate from wire compatibility;
 - add no delivery ACK, replay, retransmission or automatic recovery semantics;
 - keep storage alive until the local consumer/send operation releases ownership;
 - use a reviewed security design before advertising a secure DHMP mode.
@@ -35,7 +35,7 @@ Two implementations can satisfy the DHMP packet contract and still fail to under
 
 A real interoperability profile therefore needs both:
 
-1. a matching DHMP session contract; and
+1. a matching DHMP wire contract; and
 2. a matching application schema or schema identifier outside the current hot data packet.
 
 ## DHMP Compatible label
