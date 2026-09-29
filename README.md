@@ -110,6 +110,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [DHMP PSK security profile V1](docs/SECURITY_PSK_V1.md)
 - [Bounded overload behavior](docs/OVERLOAD_BEHAVIOR.md)
 - [Authenticated congestion feedback](docs/CONGESTION_FEEDBACK.md)
+- [Test strategy](docs/TEST_STRATEGY.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
 - [Current implementation status](docs/CURRENT_STATUS.md)
 - [Protocol design notes](docs/PROTOCOL_DRAFT.md)
