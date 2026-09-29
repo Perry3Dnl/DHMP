@@ -1,12 +1,17 @@
 namespace DHMP.Protocol;
 
-public readonly record struct DhmpFixedContract(int PayloadSize, int Pmax)
+public readonly record struct DhmpFixedContract
 {
-    public DhmpFixedContract
+    public DhmpFixedContract(int payloadSize, int pmax)
     {
-        if (PayloadSize <= 0) throw new ArgumentOutOfRangeException(nameof(PayloadSize));
-        if (Pmax <= 0) throw new ArgumentOutOfRangeException(nameof(Pmax));
+        if (payloadSize <= 0) throw new ArgumentOutOfRangeException(nameof(payloadSize));
+        if (pmax <= 0) throw new ArgumentOutOfRangeException(nameof(pmax));
+        PayloadSize = payloadSize;
+        Pmax = pmax;
     }
+
+    public int PayloadSize { get; }
+    public int Pmax { get; }
 
     public void ValidatePayload(int length)
     {
