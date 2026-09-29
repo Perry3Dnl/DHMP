@@ -1,0 +1,31 @@
+name: DHMP Direct-IP Core Sanity
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/direct-ip-core-sanity/**'
+      - '.github/workflows/direct-ip-core-sanity.yml'
+permissions: { contents: read }
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: '10.0.x' }
+      - name: Environment
+        run: |
+          echo "COMMIT=$GITHUB_SHA"
+          lscpu | grep -E 'Model name|CPU\(s\)|Thread|Core|Socket' || true
+      - name: Build
+        run: dotnet build benchmarks/direct-ip-core-sanity/Dhmp.DirectIpCoreSanity.csproj -c Release
+      - name: Benchmark
+        run: |
+          echo "DIRECT_IP_CORE_CONTRACT=V1 -- actual DhmpWireContract + DhmpReceivePolicy + DhmpPacketProcessor; Latest; no socket/kernel/NIC"
+          DLL=benchmarks/direct-ip-core-sanity/bin/Release/net10.0/Dhmp.DirectIpCoreSanity.dll
+          for i in 1 2 3 4 5; do
+            echo "===== DIRECT IP CORE RUN $i / 5 ====="
+            dotnet "$DLL" 100000000
+          done
