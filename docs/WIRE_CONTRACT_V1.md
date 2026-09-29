@@ -8,7 +8,7 @@ DHMP V1 defines a deliberately small headerless data plane directly over IP.
 
 The data plane does not wrap each record in a DHMP frame and does not prepend a DHMP packet header.
 
-For the current IPv6 implementation path, an IP packet is associated with DHMP by the backend/protocol binding. The raw IPv6 backend currently permits experimental IPv6 Next Header values `253` and `254`. These are not permanent protocol assignments for DHMP.
+For the current IPv6 implementation path, experimental protocol / Next Header `253` carries DHMP V1 data. Experimental value `254` is reserved by this project for the separate [Control V1](CONTROL_PLANE_V1.md) handshake. Neither value is a permanent DHMP assignment.
 
 ## Wire compatibility contract
 
@@ -31,7 +31,7 @@ The wire contract deliberately does **not** contain:
 
 Those are endpoint policies. Different peers may use different local policies while still speaking the same DHMP V1 wire format.
 
-A future control plane may exchange capabilities such as maximum acceptable packet size or schema identity, but exchanging a capability does not make that capability part of the headerless data packet.
+The implemented Control V1 plane exchanges maximum receive capability and schema identity. Exchanging those values does not make them part of the headerless data packet.
 
 ## V1 data packet
 
@@ -68,7 +68,7 @@ It currently contains:
 
 These values do not alter record interpretation and do not need to equal the remote peer's local values.
 
-A usable deployment must nevertheless ensure that the sender does not exceed what the remote path/receiver accepts. Future session capability exchange can establish that safe bound.
+A successful Control V1 handshake advertises the remote receive ceiling and clamps the local outbound ceiling to a whole-record value that does not exceed it.
 
 ## Local receive policy
 
