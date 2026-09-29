@@ -3,12 +3,24 @@ namespace DHMP.Protocol;
 /// <summary>Stable protocol identity for the current standalone DHMP work.</summary>
 public static class DhmpProtocol
 {
-    /// <summary>Current pre-1.0 wire/session contract version.</summary>
+    /// <summary>Current pre-1.0 headerless data wire version.</summary>
     public const byte CurrentVersion = 1;
 
+    /// <summary>Current pre-1.0 control-plane packet version.</summary>
+    public const byte ControlVersion = 1;
+
     /// <summary>
-    /// IPv6 experimental-use Next Header value used by the current raw-IP research backend.
-    /// This is not an IANA-assigned permanent DHMP protocol number.
+    /// Experimental IPv6 protocol/Next Header used by DHMP V1 data packets.
+    /// IANA reserves 253 for experimentation/testing; this is not a permanent DHMP assignment.
     /// </summary>
-    public const byte ExperimentalIpv6NextHeader = 253;
+    public const byte ExperimentalIpv6DataNextHeader = 253;
+
+    /// <summary>
+    /// Experimental IPv6 protocol/Next Header used by DHMP control packets.
+    /// IANA reserves 254 for experimentation/testing; this is not a permanent DHMP assignment.
+    /// </summary>
+    public const byte ExperimentalIpv6ControlNextHeader = 254;
+
+    /// <summary>Fixed size of one DHMP V1 control packet.</summary>
+    public const int ControlPacketSize = 32;
 }
