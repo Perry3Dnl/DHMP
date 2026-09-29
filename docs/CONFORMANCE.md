@@ -1,34 +1,53 @@
 # DHMP conformance and compatible designation
 
-The protocol and the reference .NET implementation are distinct. This document concerns
-protocol behavior; implementation licensing is defined in [LICENSING_DESIGN.md](LICENSING_DESIGN.md).
+The protocol and the reference .NET implementation are distinct. Implementation licensing is defined in [LICENSING_DESIGN.md](LICENSING_DESIGN.md).
 
-The wire/session specification is not frozen. Passing the current prototype tests is not
-sufficient to claim interoperable production DHMP conformance or a secure implementation.
+The current working protocol contract is [WIRE_CONTRACT_V1.md](WIRE_CONTRACT_V1.md). It is a pre-1.0 contract and may still change before a stable interoperability release.
 
-## Required packet behavior
+Passing repository tests alone is not sufficient to claim production interoperability or security.
 
-- A session has a valid, explicit fixed record size and bounded packet payload size.
-- Packets contain whole messages only. Reject empty, incomplete and oversized payloads.
-- Never reconstruct a message by joining separate packet payloads.
-- Preserve the declared Sequential/Latest publication semantics.
-- State the handling of duplicates, loss, reordering and freshness; do not claim guarantees
-  that the wire/session implementation does not provide.
-- Keep memory and pending work bounded; respect the configured Pmax budget.
-- No delivery ACK, replay, retransmission or automatic recovery semantics.
-- Keep storage alive until the consumer/send operation releases its ownership.
-- Use a reviewed standard security design if advertising security.
+## Required V1 packet behavior
+
+A conforming V1 data-plane implementation must:
+
+- use the agreed session protocol version;
+- use the agreed fixed record size and bounded packet payload size;
+- treat the DHMP data payload as headerless application-record bytes;
+- add no hidden DHMP packet header, record header, separator or trailer;
+- accept only payloads containing one or more complete records;
+- reject empty, incomplete and oversized payloads;
+- never reconstruct a record by joining separate IP packets;
+- preserve the declared Sequential/Latest publication semantics;
+- avoid claiming delivery, uniqueness, sender ordering or cross-packet freshness that V1 does not provide;
+- keep memory and pending work bounded;
+- respect the configured local Pmax budget where that contract applies;
+- add no delivery ACK, replay, retransmission or automatic recovery semantics;
+- keep storage alive until the local consumer/send operation releases ownership;
+- use a reviewed security design before advertising a secure DHMP mode.
+
+For the current raw IPv6 research path, Next Header `253` is an experimental binding only.
+
+## Application-schema compatibility
+
+DHMP V1 treats record bytes as opaque.
+
+Two implementations can satisfy the DHMP packet contract and still fail to understand each other if they use different application record layouts.
+
+A real interoperability profile therefore needs both:
+
+1. a matching DHMP session contract; and
+2. a matching application schema or schema identifier outside the current hot data packet.
 
 ## DHMP Compatible label
 
-The intended designation requires a versioned frozen protocol contract and passing the
-corresponding independent test vectors. Until those exist, describe the code as an
-experimental DHMP implementation. The label is separate from a commercial implementation
-license and must not imply ownership transfer of the protocol.
+The intended designation should only be used once a stable versioned protocol release and independent conformance vectors exist.
+
+Until that release, describe implementations as experimental or pre-1.0 DHMP implementations.
+
+The compatibility designation is separate from any commercial implementation license and must not imply ownership of the open protocol definition.
 
 ## Current automated coverage
 
-Prototype tests cover record/packet sizes, both publication policies, malformed packets,
-no cross-packet carry, borrowed storage, callback failures, batch budget rejection, send
-cancellation, explicit sender integration, typed boundaries and startup license gates.
-Physical network behavior and interoperability remain additional gates.
+The repository contains prototype coverage for packet/record sizes, Sequential/Latest behavior, malformed packets, no cross-packet carry, borrowed storage, callback failures, send-budget rejection, cancellation, sender integration, typed boundaries and startup license gates.
+
+Production raw-IP behavior, independent cross-language interoperability, security and physical-network validation remain additional gates.
