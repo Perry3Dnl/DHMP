@@ -24,6 +24,12 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         CongestionFeedbackBodySize +
         CongestionFeedbackTagSize;
 
+    public const int PathProbeBodySize = 64;
+    public const int PathProbeTagSize = 16;
+    public const int PathProbePacketSize =
+        PathProbeBodySize +
+        PathProbeTagSize;
+
     private readonly ChaCha20Poly1305 _sendCipher;
     private readonly ChaCha20Poly1305 _receiveCipher;
     private readonly uint _sendNoncePrefix;
@@ -31,8 +37,12 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     private readonly byte[] _sessionIdBytes;
     private readonly byte[] _sendFeedbackKey;
     private readonly byte[] _receiveFeedbackKey;
+    private readonly byte[] _sendPathKey;
+    private readonly byte[] _receivePathKey;
     private readonly DhmpReplayWindow _replayWindow = new();
     private readonly DhmpReplayWindow _feedbackReplayWindow = new();
+    private readonly DhmpReplayWindow _pathRequestReplayWindow = new();
+    private readonly DhmpReplayWindow _pathResponseReplayWindow = new();
     private readonly object _receiveTelemetryGate = new();
 
     private long _acceptedDataPackets;
@@ -83,6 +93,8 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
         _sendFeedbackKey = new byte[KeySize];
         _receiveFeedbackKey = new byte[KeySize];
+        _sendPathKey = new byte[KeySize];
+        _receivePathKey = new byte[KeySize];
 
         HKDF.DeriveKey(
             HashAlgorithmName.SHA256,
@@ -104,6 +116,12 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         Span<byte> responderFeedback =
             stackalloc byte[KeySize];
 
+        Span<byte> initiatorPath =
+            stackalloc byte[KeySize];
+
+        Span<byte> responderPath =
+            stackalloc byte[KeySize];
+
         HKDF.DeriveKey(
             HashAlgorithmName.SHA256,
             preSharedKey.KeySpan,
@@ -117,6 +135,20 @@ public sealed class DhmpPskChaCha20Poly1305Session :
             responderFeedback,
             _sessionIdBytes,
             "DHMP-S1-FB-R2I"u8);
+
+        HKDF.DeriveKey(
+            HashAlgorithmName.SHA256,
+            preSharedKey.KeySpan,
+            initiatorPath,
+            _sessionIdBytes,
+            "DHMP-S1-PATH-I2R"u8);
+
+        HKDF.DeriveKey(
+            HashAlgorithmName.SHA256,
+            preSharedKey.KeySpan,
+            responderPath,
+            _sessionIdBytes,
+            "DHMP-S1-PATH-R2I"u8);
 
         ReadOnlySpan<byte> sendMaterial =
             role == DhmpSecurityRole.Initiator
@@ -138,6 +170,16 @@ public sealed class DhmpPskChaCha20Poly1305Session :
                 ? responderFeedback
                 : initiatorFeedback;
 
+        ReadOnlySpan<byte> sendPath =
+            role == DhmpSecurityRole.Initiator
+                ? initiatorPath
+                : responderPath;
+
+        ReadOnlySpan<byte> receivePath =
+            role == DhmpSecurityRole.Initiator
+                ? responderPath
+                : initiatorPath;
+
         byte[] sendKey =
             sendMaterial[..KeySize].ToArray();
 
@@ -146,6 +188,8 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
         sendFeedback.CopyTo(_sendFeedbackKey);
         receiveFeedback.CopyTo(_receiveFeedbackKey);
+        sendPath.CopyTo(_sendPathKey);
+        receivePath.CopyTo(_receivePathKey);
 
         _sendNoncePrefix =
             BinaryPrimitives.ReadUInt32BigEndian(
@@ -171,6 +215,8 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         CryptographicOperations.ZeroMemory(responderToInitiator);
         CryptographicOperations.ZeroMemory(initiatorFeedback);
         CryptographicOperations.ZeroMemory(responderFeedback);
+        CryptographicOperations.ZeroMemory(initiatorPath);
+        CryptographicOperations.ZeroMemory(responderPath);
     }
 
     public Guid SessionId { get; }
@@ -534,6 +580,152 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         }
     }
 
+    public int EncodePathProbe(
+        DhmpPathProbeMessage message,
+        Span<byte> destination)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        if (destination.Length < PathProbePacketSize)
+            throw new ArgumentException(
+                $"DHMP path probe requires {PathProbePacketSize} bytes.",
+                nameof(destination));
+
+        Span<byte> packet =
+            destination[..PathProbePacketSize];
+
+        packet.Clear();
+        "DHMR"u8.CopyTo(packet);
+
+        packet[4] = 1;
+        packet[5] = (byte)message.Type;
+
+        _sessionIdBytes.CopyTo(
+            packet.Slice(8, 16));
+
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(24, 8),
+            message.ProbeId);
+
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(32, 8),
+            message.SenderTimestamp);
+
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(40, 8),
+            message.HighestPacketCounter);
+
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(48, 4),
+            checked((uint)message.WindowSpan));
+
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(52, 4),
+            checked((uint)message.MissingWithinWindow));
+
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(56, 8),
+            checked((ulong)message.AcceptedPackets));
+
+        Span<byte> fullTag =
+            stackalloc byte[32];
+
+        HMACSHA256.HashData(
+            _sendPathKey,
+            packet[..PathProbeBodySize],
+            fullTag);
+
+        fullTag[..PathProbeTagSize]
+            .CopyTo(
+                packet.Slice(
+                    PathProbeBodySize,
+                    PathProbeTagSize));
+
+        CryptographicOperations.ZeroMemory(fullTag);
+
+        return PathProbePacketSize;
+    }
+
+    public bool TryDecodePathProbe(
+        ReadOnlySpan<byte> packet,
+        out DhmpPathProbeMessage message)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        message = default;
+
+        if (packet.Length != PathProbePacketSize ||
+            !packet[..4].SequenceEqual("DHMR"u8) ||
+            packet[4] != 1 ||
+            !packet.Slice(8, 16)
+                .SequenceEqual(_sessionIdBytes))
+            return false;
+
+        Span<byte> fullTag =
+            stackalloc byte[32];
+
+        HMACSHA256.HashData(
+            _receivePathKey,
+            packet[..PathProbeBodySize],
+            fullTag);
+
+        bool authenticated =
+            CryptographicOperations.FixedTimeEquals(
+                fullTag[..PathProbeTagSize],
+                packet.Slice(
+                    PathProbeBodySize,
+                    PathProbeTagSize));
+
+        CryptographicOperations.ZeroMemory(fullTag);
+
+        if (!authenticated)
+            return false;
+
+        try
+        {
+            var decoded =
+                new DhmpPathProbeMessage(
+                    (DhmpPathProbeType)packet[5],
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(24, 8)),
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(32, 8)),
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(40, 8)),
+                    checked((int)
+                        BinaryPrimitives.ReadUInt32BigEndian(
+                            packet.Slice(48, 4))),
+                    checked((int)
+                        BinaryPrimitives.ReadUInt32BigEndian(
+                            packet.Slice(52, 4))),
+                    checked((long)
+                        BinaryPrimitives.ReadUInt64BigEndian(
+                            packet.Slice(56, 8))));
+
+            DhmpReplayWindow replay =
+                decoded.Type == DhmpPathProbeType.Request
+                    ? _pathRequestReplayWindow
+                    : _pathResponseReplayWindow;
+
+            if (!replay.TryAccept(decoded.ProbeId))
+                return false;
+
+            message = decoded;
+            return true;
+        }
+        catch (Exception error)
+            when (error is
+                ArgumentException or
+                OverflowException)
+        {
+            return false;
+        }
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(
@@ -552,5 +744,11 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
         CryptographicOperations.ZeroMemory(
             _receiveFeedbackKey);
+
+        CryptographicOperations.ZeroMemory(
+            _sendPathKey);
+
+        CryptographicOperations.ZeroMemory(
+            _receivePathKey);
     }
 }
