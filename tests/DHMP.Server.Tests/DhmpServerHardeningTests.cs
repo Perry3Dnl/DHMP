@@ -455,7 +455,7 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
-    public void CriticalFlow_DisposedDispatcherRejectsPublicationAndRun()
+    public async Task CriticalFlow_DisposedDispatcherRejectsPublicationAndRun()
     {
         var dispatcher =
             new DhmpBoundedReceiveDispatcher(
@@ -475,8 +475,9 @@ public sealed class DhmpServerHardeningTests
 
         Assert.Equal(0, dispatcher.PendingBatches);
 
-        Assert.Throws<ObjectDisposedException>(() =>
-            dispatcher.RunAsync());
+        await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => dispatcher.RunAsync(
+                TestContext.Current.CancellationToken));
     }
 
     [Fact]
