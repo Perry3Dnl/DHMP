@@ -17,6 +17,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - Control V1 may validate compatibility/capabilities for a configured peer but must never be described as authentication.
 - The separate PSK security profile may authenticate possession of the configured shared key. Do not describe it as forward-secret or independently reviewed.
 - Remote pacing feedback must be authenticated and session-bound before it can change `DhmpAdaptiveRateController`; never add an unauthenticated remote throttle path.
+- Do not add per-data-packet ACK/retransmission just to estimate loss. The secure profile may use its existing authenticated packet counter as a rolling loss signal. Treat RTT as observability until a measured policy is justified.
 - The current raw IPv6 experimental profile reserves protocol / Next Header 253 for headerless data and 254 for control. Treat both as experimental, not permanent assignments.
 
 ## Architecture boundaries
