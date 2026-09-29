@@ -303,6 +303,39 @@ public sealed class DhmpControlPlaneTests
     }
 
     [Fact]
+    public void Negotiation_PreservesSmoothPacingPolicy()
+    {
+        var local = new DhmpPeerProfile(
+            new DhmpWireContract(32),
+            1408,
+            SchemaId);
+
+        var remote = new DhmpPeerProfile(
+            new DhmpWireContract(32),
+            1024,
+            SchemaId);
+
+        var negotiated =
+            DhmpControlNegotiator.CompleteResponse(
+                local,
+                new DhmpSendPolicy(
+                    5000,
+                    1408,
+                    DhmpRatePolicy.SmoothPacing),
+                321,
+                DhmpControlMessage.Accept(
+                    remote,
+                    321));
+
+        Assert.Equal(
+            DhmpRatePolicy.SmoothPacing,
+            negotiated.EffectiveSendPolicy.RatePolicy);
+        Assert.Equal(
+            1024,
+            negotiated.EffectiveSendPolicy.MaximumPayloadBytes);
+    }
+
+    [Fact]
     public void DataAndControlBindings_AreDistinctExperimentalValues()
     {
         Assert.Equal(
