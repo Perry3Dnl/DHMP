@@ -18,6 +18,12 @@ DHMP is fire-and-forget and fixed-contract.
 - TCP/TLS may segment or coalesce the byte stream internally. That is transport behavior, not DHMP fragmentation.
 - DHMPS is DHMP over standard TLS; DHMP does not define custom cryptography.
 
+# Transport direction
+
+DHMP's core is **transport-independent**. TCP/TLS remains a compatibility transport, but DHMP is no longer architected on the assumption that another transport protocol must define its hot path. The current high-performance research direction is a direct packet transport over IP, with IPv6 as the present candidate. Mock/IP results are software ceilings, not network-throughput claims.
+
+See [Direct transport direction and plan](docs/DIRECT_TRANSPORT_DIRECTION.md) for the architecture decision, current IPv4/IPv6 findings, benchmark ladder and production plan.
+
 # Current performance
 
 > **Performance-data policy:** this README contains only current-generation benchmark results. Historical benchmark data remains available under `benchmarks/` and `docs/`, but old results are not mixed into the current headline comparison.
