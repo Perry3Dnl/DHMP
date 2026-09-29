@@ -14,21 +14,24 @@ Namespaces also use `DHMP.*`. There are no case-only alternate projects.
 
 `DhmpProtocol.ExperimentalIpv6NextHeader` records the experimental Next Header value used by the raw IPv6 research path. It is not a permanent protocol assignment.
 
-## Session contract
+## Wire contract and local policies
 
-`DhmpSessionContract` is the required protocol-owned agreement for one configured session.
-
-It contains:
+`DhmpWireContract` is the protocol-owned interoperability contract. It contains only:
 
 - protocol version;
-- `DhmpFixedContract`;
-- `DhmpProcessingMode`.
+- fixed record size.
 
-`DhmpFixedContract` supplies fixed record size, Pmax and maximum headerless DHMP packet payload bytes.
+`DhmpSendPolicy` is local sender configuration:
 
-Client and server facades consume the same session contract so mode/version cannot silently diverge between the two sides of the reference API.
+- Pmax logical-message budget;
+- maximum outbound DHMP payload bytes per packet.
 
-The future direct-IP control plane is responsible for establishing the same session values between remote peers.
+`DhmpReceivePolicy` is local receiver configuration:
+
+- Sequential or Latest publication;
+- maximum accepted DHMP payload bytes per packet.
+
+Peers may use different send budgets, packet ceilings and receive modes while still interpreting the same DHMP V1 bytes. Future control-plane negotiation may exchange capabilities, but local policy values do not become data-plane wire metadata.
 
 ## Packet core
 
@@ -42,13 +45,13 @@ The byte span contains application records only. The processor checks the comple
 
 ## Client and receiver
 
-`DhmpClient` requires an `IDhmpPacketSender` and a validated `DhmpSessionContract`.
+`DhmpClient` requires an `IDhmpPacketSender`, a validated `DhmpWireContract` and a local `DhmpSendPolicy`.
 
 `SendAsync` accepts one record. `SendBatchAsync` accepts one complete headerless DHMP packet payload. The caller serializes sends through completion and owns the sender lifetime.
 
 There is no `ConnectAsync`, port, hidden socket choice or default compatibility transport.
 
-`DhmpServer` is the receiver-side facade for one `DhmpSessionContract`. `ProcessPacket` consumes an already-received complete DHMP payload.
+`DhmpServer` is the receiver-side facade for one `DhmpWireContract` plus local `DhmpReceivePolicy`. `ProcessPacket` consumes an already-received complete DHMP payload.
 
 `IDhmpPacketSender` is the explicit outbound direct-IP boundary. It must not silently add DHMP packet headers or convert the payload into a stream protocol.
 
@@ -74,6 +77,6 @@ ASP.NET host integration is optional and does not carry DHMP data traffic. Regis
 
 Old listener/connect/event APIs, byte-stream framing and compatibility transport implementations are not part of the active architecture.
 
-The current API now requires an explicit session contract at the client/server facade boundary.
+The current API separates protocol interoperability from endpoint-local send and receive policy.
 
 Historical stream-framing benchmark results do not describe the headerless direct-IP packet processor.
