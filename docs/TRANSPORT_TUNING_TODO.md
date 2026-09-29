@@ -67,13 +67,29 @@ Add:
 
 Normal operation should not depend on IP fragmentation.
 
-## Phase 5: security
+## Phase 5: harden the PSK security profile
 
-Select and specify a reviewed direct-packet security design.
+The first explicit packet security profile is implemented:
 
-Define authentication failure handling, replay considerations, nonce/counter requirements, key/session lifecycle and exact security overhead.
+- HMAC-SHA256 authenticated PSK setup on control protocol 254;
+- fresh session identifier;
+- HKDF-SHA256 directional key/nonce-prefix derivation;
+- ChaCha20-Poly1305 data protection;
+- 64-bit per-direction packet counters;
+- bounded 64-packet replay window;
+- 24-byte explicit protected-data overhead;
+- decrypted receive-buffer clearing after synchronous publication.
 
-Any protocol-owned wire bytes introduced by security require an explicit version/profile change. Do not silently modify the V1 headerless data layout.
+Remaining security work:
+
+- independent security review;
+- PSK rotation/lifecycle and multi-key lookup;
+- denial-of-service analysis;
+- secure profile performance measurements;
+- decide whether forward secrecy/public-key identity is required;
+- physical two-host validation.
+
+Base V1 remains headerless when the security profile is not selected. Do not silently insert the security envelope into plain V1.
 
 ## Phase 6: optimization and measurement
 
