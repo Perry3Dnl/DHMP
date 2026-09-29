@@ -138,6 +138,47 @@ var client = new DhmpClient(
 
 Adaptive control requires `DhmpRatePolicy.SmoothPacing`. RejectWindow remains a purely local hard-budget policy.
 
+## Secure path telemetry
+
+When the PSK packet-protection profile is active, every protected data packet already carries an authenticated 64-bit packet counter.
+
+The receiver uses its 64-packet replay window as a rolling path observation:
+
+- missing counters inside the current window are provisional loss;
+- a reordered packet that arrives later fills its bit and reduces the missing count;
+- duplicates and packets older than the replay window remain rejected;
+- no ACK is generated for individual data packets.
+
+`DhmpSecureReceiveSnapshot` exposes highest counter, rolling window span, missing packets, accepted packets, reordering, replay rejections and authentication failures.
+
+`DhmpPathRateAdvisor` currently maps rolling loss only:
+
+- >=10% rolling loss -> Hard / 50%;
+- >=2% rolling loss -> Soft / 75%;
+- below 2% -> no path pressure.
+
+These are experimental policy thresholds, not standards claims.
+
+### Authenticated RTT probe
+
+The ongoing control socket also supports an 80-byte `DHMR` probe/echo packet.
+
+It carries:
+
+- security session ID;
+- directional probe ID;
+- opaque sender monotonic timestamp;
+- responder rolling receive-counter telemetry;
+- direction-specific HMAC-SHA256 authentication tag.
+
+The responder echoes the timestamp unchanged. The originator measures elapsed time only on its own monotonic clock, so no clock synchronization is required.
+
+Requests and responses use separate replay windows.
+
+RTT is currently reported to the application/observer but is intentionally not used as an independent rate-reduction signal until physical-path measurements justify an RTT-inflation model.
+
+The same `DhmpRawIpv6CongestionChannel` demultiplexes `DHMF` and `DHMR`; DHMP does not open multiple ongoing raw control sockets that compete for protocol-254 packets.
+
 ## Scope limits
 
 This is receiver-driven application overload feedback plus adaptive pacing.
@@ -146,8 +187,8 @@ It is not yet a complete Internet congestion-control algorithm.
 
 Still missing before making stronger congestion-safety claims:
 
-- packet-loss/ECN/path feedback;
-- RTT/feedback timing model;
+- ECN/path feedback beyond the implemented protected-counter rolling loss estimate;
+- validated RTT-inflation policy; RTT measurement itself is implemented;
 - feedback-loss behavior;
 - fairness evaluation between competing flows;
 - physical multi-flow tests;
