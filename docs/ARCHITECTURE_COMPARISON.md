@@ -17,7 +17,7 @@ See [the authoritative direction](DIRECT_TRANSPORT_DIRECTION.md) and [DHMP wire 
 | Sending | MTU-safe data batch and bounded local rate | `IDhmpPacketSender` plus fixed-window Pmax budget |
 | Reliability | No recovery layer | No ACK/retransmission/replay/stream reconstruction |
 | Control plane | Compatibility/capability exchange off hot path | Fixed 32-byte HELLO/ACCEPT/REJECT; unauthenticated |
-| Security | Reviewed direct-packet mechanism | Not implemented |
+| Security | Explicit optional packet-protection profile | Experimental PSK + HKDF + ChaCha20-Poly1305 + replay window; independent review pending |
 
 ## Headerless data-plane rule
 
