@@ -15,7 +15,7 @@ public sealed class DHMPFixedStreamProcessor
     {
         if(packageSize<=0) throw new ArgumentOutOfRangeException(nameof(packageSize));
         _packageSize=packageSize;
-        _powerOfTwo=IsPowerOfTwo(packageSize);
+        _powerOfTwo=(packageSize&(packageSize-1))==0;
         _packageMask=_powerOfTwo?packageSize-1:0;
         _carry0=new byte[packageSize];
         _carry1=new byte[packageSize];
@@ -27,11 +27,16 @@ public sealed class DHMPFixedStreamProcessor
         if(_carryLength!=0)
         {
             int take=Math.Min(_packageSize-_carryLength,input.Length);
-            byte[] carry=_writeSlot==0?_carry0:_carry1;
+            bool useSlot0=_writeSlot==0;
+            byte[] carry=useSlot0?_carry0:_carry1;
             input[..take].CopyTo(carry.AsSpan(_carryLength));
             _carryLength+=take; input=input[take..];
             if(_carryLength!=_packageSize)return;
-            BorrowCarry(_writeSlot,publishCrossBoundary);
+            ref bool borrowed=ref (useSlot0?ref _borrowed0:ref _borrowed1);
+            if(borrowed)throw new InvalidOperationException("DHMP carry slot is still borrowed.");
+            borrowed=true;
+            try{publishCrossBoundary(carry);}
+            finally{borrowed=false;}
             _carryLength=0; _writeSlot^=1;
         }
 
@@ -51,22 +56,4 @@ public sealed class DHMPFixedStreamProcessor
         input.CopyTo(target);
         _carryLength=input.Length;
     }
-
-    private void BorrowCarry(int slot,Action<ReadOnlySpan<byte>> publish)
-    {
-        if(slot==0)
-        {
-            if(_borrowed0)throw new InvalidOperationException("DHMP carry slot is still borrowed.");
-            _borrowed0=true;
-            try{publish(_carry0);}
-            finally{_borrowed0=false;}
-            return;
-        }
-        if(_borrowed1)throw new InvalidOperationException("DHMP carry slot is still borrowed.");
-        _borrowed1=true;
-        try{publish(_carry1);}
-        finally{_borrowed1=false;}
-    }
-
-    private static bool IsPowerOfTwo(int value)=>(value&(value-1))==0;
 }
