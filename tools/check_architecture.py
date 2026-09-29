@@ -75,6 +75,7 @@ required_paths = {
     "docs/CONTROL_PLANE_V1.md",
     "docs/SECURITY_PSK_V1.md",
     "docs/OVERLOAD_BEHAVIOR.md",
+    "docs/TEST_STRATEGY.md",
     "docs/CONGESTION_FEEDBACK.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
 }
