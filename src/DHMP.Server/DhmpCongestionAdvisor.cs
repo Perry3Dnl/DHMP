@@ -12,6 +12,9 @@ public static class DhmpCongestionAdvisor
         DhmpReceiveDispatchSnapshot previous,
         DhmpReceiveDispatchSnapshot current)
     {
+        previous.Validate();
+        current.Validate();
+
         if (previous.Mode != current.Mode ||
             previous.Capacity != current.Capacity)
             throw new ArgumentException(
