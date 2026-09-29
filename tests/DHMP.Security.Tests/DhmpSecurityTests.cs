@@ -364,6 +364,155 @@ public sealed class DhmpSecurityTests
     }
 
     [Fact]
+    public void CongestionFeedback_IsAuthenticatedDirectionallyAndReplaySafe()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var initiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        var feedback =
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Hard,
+                500,
+                pendingBatches: 4,
+                capacity: 4,
+                lostPendingWork: 12);
+
+        byte[] packet =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .CongestionFeedbackPacketSize];
+
+        int written =
+            responder.EncodeCongestionFeedback(
+                feedback,
+                packet);
+
+        Assert.Equal(
+            packet.Length,
+            written);
+
+        Assert.True(
+            initiator.TryDecodeCongestionFeedback(
+                packet,
+                out var decoded));
+
+        Assert.Equal(
+            feedback,
+            decoded);
+
+        Assert.False(
+            initiator.TryDecodeCongestionFeedback(
+                packet,
+                out _));
+    }
+
+    [Fact]
+    public void CongestionFeedback_TamperAndWrongDirectionAreRejected()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var initiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        var feedback =
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Soft,
+                750,
+                pendingBatches: 1,
+                capacity: 4,
+                lostPendingWork: 3);
+
+        byte[] packet =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .CongestionFeedbackPacketSize];
+
+        responder.EncodeCongestionFeedback(
+            feedback,
+            packet);
+
+        Assert.False(
+            responder.TryDecodeCongestionFeedback(
+                packet,
+                out _));
+
+        packet[35] ^= 1;
+
+        Assert.False(
+            initiator.TryDecodeCongestionFeedback(
+                packet,
+                out _));
+    }
+
+    [Fact]
+    public void CongestionFeedback_WrongSessionCannotAuthenticate()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var responder =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Responder);
+
+        using var wrongInitiator =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                Guid.Parse(
+                    "11112233-4455-6677-8899-aabbccddeeff"),
+                DhmpSecurityRole.Initiator);
+
+        byte[] packet =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .CongestionFeedbackPacketSize];
+
+        responder.EncodeCongestionFeedback(
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.None,
+                1000,
+                0,
+                1,
+                0),
+            packet);
+
+        Assert.False(
+            wrongInitiator
+                .TryDecodeCongestionFeedback(
+                    packet,
+                    out _));
+    }
+
+    [Fact]
     public async Task ProtectedSender_AccountsForSecurityOverhead()
     {
         using var key =
