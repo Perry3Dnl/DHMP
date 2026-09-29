@@ -17,5 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/DHMP.AspNetCore/DHMP.AspNetCore.csproj" />
+    <ProjectReference Include="../../src/DHMP.Client/DHMP.Client.csproj" />
+    <ProjectReference Include="../../src/DHMP.Server/DHMP.Server.csproj" />
   </ItemGroup>
 </Project>
