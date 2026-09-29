@@ -68,6 +68,8 @@ public sealed class DhmpAdaptiveRateController
     public int ApplyFeedback(
         DhmpCongestionFeedback feedback)
     {
+        feedback.Validate();
+
         Interlocked.Increment(
             ref _feedbackCount);
 
