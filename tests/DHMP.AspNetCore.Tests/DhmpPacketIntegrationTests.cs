@@ -186,6 +186,29 @@ public sealed class DhmpPacketIntegrationTests
     }
 
     [Fact]
+    public async Task SmoothPacing_DelaysInsteadOfRejectingImmediateSecondSend()
+    {
+        var sender = new TestSender();
+        var client = new DhmpClient(
+            sender,
+            new DhmpWireContract(4),
+            new DhmpSendPolicy(
+                pmax: 100_000,
+                maximumPayloadBytes: 1408,
+                ratePolicy: DhmpRatePolicy.SmoothPacing));
+
+        await client.SendAsync(
+            new byte[4],
+            TestContext.Current.CancellationToken);
+
+        await client.SendAsync(
+            new byte[4],
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, sender.Calls);
+    }
+
+    [Fact]
     public async Task BackendFailure_PropagatesWithoutRetry()
     {
         var error = new InvalidOperationException("backend failed");
