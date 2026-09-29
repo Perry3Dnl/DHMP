@@ -10,6 +10,7 @@ public static class DhmpControlNegotiator
         DhmpControlMessage hello)
     {
         localProfile.Validate();
+        hello.Validate();
 
         if (hello.Type != DhmpControlMessageType.Hello)
         {
@@ -73,6 +74,7 @@ public static class DhmpControlNegotiator
     {
         localProfile.Validate();
         localSendPolicy.Validate(localProfile.WireContract);
+        response.Validate();
 
         if (response.CorrelationId != expectedCorrelationId)
             throw new DhmpProtocolException(
