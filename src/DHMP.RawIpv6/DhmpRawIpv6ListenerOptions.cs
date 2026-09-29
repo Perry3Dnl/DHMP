@@ -42,6 +42,25 @@ public sealed class DhmpRawIpv6ListenerOptions
         SocketBufferBytes = socketBufferBytes;
     }
 
+    public static DhmpRawIpv6ListenerOptions FromPathMtu(
+        IPAddress localAddress,
+        int pathMtu,
+        int maximumPeers = 1024,
+        int socketBufferBytes = 4 * 1024 * 1024,
+        int additionalIpv6HeaderBytes = 0)
+    {
+        var budget =
+            new DhmpIpv6PathBudget(
+                pathMtu,
+                additionalIpv6HeaderBytes);
+
+        return new DhmpRawIpv6ListenerOptions(
+            localAddress,
+            budget.MaximumProtocolPayloadBytes,
+            maximumPeers,
+            socketBufferBytes);
+    }
+
     public IPAddress LocalAddress { get; }
     public int MaximumPayloadBytes { get; }
     public int MaximumPeers { get; }
