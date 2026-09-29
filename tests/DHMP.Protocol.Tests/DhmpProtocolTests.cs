@@ -317,6 +317,55 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void SmoothPacingSchedule_SpacesLogicalMessages()
+    {
+        var schedule = new DhmpPacingSchedule(1000);
+        long start = 10 * System.Diagnostics.Stopwatch.Frequency;
+
+        Assert.Equal(
+            TimeSpan.Zero,
+            schedule.GetDelay(100, start));
+
+        schedule.Commit(100, start);
+
+        TimeSpan delay =
+            schedule.GetDelay(100, start);
+
+        Assert.InRange(
+            delay.TotalMilliseconds,
+            99.0,
+            101.0);
+
+        Assert.Equal(
+            TimeSpan.Zero,
+            schedule.GetDelay(
+                100,
+                start + System.Diagnostics.Stopwatch.Frequency));
+    }
+
+    [Fact]
+    public void SmoothPacingPolicy_IsLocalAndValidated()
+    {
+        var wire = new DhmpWireContract(32);
+        var policy = new DhmpSendPolicy(
+            pmax: 1000,
+            maximumPayloadBytes: 1408,
+            ratePolicy: DhmpRatePolicy.SmoothPacing);
+
+        policy.Validate(wire);
+
+        Assert.Equal(
+            DhmpRatePolicy.SmoothPacing,
+            policy.RatePolicy);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpSendPolicy(
+                1000,
+                1408,
+                (DhmpRatePolicy)99));
+    }
+
+    [Fact]
     public void PacketProcessing_AllocatesNothingAfterWarmup()
     {
         var processor = new DhmpPacketProcessor(
