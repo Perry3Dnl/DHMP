@@ -95,6 +95,19 @@ DHMP does not retry failed application work automatically.
 
 Cancellation stops the run loop. Pending owned buffers are released when the dispatcher is disposed.
 
+## Observability
+
+`GetSnapshot()` returns an immutable `DhmpReceiveDispatchSnapshot` with:
+
+- mode and capacity;
+- pending batches;
+- accepted/consumed batches;
+- Sequential saturation drops;
+- Latest replacements;
+- total pending work lost to overload policy.
+
+This is intended for host metrics and per-peer telemetry without coupling monitoring to mutable dispatcher internals.
+
 ## Multi-peer use
 
 Each `DhmpRawIpv6PeerBinding` can use its own dispatcher callback:
