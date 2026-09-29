@@ -61,6 +61,7 @@ required_paths = {
     "src/DHMP.RawIpv6/DhmpRawIpv6ControlChannel.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6Handshake.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6SecurityHandshake.cs",
+    "src/DHMP.RawIpv6/DhmpRawIpv6CongestionChannel.cs",
     "src/DHMP.Server/DhmpLatestGenerationFilter.cs",
     "src/DHMP.Server/DhmpReceiveDispatchMode.cs",
     "src/DHMP.Server/DhmpReceiveDispatchSnapshot.cs",
