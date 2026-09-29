@@ -17,6 +17,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - No carry storage or cross-packet message reassembly exists.
 - `DhmpClient` requires an explicit `DhmpSessionContract` and `IDhmpPacketSender`.
 - `DhmpServer` requires the same explicit session contract and accepts already-delivered packet payloads.
+- `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: peer-bound raw IPv6 send and receive using experimental Next Header 253/254.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 
@@ -41,12 +42,12 @@ Historical versions remain available through git history.
 
 ## Remaining work
 
-1. Production direct-IPv6 packet send/receive backend.
-2. Peer/path binding and session discovery/negotiation.
-3. Bounded asynchronous packet-buffer ownership.
-4. Loss/duplicate/reordering/freshness policy beyond V1 packet-local semantics.
-5. MTU-aware batching and path-MTU behavior.
-6. Pacing/congestion policy; the current Pmax window is only a local guard.
+1. Harden the Linux raw-IPv6 backend and validate privileged two-host operation.
+2. Add separately validated backend behavior for other operating systems rather than assuming raw-socket portability.
+3. Session discovery/negotiation and a multiplexing strategy beyond the current one-peer/one-contract binding.
+4. Bounded asynchronous packet-buffer ownership beyond the first receive loop.
+5. Loss/duplicate/reordering/freshness policy beyond V1 packet-local semantics.
+6. MTU/path-MTU handling and pacing/congestion policy.
 7. Reviewed direct-packet security profile.
 8. Kernel, NIC and physical two-host validation.
 
