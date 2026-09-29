@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        project: [DHMP.Protocol.Tests, DHMP.Licensing.Tests, DHMP.AspNetCore.Tests, DHMP.RawIpv6.Tests]
+        project: [DHMP.Protocol.Tests, DHMP.Licensing.Tests, DHMP.AspNetCore.Tests, DHMP.RawIpv6.Tests, DHMP.Security.Tests]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
