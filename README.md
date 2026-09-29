@@ -24,7 +24,7 @@ There are **zero DHMP header bytes** before the first record, between records or
 
 The current raw IPv6 research path uses experimental IPv6 protocol / Next Header `253` for headerless DHMP data and `254` for DHMP control/handshake packets. Neither value is a permanent DHMP assignment.
 
-Before data packets are exchanged, endpoints can run the implemented Control V1 HELLO/ACCEPT/REJECT handshake for an already configured IPv6 peer. It verifies wire version, fixed record size and schema identity, exchanges receive capability and clamps the local send ceiling. Pmax and Latest/Sequential remain local. Peer discovery and authentication are still separate future work.
+Before data packets are exchanged, endpoints can run the implemented Control V1 HELLO/ACCEPT/REJECT handshake for an already configured IPv6 peer. It verifies wire version, fixed record size and schema identity, exchanges receive capability and clamps the local send ceiling. Pmax and Latest/Sequential remain local. Peer discovery is still future work; optional PSK possession authentication is provided by the separate experimental security profile.
 
 ## Active architecture
 
