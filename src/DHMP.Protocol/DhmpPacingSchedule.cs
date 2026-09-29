@@ -4,20 +4,31 @@ namespace DHMP.Protocol;
 
 /// <summary>
 /// Single-owner pacing schedule expressed in logical messages.
-/// It is a pacing primitive, not congestion control or receiver feedback.
+/// The pacing rate may be updated concurrently by authenticated feedback.
 /// </summary>
-/// <remarks>Calls must be serialized.</remarks>
+/// <remarks>GetDelay/Commit calls must be serialized by the sender.</remarks>
 public sealed class DhmpPacingSchedule
 {
-    private readonly int _messagesPerSecond;
+    private int _messagesPerSecond;
     private long _nextTimestamp;
 
     public DhmpPacingSchedule(int messagesPerSecond)
     {
-        if (messagesPerSecond <= 0)
-            throw new ArgumentOutOfRangeException(nameof(messagesPerSecond));
+        UpdateRate(messagesPerSecond);
+    }
 
-        _messagesPerSecond = messagesPerSecond;
+    public int MessagesPerSecond =>
+        Volatile.Read(ref _messagesPerSecond);
+
+    public void UpdateRate(int messagesPerSecond)
+    {
+        if (messagesPerSecond <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(messagesPerSecond));
+
+        Volatile.Write(
+            ref _messagesPerSecond,
+            messagesPerSecond);
     }
 
     public TimeSpan GetDelay(
@@ -48,13 +59,18 @@ public sealed class DhmpPacingSchedule
                 ? _nextTimestamp
                 : timestamp;
 
+        int rate =
+            Volatile.Read(
+                ref _messagesPerSecond);
+
         long intervalTicks = checked(
             (long)Math.Ceiling(
                 (double)messages *
                 Stopwatch.Frequency /
-                _messagesPerSecond));
+                rate));
 
-        _nextTimestamp = checked(start + intervalTicks);
+        _nextTimestamp = checked(
+            start + intervalTicks);
     }
 
     public void Reset()
@@ -63,6 +79,7 @@ public sealed class DhmpPacingSchedule
     private static void ValidateMessages(int messages)
     {
         if (messages <= 0)
-            throw new ArgumentOutOfRangeException(nameof(messages));
+            throw new ArgumentOutOfRangeException(
+                nameof(messages));
     }
 }
