@@ -7,19 +7,28 @@ public readonly record struct DhmpSendPolicy
 {
     public DhmpSendPolicy(
         int pmax,
-        int maximumPayloadBytes = 1408)
+        int maximumPayloadBytes = 1408,
+        DhmpRatePolicy ratePolicy = DhmpRatePolicy.RejectWindow)
     {
         if (pmax <= 0)
             throw new ArgumentOutOfRangeException(nameof(pmax));
-        if (maximumPayloadBytes <= 0 || maximumPayloadBytes > ushort.MaxValue)
+
+        if (maximumPayloadBytes <= 0 ||
+            maximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(maximumPayloadBytes));
+
+        if (ratePolicy is not DhmpRatePolicy.RejectWindow and
+            not DhmpRatePolicy.SmoothPacing)
+            throw new ArgumentOutOfRangeException(nameof(ratePolicy));
 
         Pmax = pmax;
         MaximumPayloadBytes = maximumPayloadBytes;
+        RatePolicy = ratePolicy;
     }
 
     public int Pmax { get; }
     public int MaximumPayloadBytes { get; }
+    public DhmpRatePolicy RatePolicy { get; }
 
     public void Validate(DhmpWireContract wireContract)
     {
@@ -30,5 +39,10 @@ public readonly record struct DhmpSendPolicy
             MaximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentException(
                 "A valid local DHMP send policy is required.");
+
+        if (RatePolicy is not DhmpRatePolicy.RejectWindow and
+            not DhmpRatePolicy.SmoothPacing)
+            throw new ArgumentException(
+                "A supported DHMP rate policy is required.");
     }
 }
