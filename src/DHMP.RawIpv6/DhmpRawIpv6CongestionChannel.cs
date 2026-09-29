@@ -177,15 +177,12 @@ public sealed class DhmpRawIpv6CongestionChannel :
                 break;
             }
 
-            ReadOnlySpan<byte> receivedPacket =
-                packet.AsSpan(0, received);
-
             if (received ==
                     DhmpPskChaCha20Poly1305Session
                         .CongestionFeedbackPacketSize &&
                 _securitySession
                     .TryDecodeCongestionFeedback(
-                        receivedPacket,
+                        packet.AsSpan(0, received),
                         out var feedback))
             {
                 controller.ApplyFeedback(
@@ -198,7 +195,7 @@ public sealed class DhmpRawIpv6CongestionChannel :
                     DhmpPskChaCha20Poly1305Session
                         .PathProbePacketSize &&
                 _securitySession.TryDecodePathProbe(
-                    receivedPacket,
+                    packet.AsSpan(0, received),
                     out var probe))
             {
                 if (probe.Type ==
