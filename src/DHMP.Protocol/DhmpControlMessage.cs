@@ -33,6 +33,9 @@ public readonly record struct DhmpControlMessage
         if (correlationId == 0)
             throw new ArgumentOutOfRangeException(nameof(correlationId));
 
+        if (!Enum.IsDefined(rejectReason))
+            throw new ArgumentOutOfRangeException(nameof(rejectReason));
+
         if (type == DhmpControlMessageType.Reject &&
             rejectReason == DhmpControlRejectReason.None)
             throw new ArgumentException(
