@@ -52,11 +52,24 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpPacketSender, IDisposable
             throw new DhmpProtocolException(
                 "Raw IPv6 sender received an empty or oversized DHMP packet payload.");
 
-        int sent = await _socket.SendToAsync(
-            payload,
-            SocketFlags.None,
-            _remoteEndPoint,
-            cancellationToken).ConfigureAwait(false);
+        int sent;
+
+        try
+        {
+            sent = await _socket.SendToAsync(
+                payload,
+                SocketFlags.None,
+                _remoteEndPoint,
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch (SocketException error)
+            when (error.SocketErrorCode == SocketError.MessageSize)
+        {
+            throw new DhmpPathMtuException(
+                payload.Length,
+                MaximumPayloadBytes,
+                error);
+        }
 
         if (sent != payload.Length)
             throw new IOException(
