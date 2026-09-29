@@ -40,7 +40,7 @@ Latest or Sequential publication -> typed/application boundary.
 - V1 has no protocol-owned cross-packet sequence field. Optional `DhmpLatestGenerationFilter` can use an application-owned 64-bit generation inside the record to drop stale/duplicate Latest state without adding DHMP bytes.
 - DHMP adds no delivery ACK, retransmission, replay history or hidden reliable queue.
 - Buffer ownership must be explicit across asynchronous boundaries.
-- Pmax is local sender policy. `RejectWindow` preserves the hard fixed-window budget; `SmoothPacing` spaces packet submissions over time. With the PSK profile, authenticated receiver overload feedback can adapt SmoothPacing downward and recover gradually; this is still not a complete network congestion-control algorithm.
+- Pmax is local sender policy. `RejectWindow` preserves the hard fixed-window budget; `SmoothPacing` spaces packet submissions over time. With the PSK profile, authenticated receiver overload feedback and rolling secure-path loss telemetry can adapt SmoothPacing downward and recover gradually. RTT is measured but not yet used as an independent throttle signal; this is still not a complete network congestion-control algorithm.
 
 ## What exists today
 
@@ -61,6 +61,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
 | PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
 | Authenticated receiver backpressure | Implemented experimental pressure feedback + bounded adaptive pacing |
+| Secure path telemetry | Implemented rolling protected-packet loss window + authenticated RTT probe/echo |
 | Full network congestion control and forward-secret/public-key security | Still to specify/build |
 
 Removing the old transports does **not** mean a production-ready network stack already exists. The repository now intentionally favors a clean protocol boundary over temporary compatibility.
