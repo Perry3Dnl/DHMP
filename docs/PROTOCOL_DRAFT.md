@@ -18,28 +18,35 @@ This file tracks protocol work that is deliberately not yet part of the V1 wire 
 - The protocol core treats application record bytes as opaque.
 - Wire compatibility is explicit in `.NET` through `DhmpWireContract`; local send/receive behavior is configured separately.
 
-## Session/control plane still to design
+## Control plane status
 
-The V1 data plane assumes both peers already possess the same wire contract. Endpoint-local policies may differ.
+Control V1 is now implemented for an already configured peer.
 
-The future control plane must define how peers establish or reject at least:
+It uses a separate fixed 32-byte control packet and exchanges:
 
-- protocol version;
+- data wire version;
 - fixed record size;
-- publication mode;
-- packet payload limit;
-- Pmax/pacing policy;
-- peer/path association;
-- application schema identifier if one is required;
-- security profile and key material.
+- remote maximum receive payload capability;
+- application schema UUID;
+- correlation ID.
 
-Negotiation must stay outside the hot record-processing path. It must not make the data plane depend on a stream transport.
+The responder returns ACCEPT or a specific REJECT reason.
+
+A successful exchange produces an effective outbound packet ceiling bounded by the remote receive capability and rounded to a whole-record size.
+
+Still pending:
+
+- peer discovery;
+- peer authentication;
+- secure key establishment;
+- multi-peer/session multiplexing;
+- richer capability negotiation if later required.
+
+Pmax and Sequential/Latest remain local and are intentionally not negotiated.
 
 ## Protocol identification
 
-The current raw IPv6 experiments use Next Header `253` for research.
-
-That value is experimental and must remain configurable in backend work. A permanent protocol-number strategy is a separate standards/deployment concern and must not be implied by the prototype constant.
+The current experimental IPv6 profile assigns 253 to DHMP data and 254 to DHMP control. Both are experimental-use protocol numbers, not permanent DHMP assignments. A permanent protocol-number strategy remains a separate standards/deployment concern.
 
 ## Freshness and ordering
 
