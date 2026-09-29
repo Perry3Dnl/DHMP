@@ -48,7 +48,7 @@ The byte span contains application records only. The processor checks the comple
 
 `DhmpClient` requires an `IDhmpPacketSender`, a validated `DhmpWireContract` and a local `DhmpSendPolicy`.
 
-`SendAsync` accepts one record. `SendBatchAsync` accepts one complete headerless DHMP packet payload. The caller serializes sends through completion and owns the sender lifetime. Under `SmoothPacing`, the client asynchronously delays packet submission according to logical message count instead of rejecting a burst at the fixed one-second window boundary.
+`SendAsync` accepts one record. `SendBatchAsync` accepts one complete headerless DHMP packet payload. The caller serializes sends through completion and owns the sender lifetime. Under `SmoothPacing`, the client asynchronously delays packet submission according to logical message count instead of rejecting a burst at the fixed one-second window boundary. An optional `DhmpAdaptiveRateController` lets authenticated receiver pressure reduce that pacing rate and then recover it gradually within the local Pmax bounds.
 
 There is no `ConnectAsync`, port, hidden socket choice or default compatibility transport.
 
@@ -95,6 +95,8 @@ See [Control V1](CONTROL_PLANE_V1.md) for the byte layout and security limitatio
 `DhmpRawIpv6SecurityHandshake` exchanges a 48-byte HMAC-SHA256-authenticated PSK security setup over control protocol 254. It proves possession of the configured shared key but does not provide forward secrecy.
 
 See [PSK security profile V1](SECURITY_PSK_V1.md).
+
+`DhmpRawIpv6CongestionChannel` uses the security session to authenticate/replay-protect ongoing `DHMF` pressure feedback on control protocol 254. It can run a periodic reporter loop from `DhmpBoundedReceiveDispatcher` snapshots and a receive loop that applies authenticated feedback to `DhmpAdaptiveRateController`. See [authenticated congestion feedback](CONGESTION_FEEDBACK.md).
 
 ## Hosting and licensing
 
