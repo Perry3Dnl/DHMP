@@ -112,6 +112,21 @@ public sealed class DhmpBoundedReceiveDispatcher : IDisposable
         }
     }
 
+    public DhmpReceiveDispatchSnapshot GetSnapshot()
+    {
+        lock (_gate)
+        {
+            return new DhmpReceiveDispatchSnapshot(
+                _mode,
+                _queue.Length,
+                _count,
+                Interlocked.Read(ref _acceptedBatches),
+                Interlocked.Read(ref _consumedBatches),
+                Interlocked.Read(ref _saturationDrops),
+                Interlocked.Read(ref _replacedBatches));
+        }
+    }
+
     /// <summary>
     /// Copy one borrowed publication into bounded owned storage.
     /// Returns false only when SequentialReject is saturated or the dispatcher is disposed.
