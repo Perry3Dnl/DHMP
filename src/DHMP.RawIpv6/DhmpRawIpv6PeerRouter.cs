@@ -143,6 +143,21 @@ public sealed class DhmpRawIpv6PeerRouter
                 return false;
             }
 
+            if (plaintextBytes <= 0 ||
+                plaintextBytes >
+                    binding.Server.ReceivePolicy.MaximumPayloadBytes ||
+                plaintextBytes >
+                    plaintextScratch.Length)
+            {
+                CryptographicOperations.ZeroMemory(
+                    plaintextScratch);
+
+                Interlocked.Increment(
+                    ref _protectionRejectedPackets);
+
+                return false;
+            }
+
             payload =
                 plaintextScratch[..plaintextBytes];
 
