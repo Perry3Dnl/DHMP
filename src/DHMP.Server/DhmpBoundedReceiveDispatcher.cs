@@ -68,6 +68,26 @@ public sealed class DhmpBoundedReceiveDispatcher : IDisposable
         _available = new SemaphoreSlim(0, capacity);
     }
 
+    public static DhmpBoundedReceiveDispatcher FromReceivePolicy(
+        DHMP.Protocol.DhmpReceivePolicy receivePolicy,
+        int sequentialCapacity,
+        Func<
+            ReadOnlyMemory<byte>,
+            CancellationToken,
+            ValueTask> consumer)
+    {
+        var mode =
+            receivePolicy.Mode ==
+                DHMP.Protocol.DhmpProcessingMode.Latest
+                ? DhmpReceiveDispatchMode.LatestReplace
+                : DhmpReceiveDispatchMode.SequentialReject;
+
+        return new DhmpBoundedReceiveDispatcher(
+            mode,
+            sequentialCapacity,
+            consumer);
+    }
+
     public DhmpReceiveDispatchMode Mode => _mode;
     public int Capacity => _queue.Length;
 
