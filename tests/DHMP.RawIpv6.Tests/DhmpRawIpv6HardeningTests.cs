@@ -139,6 +139,55 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_Router_ClearsScratchWhenDecoderWritesThenRejects()
+    {
+        var peer =
+            IPAddress.Parse("2001:db8::13");
+
+        var router =
+            new DhmpRawIpv6PeerRouter(
+                maximumPeers: 1,
+                maximumNetworkPayloadBytes: 128);
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                peer,
+                new DhmpServer(
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
+                _ => throw new InvalidOperationException(
+                    "must not publish"),
+                new FixedDecoder(
+                    overheadBytes: 1,
+                    plaintextBytes: 4,
+                    succeeds: false)));
+
+        byte[] scratch =
+            Enumerable.Repeat(
+                    (byte)0xcc,
+                    64)
+                .ToArray();
+
+        Assert.False(
+            router.TryRoute(
+                peer,
+                new byte[] { 1, 2, 3, 4, 5 },
+                scratch));
+
+        Assert.Equal(
+            1,
+            router.ProtectionRejectedPackets);
+
+        Assert.All(
+            scratch,
+            value => Assert.Equal(
+                (byte)0,
+                value));
+    }
+
+    [Fact]
     public void CriticalFlow_Router_RejectsDecodedPartialRecordAndClearsPlaintext()
     {
         var peer =
@@ -376,13 +425,16 @@ public sealed class DhmpRawIpv6HardeningTests
         IDhmpPacketDecoder
     {
         private readonly int _plaintextBytes;
+        private readonly bool _succeeds;
 
         public FixedDecoder(
             int overheadBytes,
-            int plaintextBytes)
+            int plaintextBytes,
+            bool succeeds = true)
         {
             OverheadBytes = overheadBytes;
             _plaintextBytes = plaintextBytes;
+            _succeeds = succeeds;
         }
 
         public int OverheadBytes { get; }
@@ -407,7 +459,7 @@ public sealed class DhmpRawIpv6HardeningTests
             plaintextBytes =
                 _plaintextBytes;
 
-            return true;
+            return _succeeds;
         }
     }
 }
