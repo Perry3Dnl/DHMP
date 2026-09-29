@@ -24,7 +24,7 @@ for path in sorted(paths):
             errors.append(f"Case-only path collision: {canonical[key]} / {prefix}")
         canonical[key] = prefix
 
-expected_projects = {"DHMP.Protocol", "DHMP.Client", "DHMP.Server", "DHMP.Licensing", "DHMP.AspNetCore"}
+expected_projects = {"DHMP.Protocol", "DHMP.Client", "DHMP.Server", "DHMP.Licensing", "DHMP.AspNetCore", "DHMP.RawIpv6"}
 actual_projects = {p.parent.name for p in (ROOT / "src").rglob("*.csproj")}
 if actual_projects != expected_projects:
     errors.append(f"Unexpected runtime project layout: {sorted(actual_projects)}")
@@ -35,6 +35,9 @@ required_paths = {
     "src/DHMP.Protocol/DhmpFixedContract.cs",
     "src/DHMP.Protocol/DhmpPacketProcessor.cs",
     "src/DHMP.Protocol/IDhmpPacketSender.cs",
+    "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
+    "src/DHMP.RawIpv6/DhmpRawIpv6PacketSender.cs",
+    "src/DHMP.RawIpv6/DhmpRawIpv6Receiver.cs",
     "docs/WIRE_CONTRACT_V1.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
 }
