@@ -494,6 +494,86 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void PathRateAdvisor_HardAndSoftLossReduceRate()
+    {
+        var hard =
+            DhmpPathRateAdvisor.Evaluate(
+                new DhmpPathTelemetry(
+                    TimeSpan.FromMilliseconds(10),
+                    highestPacketCounter: 64,
+                    windowSpan: 64,
+                    missingWithinWindow: 7,
+                    acceptedPackets: 57));
+
+        var soft =
+            DhmpPathRateAdvisor.Evaluate(
+                new DhmpPathTelemetry(
+                    TimeSpan.FromMilliseconds(200),
+                    highestPacketCounter: 64,
+                    windowSpan: 64,
+                    missingWithinWindow: 2,
+                    acceptedPackets: 62));
+
+        Assert.Equal(
+            DhmpCongestionPressure.Hard,
+            hard.Pressure);
+        Assert.Equal(
+            (ushort)500,
+            hard.RateScalePermille);
+
+        Assert.Equal(
+            DhmpCongestionPressure.Soft,
+            soft.Pressure);
+        Assert.Equal(
+            (ushort)750,
+            soft.RateScalePermille);
+    }
+
+    [Fact]
+    public void PathRateAdvisor_RttAloneDoesNotThrottleYet()
+    {
+        var feedback =
+            DhmpPathRateAdvisor.Evaluate(
+                new DhmpPathTelemetry(
+                    TimeSpan.FromSeconds(2),
+                    highestPacketCounter: 64,
+                    windowSpan: 64,
+                    missingWithinWindow: 0,
+                    acceptedPackets: 64));
+
+        Assert.Equal(
+            DhmpCongestionPressure.None,
+            feedback.Pressure);
+        Assert.Equal(
+            (ushort)1000,
+            feedback.RateScalePermille);
+    }
+
+    [Fact]
+    public void PathTelemetry_ValidatesRollingWindow()
+    {
+        var telemetry =
+            new DhmpPathTelemetry(
+                TimeSpan.FromMilliseconds(5),
+                10,
+                10,
+                1,
+                9);
+
+        Assert.Equal(
+            100,
+            telemetry.LossPermille);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpPathTelemetry(
+                TimeSpan.Zero,
+                1,
+                65,
+                0,
+                1));
+    }
+
+    [Fact]
     public void PacketProcessing_AllocatesNothingAfterWarmup()
     {
         var processor = new DhmpPacketProcessor(
