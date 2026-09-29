@@ -109,6 +109,40 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void SessionContract_ExposesVersionWireAndLocalPolicy()
+    {
+        var fixedContract = new DhmpFixedContract(32, 1234, 1408);
+        var session = new DhmpSessionContract(fixedContract, DhmpProcessingMode.Latest);
+
+        Assert.Equal(DhmpProtocol.CurrentVersion, session.Version);
+        Assert.Equal(32, session.PayloadSize);
+        Assert.Equal(1234, session.Pmax);
+        Assert.Equal(1408, session.MaxPacketPayloadBytes);
+        Assert.Equal(DhmpProcessingMode.Latest, session.Mode);
+        Assert.Equal(fixedContract, session.FixedContract);
+        session.Validate();
+    }
+
+    [Fact]
+    public void SessionContract_DefaultAndUnsupportedVersion_AreRejected()
+    {
+        Assert.Throws<ArgumentException>(() => default(DhmpSessionContract).Validate());
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpSessionContract(
+                new DhmpFixedContract(32, 100),
+                version: checked((byte)(DhmpProtocol.CurrentVersion + 1))));
+    }
+
+    [Fact]
+    public void SessionContract_InvalidMode_IsRejected()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpSessionContract(
+                new DhmpFixedContract(32, 100),
+                (DhmpProcessingMode)99));
+    }
+
+    [Fact]
     public void PayloadValidation_RequiresOneWholeMessage()
     {
         var contract = new DhmpFixedContract(4, 100);
