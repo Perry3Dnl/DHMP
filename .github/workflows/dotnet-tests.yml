@@ -40,17 +40,26 @@ jobs:
       - name: Restore licensing tests
         run: dotnet restore tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj
 
+      - name: Restore protocol tests
+        run: dotnet restore tests/DHMP.Protocol.Tests/DHMP.Protocol.Tests.csproj
+
       - name: Restore ASP.NET integration tests
         run: dotnet restore tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj
 
       - name: Build licensing tests
         run: dotnet build tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj --configuration Release --no-restore
 
+      - name: Build protocol tests
+        run: dotnet build tests/DHMP.Protocol.Tests/DHMP.Protocol.Tests.csproj --configuration Release --no-restore
+
       - name: Build ASP.NET integration tests
         run: dotnet build tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj --configuration Release --no-restore
 
       - name: Test licensing unit paths
         run: dotnet test tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+
+      - name: Test protocol fixed-contract paths
+        run: dotnet test tests/DHMP.Protocol.Tests/DHMP.Protocol.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
 
       - name: Test ASP.NET startup paths
         run: dotnet test tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
