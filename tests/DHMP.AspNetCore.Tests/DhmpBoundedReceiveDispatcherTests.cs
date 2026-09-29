@@ -264,6 +264,117 @@ public sealed class DhmpBoundedReceiveDispatcherTests
     }
 
     [Fact]
+    public void CongestionAdvisor_HardPressureOnSequentialDrop()
+    {
+        var previous =
+            new DhmpReceiveDispatchSnapshot(
+                DhmpReceiveDispatchMode.SequentialReject,
+                Capacity: 4,
+                PendingBatches: 2,
+                AcceptedBatches: 10,
+                ConsumedBatches: 8,
+                SaturationDrops: 0,
+                ReplacedBatches: 0);
+
+        var current =
+            new DhmpReceiveDispatchSnapshot(
+                DhmpReceiveDispatchMode.SequentialReject,
+                Capacity: 4,
+                PendingBatches: 4,
+                AcceptedBatches: 14,
+                ConsumedBatches: 10,
+                SaturationDrops: 1,
+                ReplacedBatches: 0);
+
+        var feedback =
+            DhmpCongestionAdvisor.Evaluate(
+                previous,
+                current);
+
+        Assert.Equal(
+            DHMP.Protocol.DhmpCongestionPressure.Hard,
+            feedback.Pressure);
+
+        Assert.Equal(
+            (ushort)500,
+            feedback.RateScalePermille);
+    }
+
+    [Fact]
+    public void CongestionAdvisor_SoftPressureOnLatestReplacement()
+    {
+        var previous =
+            new DhmpReceiveDispatchSnapshot(
+                DhmpReceiveDispatchMode.LatestReplace,
+                Capacity: 1,
+                PendingBatches: 1,
+                AcceptedBatches: 10,
+                ConsumedBatches: 5,
+                SaturationDrops: 0,
+                ReplacedBatches: 5);
+
+        var current =
+            new DhmpReceiveDispatchSnapshot(
+                DhmpReceiveDispatchMode.LatestReplace,
+                Capacity: 1,
+                PendingBatches: 1,
+                AcceptedBatches: 12,
+                ConsumedBatches: 5,
+                SaturationDrops: 0,
+                ReplacedBatches: 7);
+
+        var feedback =
+            DhmpCongestionAdvisor.Evaluate(
+                previous,
+                current);
+
+        Assert.Equal(
+            DHMP.Protocol.DhmpCongestionPressure.Soft,
+            feedback.Pressure);
+
+        Assert.Equal(
+            (ushort)750,
+            feedback.RateScalePermille);
+    }
+
+    [Fact]
+    public void CongestionAdvisor_NoPressureAllowsLocalRecovery()
+    {
+        var previous =
+            new DhmpReceiveDispatchSnapshot(
+                DhmpReceiveDispatchMode.SequentialReject,
+                Capacity: 8,
+                PendingBatches: 1,
+                AcceptedBatches: 10,
+                ConsumedBatches: 9,
+                SaturationDrops: 0,
+                ReplacedBatches: 0);
+
+        var current =
+            new DhmpReceiveDispatchSnapshot(
+                DhmpReceiveDispatchMode.SequentialReject,
+                Capacity: 8,
+                PendingBatches: 1,
+                AcceptedBatches: 15,
+                ConsumedBatches: 14,
+                SaturationDrops: 0,
+                ReplacedBatches: 0);
+
+        var feedback =
+            DhmpCongestionAdvisor.Evaluate(
+                previous,
+                current);
+
+        Assert.Equal(
+            DHMP.Protocol.DhmpCongestionPressure.None,
+            feedback.Pressure);
+
+        Assert.Equal(
+            (ushort)1000,
+            feedback.RateScalePermille);
+    }
+
+    [Fact]
     public void InvalidConfiguration_IsRejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
