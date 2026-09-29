@@ -180,7 +180,7 @@ public sealed class DhmpRawIpv6HardeningTests
 
         Assert.Equal(
             new byte[] { 0, 0, 0 },
-            scratch[..3]);
+            scratch[..3].ToArray());
     }
 
     [Fact]
@@ -229,7 +229,7 @@ public sealed class DhmpRawIpv6HardeningTests
 
         Assert.Equal(
             new byte[] { 0, 0, 0, 0 },
-            scratch[..4]);
+            scratch[..4].ToArray());
     }
 
     [Fact]
