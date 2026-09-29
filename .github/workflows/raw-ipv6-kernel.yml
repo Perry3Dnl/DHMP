@@ -1,6 +1,11 @@
 name: DHMP Raw IPv6 Kernel Experiment
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/raw-ipv6-kernel/**'
+      - '.github/workflows/raw-ipv6-kernel.yml'
 permissions: { contents: read }
 jobs:
   benchmark:
@@ -20,7 +25,7 @@ jobs:
         run: dotnet build benchmarks/raw-ipv6-kernel/Dhmp.RawIpv6Kernel.csproj -c Release
       - name: Raw IPv6 benchmark
         run: |
-          echo "RAW_IPV6_CONTRACT=V1 -- Linux raw IPv6 loopback, next-header 253, 32-byte DHMP messages, batch 44, experimental receive counters; no production loss guarantee"
+          echo "RAW_IPV6_CONTRACT=V1 -- sanity run: Linux raw IPv6 loopback, DHMP data next-header 253, control 254 off hot path, 32-byte messages, batch 44; no physical-NIC claim"
           DLL=benchmarks/raw-ipv6-kernel/bin/Release/net10.0/Dhmp.RawIpv6Kernel.dll
           for i in 1 2 3 4 5; do
             echo "===== RAW IPV6 RUN $i / 5 ====="
