@@ -16,11 +16,11 @@ This file tracks protocol work that is deliberately not yet part of the V1 wire 
 - Sequential and Latest are receive/publication policies, not reliability modes.
 - No ACK, retransmission, replay history or hidden reliable queue is introduced.
 - The protocol core treats application record bytes as opaque.
-- Session state is explicit and represented in .NET by `DhmpSessionContract`.
+- Wire compatibility is explicit in `.NET` through `DhmpWireContract`; local send/receive behavior is configured separately.
 
 ## Session/control plane still to design
 
-The V1 data plane assumes that both peers already possess the same session contract.
+The V1 data plane assumes both peers already possess the same wire contract. Endpoint-local policies may differ.
 
 The future control plane must define how peers establish or reject at least:
 
