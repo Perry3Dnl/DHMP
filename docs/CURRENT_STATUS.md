@@ -9,14 +9,15 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 
 - One canonical `DHMP.*` .NET project tree.
 - `DhmpProtocol` defines the current protocol version and experimental IPv6 Next Header binding.
-- `DhmpSessionContract` explicitly groups protocol version, fixed-record contract and publication mode.
-- `DhmpFixedContract` validates record size, packet payload limit and configured Pmax.
+- `DhmpWireContract` contains only protocol version and fixed record size.
+- `DhmpSendPolicy` contains local Pmax and outbound packet ceiling.
+- `DhmpReceivePolicy` contains local Sequential/Latest mode and inbound packet ceiling.
 - `DhmpPacketProcessor` consumes a headerless payload containing complete fixed records only.
 - Sequential publishes the complete received batch.
 - Latest publishes the final record from the received packet.
 - No carry storage or cross-packet message reassembly exists.
-- `DhmpClient` requires an explicit `DhmpSessionContract` and `IDhmpPacketSender`.
-- `DhmpServer` requires the same explicit session contract and accepts already-delivered packet payloads.
+- `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
+- `DhmpServer` uses the same wire contract with its own local receive policy.
 - `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: peer-bound raw IPv6 send and receive using experimental Next Header 253/254.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
