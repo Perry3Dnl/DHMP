@@ -4,7 +4,7 @@ The protocol is independently implementable; these packages are the .NET referen
 
 ## Canonical projects
 
-Use only `src/DHMP.Protocol`, `src/DHMP.Client`, `src/DHMP.Server`, `src/DHMP.Licensing` and `src/DHMP.AspNetCore`.
+Use only `src/DHMP.Protocol`, `src/DHMP.Client`, `src/DHMP.Server`, `src/DHMP.Licensing`, `src/DHMP.AspNetCore` and `src/DHMP.RawIpv6`.
 
 Namespaces also use `DHMP.*`. There are no case-only alternate projects.
 
@@ -50,9 +50,17 @@ There is no `ConnectAsync`, port, hidden socket choice or default compatibility 
 
 `DhmpServer` is the receiver-side facade for one `DhmpSessionContract`. `ProcessPacket` consumes an already-received complete DHMP payload.
 
-The future direct-IP backend is responsible for IPv6 packet I/O, peer/path binding and control-plane/session establishment.
+`IDhmpPacketSender` is the explicit outbound direct-IP boundary. It must not silently add DHMP packet headers or convert the payload into a stream protocol.
 
-`IDhmpPacketSender` is the explicit outbound boundary for that backend. It must not silently add DHMP packet headers or convert the payload into a stream protocol.
+## Raw IPv6 backend
+
+`DHMP.RawIpv6` is the first concrete network implementation of that boundary. It is intentionally Linux-only until other operating-system raw-socket semantics are validated separately.
+
+`DhmpRawIpv6Options` binds one local IPv6 address, one expected remote IPv6 address, a payload ceiling and an experimental protocol number (`253` or `254`).
+
+`DhmpRawIpv6PacketSender` sends the DHMP V1 payload directly through an IPv6 raw socket. `DhmpRawIpv6Receiver` accepts payloads only from the configured peer, rejects truncated/malformed packets and hands valid payloads to one `DhmpServer` session.
+
+The backend does not perform session negotiation and cannot multiplex different DHMP contracts between the same address pair because V1 carries no protocol-owned session ID.
 
 ## Hosting and licensing
 
