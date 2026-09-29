@@ -68,8 +68,8 @@ Still to define/harden:
 
 - receive-buffer exhaustion before protocol publication;
 - send-buffer exhaustion beyond natural awaited sender backpressure;
-- network congestion feedback;
-- overload metric export/observability;
+- broader network congestion feedback beyond application overload (loss/ECN/RTT);
+- production metric export integration beyond in-process snapshots;
 - physical burst/loss testing.
 
 Do not convert these problems into hidden reliability or unbounded memory growth.
@@ -88,7 +88,7 @@ Still to add:
 
 - dynamic PMTU discovery/ICMPv6 feedback handling;
 - automatic downward/upward path-budget adaptation;
-- congestion/backpressure behavior suitable for direct IP;
+- authenticated receiver-overload feedback + adaptive pacing is implemented; still add loss/RTT/ECN-aware congestion/fairness behavior suitable for shared networks;
 - real-path validation that fragmentation is avoided.
 
 Normal operation should not depend on IP fragmentation.
