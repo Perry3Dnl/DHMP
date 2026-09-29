@@ -175,6 +175,20 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                         continue;
                     }
 
+                    if (plaintextBytes <= 0 ||
+                        plaintextBytes >
+                            _server.ReceivePolicy.MaximumPayloadBytes ||
+                        plaintextBytes >
+                            _plaintextBuffer!.Length)
+                    {
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(
+                            _plaintextBuffer);
+
+                        Interlocked.Increment(
+                            ref _protectionRejectedPackets);
+                        continue;
+                    }
+
                     payload =
                         _plaintextBuffer.AsSpan(
                             0,
