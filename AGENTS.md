@@ -21,7 +21,8 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 ## Architecture boundaries
 
 - Use `DhmpWireContract` for protocol compatibility. Keep `DhmpSendPolicy` and `DhmpReceivePolicy` local to endpoints; do not merge them back into wire identity.
-- Keep direct-IP packet I/O, session establishment, packet protection, packet processing, storage ownership and application execution separate.
+- Keep direct-IP packet I/O, session establishment, peer routing, packet protection, packet processing, storage ownership and application execution separate.
+- V1 multi-peer routing may key on source IPv6 address. Do not add a hidden per-packet session ID merely to support multiple sessions from the same source address.
 - Base V1 stays headerless. Security overhead belongs only to an explicitly selected security profile and must be accounted for separately.
 - Batch publication and bounded memory are the baseline.
 - No per-message allocation or synchronization in the framing core.
