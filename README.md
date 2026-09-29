@@ -56,7 +56,8 @@ Latest or Sequential publication -> typed/application boundary.
 | Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery/authentication still pending |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
 | Smooth local pacing | Implemented opt-in Pmax pacing; congestion feedback still pending |
-| Congestion control and secure direct-IP profile | Still to specify/build |
+| PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
+| Congestion control and forward-secret/public-key security | Still to specify/build |
 
 Removing the old transports does **not** mean a production-ready network stack already exists. The repository now intentionally favors a clean protocol boundary over temporary compatibility.
 
@@ -71,11 +72,12 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 | DHMP.Server | Per-session receiving facade and typed/buffer ownership building blocks |
 | DHMP.Licensing | Offline key verification |
 | DHMP.AspNetCore | Dependency injection and license/startup gating |
-| DHMP.RawIpv6 | Linux raw-IPv6 data path plus one-shot control handshake for one explicit peer |
+| DHMP.RawIpv6 | Linux raw-IPv6 data path plus compatibility and PSK security handshakes for one explicit peer |
+| DHMP.Security | Experimental PSK packet protection, replay window and protected sender wrapper |
 
 `AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license gate. It does not bind an endpoint or create a hidden transport.
 
-A `DhmpWireContract`, `DhmpSendPolicy` and an `IDhmpPacketSender` are required for a client. A server uses the same wire contract with its own `DhmpReceivePolicy`. `DhmpRawIpv6PacketSender` is the first concrete sender implementation. Creating raw IPv6 sockets on Linux requires appropriate raw-socket privileges/capabilities.
+A `DhmpWireContract`, `DhmpSendPolicy` and an `IDhmpPacketSender` are required for a client. A server uses the same wire contract with its own `DhmpReceivePolicy`. `DhmpRawIpv6PacketSender` is the first concrete sender implementation. The optional `DHMP.Security` profile can wrap that sender and decode before the server; it adds 24 bytes per protected data packet. Creating raw IPv6 sockets on Linux requires appropriate raw-socket privileges/capabilities.
 
 ## Validation
 
@@ -99,6 +101,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 
 - [DHMP wire contract V1](docs/WIRE_CONTRACT_V1.md)
 - [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
+- [DHMP PSK security profile V1](docs/SECURITY_PSK_V1.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
 - [Current implementation status](docs/CURRENT_STATUS.md)
 - [Protocol design notes](docs/PROTOCOL_DRAFT.md)
