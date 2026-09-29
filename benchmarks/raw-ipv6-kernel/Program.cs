@@ -15,8 +15,10 @@ int payloadBytes = checked(batch * Msg);
 if (payloadBytes + Header > 1500)
     throw new ArgumentOutOfRangeException(nameof(batch), "IPv6 packet exceeds 1500-byte test MTU.");
 
-var contract = new DhmpFixedContract(Msg, int.MaxValue, payloadBytes);
-var processor = new DhmpPacketProcessor(contract, DhmpProcessingMode.Latest);
+var wireContract = new DhmpWireContract(Msg);
+var sendPolicy = new DhmpSendPolicy(int.MaxValue, payloadBytes);
+var receivePolicy = new DhmpReceivePolicy(DhmpProcessingMode.Latest, payloadBytes);
+var processor = new DhmpPacketProcessor(wireContract, receivePolicy);
 
 using var rx = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, (ProtocolType)NextHeader);
 using var tx = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, (ProtocolType)NextHeader);
@@ -113,7 +115,7 @@ for (int seq = 0; seq < messages;)
     for (int j = 0; j < n; j++)
         BinaryPrimitives.WriteInt32LittleEndian(payload.Slice(j * Msg, 4), seq + j);
 
-    contract.ValidatePacket(payload.Length);
+    wireContract.ValidatePacket(payload.Length, sendPolicy.MaximumPayloadBytes);
     tx.SendTo(payload, SocketFlags.None, ep);
 
     seq += n;
