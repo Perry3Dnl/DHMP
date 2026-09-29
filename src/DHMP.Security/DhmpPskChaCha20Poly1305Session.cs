@@ -33,6 +33,12 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     private readonly byte[] _receiveFeedbackKey;
     private readonly DhmpReplayWindow _replayWindow = new();
     private readonly DhmpReplayWindow _feedbackReplayWindow = new();
+    private readonly object _receiveTelemetryGate = new();
+
+    private long _acceptedDataPackets;
+    private long _reorderedDataPackets;
+    private long _replayRejectedDataPackets;
+    private long _authenticationFailures;
 
     private ulong _sendCounter;
     private ulong _sendFeedbackCounter;
@@ -305,6 +311,9 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         }
         catch (CryptographicException)
         {
+            Interlocked.Increment(
+                ref _authenticationFailures);
+
             CryptographicOperations.ZeroMemory(
                 plaintext);
 
@@ -316,17 +325,49 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
         CryptographicOperations.ZeroMemory(nonce);
 
-        if (!_replayWindow.TryAccept(counter))
+        lock (_receiveTelemetryGate)
         {
-            CryptographicOperations.ZeroMemory(
-                plaintext);
+            if (!_replayWindow.TryAccept(
+                    counter,
+                    out var decision))
+            {
+                _replayRejectedDataPackets++;
 
-            return false;
+                CryptographicOperations.ZeroMemory(
+                    plaintext);
+
+                return false;
+            }
+
+            _acceptedDataPackets++;
+
+            if (decision ==
+                DhmpReplayDecision.AcceptedReordered)
+                _reorderedDataPackets++;
         }
 
         plaintextBytes = ciphertextBytes;
 
         return true;
+    }
+
+    public DhmpSecureReceiveSnapshot GetReceiveSnapshot()
+    {
+        lock (_receiveTelemetryGate)
+        {
+            DhmpReplayWindowSnapshot replay =
+                _replayWindow.GetSnapshot();
+
+            return new DhmpSecureReceiveSnapshot(
+                replay.HighestCounter,
+                replay.WindowSpan,
+                replay.MissingWithinWindow,
+                _acceptedDataPackets,
+                _reorderedDataPackets,
+                _replayRejectedDataPackets,
+                Interlocked.Read(
+                    ref _authenticationFailures));
+        }
     }
 
     /// <summary>
