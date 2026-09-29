@@ -58,4 +58,22 @@ public readonly record struct DhmpPathProbeMessage
     public int WindowSpan { get; }
     public int MissingWithinWindow { get; }
     public long AcceptedPackets { get; }
+
+    public void Validate()
+    {
+        if (Type is not DhmpPathProbeType.Request and
+            not DhmpPathProbeType.Response)
+            throw new ArgumentException(
+                "A supported DHMP path probe type is required.");
+
+        if (ProbeId == 0 ||
+            SenderTimestamp == 0 ||
+            WindowSpan < 0 ||
+            WindowSpan > 64 ||
+            MissingWithinWindow < 0 ||
+            MissingWithinWindow > WindowSpan ||
+            AcceptedPackets < 0)
+            throw new ArgumentException(
+                "A valid DHMP path probe message is required.");
+    }
 }
