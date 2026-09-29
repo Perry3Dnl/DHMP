@@ -18,4 +18,23 @@ public readonly record struct DhmpReceiveDispatchSnapshot(
 
     public long LostPendingWork =>
         checked(SaturationDrops + ReplacedBatches);
+
+    public void Validate()
+    {
+        if (Mode is not DhmpReceiveDispatchMode.SequentialReject and
+            not DhmpReceiveDispatchMode.LatestReplace)
+            throw new ArgumentException(
+                "A supported receive dispatch mode is required.");
+
+        if (Capacity <= 0 ||
+            PendingBatches < 0 ||
+            PendingBatches > Capacity ||
+            AcceptedBatches < 0 ||
+            ConsumedBatches < 0 ||
+            SaturationDrops < 0 ||
+            ReplacedBatches < 0 ||
+            ConsumedBatches > AcceptedBatches)
+            throw new ArgumentException(
+                "A valid receive dispatch snapshot is required.");
+    }
 }
