@@ -49,6 +49,8 @@ required_paths = {
     "src/DHMP.Protocol/IDhmpPacketDecoder.cs",
     "src/DHMP.Security/DHMP.Security.csproj",
     "src/DHMP.Security/DhmpPskChaCha20Poly1305Session.cs",
+    "src/DHMP.Security/DhmpSecureReceiveSnapshot.cs",
+    "src/DHMP.Security/DhmpPathProbeMessage.cs",
     "src/DHMP.Security/DhmpProtectedPacketSender.cs",
     "src/DHMP.Security/DhmpSecurityControlCodec.cs",
     "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
