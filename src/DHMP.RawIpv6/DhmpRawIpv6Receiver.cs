@@ -34,6 +34,12 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         ArgumentNullException.ThrowIfNull(server);
         EnsureSupportedPlatform();
 
+        if (decoder is not null &&
+            decoder.OverheadBytes < 0)
+            throw new ArgumentException(
+                "Packet decoder overhead cannot be negative.",
+                nameof(decoder));
+
         int requiredNetworkPayload =
             decoder is null
                 ? server.ReceivePolicy.MaximumPayloadBytes
@@ -182,9 +188,28 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                     continue;
                 }
 
-                _server.ProcessPacket(
-                    payload,
-                    publishBatch);
+                if (_decoder is null)
+                {
+                    _server.ProcessPacket(
+                        payload,
+                        publishBatch);
+                }
+                else
+                {
+                    try
+                    {
+                        _server.ProcessPacket(
+                            payload,
+                            publishBatch);
+                    }
+                    finally
+                    {
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(
+                            _plaintextBuffer!.AsSpan(
+                                0,
+                                payload.Length));
+                    }
+                }
 
                 Interlocked.Increment(
                     ref _acceptedPackets);
