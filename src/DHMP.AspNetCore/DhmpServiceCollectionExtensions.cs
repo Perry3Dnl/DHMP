@@ -21,7 +21,11 @@ public static class DhmpServiceCollectionExtensions
             options.PublicVerificationKey = publicKey;
         });
 
+        services.AddSingleton<DhmpRuntimeState>();
+        services.AddSingleton<DHMP.Client.DhmpClient>();
+        services.AddSingleton<DHMP.Server.DhmpServer>();
         services.AddHostedService<DhmpLicenseStartupGate>();
+        services.AddHostedService<DhmpRuntimeHostedService>();
         return services;
     }
 }
