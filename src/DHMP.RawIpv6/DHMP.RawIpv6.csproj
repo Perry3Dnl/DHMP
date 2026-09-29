@@ -8,5 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="../DHMP.Protocol/DHMP.Protocol.csproj" />
     <ProjectReference Include="../DHMP.Server/DHMP.Server.csproj" />
+    <ProjectReference Include="../DHMP.Security/DHMP.Security.csproj" />
   </ItemGroup>
 </Project>
