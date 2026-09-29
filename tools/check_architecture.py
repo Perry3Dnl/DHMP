@@ -50,6 +50,8 @@ required_paths = {
     "src/DHMP.RawIpv6/DhmpRawIpv6PacketSender.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6Receiver.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6ListenerOptions.cs",
+    "src/DHMP.RawIpv6/DhmpIpv6PathBudget.cs",
+    "src/DHMP.RawIpv6/DhmpPathMtuException.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6PeerBinding.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6PeerRouter.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6MultiPeerReceiver.cs",
