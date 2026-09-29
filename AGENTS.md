@@ -16,6 +16,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - Keep control-plane state out of the hot data packet unless a later wire version explicitly defines otherwise.
 - Control V1 may validate compatibility/capabilities for a configured peer but must never be described as authentication.
 - The separate PSK security profile may authenticate possession of the configured shared key. Do not describe it as forward-secret or independently reviewed.
+- Remote pacing feedback must be authenticated and session-bound before it can change `DhmpAdaptiveRateController`; never add an unauthenticated remote throttle path.
 - The current raw IPv6 experimental profile reserves protocol / Next Header 253 for headerless data and 254 for control. Treat both as experimental, not permanent assignments.
 
 ## Architecture boundaries
@@ -29,7 +30,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - Do not remove real cross-thread ownership protection merely to improve a benchmark.
 - Latest may discard obsolete state; Sequential preserves received arrival order within its bounded processing path.
 - Cross-packet freshness in V1 may only come from explicitly application-owned record fields/profiles such as `DhmpLatestGenerationFilter`; do not add hidden DHMP sequence bytes.
-- `SmoothPacing` is local pacing only. Do not call it congestion control unless receiver/network feedback and overload behavior are actually implemented.
+- `SmoothPacing` alone is local pacing. Authenticated `DHMF` receiver-overload feedback may adapt it, but do not call the current profile complete network congestion control until loss/RTT/ECN/fairness behavior is implemented.
 - Neither mode adds delivery ACKs, retransmission or recovery.
 - Native IP can lose, duplicate and reorder packets. Do not claim protocol-owned freshness, ordering, authentication, congestion safety or interoperability that has not been implemented.
 - Treat `DhmpIpv6PathBudget` as calculation from a known PMTU, not as dynamic PMTU discovery. Normal DHMP operation should not intentionally rely on IPv6 fragmentation.
