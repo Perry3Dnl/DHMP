@@ -58,6 +58,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
 | Smooth local pacing | Implemented opt-in Pmax pacing; congestion feedback still pending |
 | IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
+| Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
 | PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
 | Congestion control and forward-secret/public-key security | Still to specify/build |
 
@@ -105,6 +106,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [DHMP wire contract V1](docs/WIRE_CONTRACT_V1.md)
 - [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
 - [DHMP PSK security profile V1](docs/SECURITY_PSK_V1.md)
+- [Bounded overload behavior](docs/OVERLOAD_BEHAVIOR.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
 - [Current implementation status](docs/CURRENT_STATUS.md)
 - [Protocol design notes](docs/PROTOCOL_DRAFT.md)
