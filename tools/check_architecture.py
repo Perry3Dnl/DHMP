@@ -35,10 +35,15 @@ required_paths = {
     "src/DHMP.Protocol/DhmpSendPolicy.cs",
     "src/DHMP.Protocol/DhmpReceivePolicy.cs",
     "src/DHMP.Protocol/DhmpPacketProcessor.cs",
+    "src/DHMP.Protocol/DhmpControlCodec.cs",
+    "src/DHMP.Protocol/DhmpControlNegotiator.cs",
+    "src/DHMP.Protocol/DhmpPeerProfile.cs",
     "src/DHMP.Protocol/IDhmpPacketSender.cs",
     "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
     "src/DHMP.RawIpv6/DhmpRawIpv6PacketSender.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6Receiver.cs",
+    "src/DHMP.RawIpv6/DhmpRawIpv6ControlChannel.cs",
+    "src/DHMP.RawIpv6/DhmpRawIpv6Handshake.cs",
     "docs/WIRE_CONTRACT_V1.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
 }
@@ -49,7 +54,7 @@ for required in sorted(required_paths):
 forbidden = re.compile(
     r"\b(?:TcpClient|TcpListener|UdpClient|NetworkStream|SslStream|HttpClient|HttpListener|"
     r"WebSocket|QuicConnection|DHMPFixedStreamProcessor|DhmpFixedFrameReader|" 
-    r"DhmpSessionContract|DhmpFixedContract)\b"
+    r"DhmpSessionContract|DhmpFixedContract|ExperimentalIpv6NextHeader)\b"
     r"|\bSocketType\s*\.\s*(?:Stream|Dgram)\b"
     r"|\bProtocolType\s*\.\s*(?:Tcp|Udp)\b"
 )
