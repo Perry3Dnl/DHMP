@@ -18,20 +18,19 @@ The V1 DHMP data payload is headerless.
 
 A received DHMP payload contains only one or more complete fixed-size application records. DHMP adds no packet header, per-record header, separator or trailer in V1.
 
-The session contract supplies the information that is intentionally not repeated in every packet:
+The wire contract supplies only the protocol-owned information needed to interpret payload bytes:
 
 - protocol version;
-- record size;
-- Sequential/Latest mode;
-- Pmax;
-- maximum packet payload.
+- record size.
+
+Pmax, Sequential/Latest mode and packet ceilings are endpoint-local policies. They are intentionally not part of V1 wire identity.
 
 The current IPv6 research binding uses Next Header `253`. It is experimental, not a permanent protocol assignment.
 
 ## Required boundaries
 
 1. A direct-IP backend identifies the peer/path/session and delivers one complete DHMP payload.
-2. The session contract is established before data-plane processing.
+2. The wire contract is established before data-plane processing; local send/receive policy remains endpoint-owned.
 3. The fixed-contract processor validates the complete received payload before publication.
 4. A valid payload contains an integer number of whole records within its session packet budget.
 5. No record spans two IP packets.
@@ -46,7 +45,7 @@ Implemented:
 
 - headerless fixed-record packet validation;
 - Sequential and packet-local Latest publication;
-- explicit `DhmpSessionContract`;
+- explicit `DhmpWireContract`, `DhmpSendPolicy` and `DhmpReceivePolicy`;
 - explicit outbound `IDhmpPacketSender` boundary;
 - client/server protocol facades;
 - offline licensing/host startup integration;
