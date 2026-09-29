@@ -103,23 +103,30 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                     continue;
                 }
 
-                try
-                {
-                    _server.ProcessPacket(
-                        _buffer.AsSpan(0, result.ReceivedBytes),
-                        publishBatch);
-                    Interlocked.Increment(ref _acceptedPackets);
-                }
-                catch (DhmpProtocolException)
+                if (!IsValidPacketLength(result.ReceivedBytes))
                 {
                     Interlocked.Increment(ref _rejectedPackets);
+                    continue;
                 }
+
+                _server.ProcessPacket(
+                    _buffer.AsSpan(0, result.ReceivedBytes),
+                    publishBatch);
+                Interlocked.Increment(ref _acceptedPackets);
             }
         }
         finally
         {
             Volatile.Write(ref _running, 0);
         }
+    }
+
+    private bool IsValidPacketLength(int length)
+    {
+        var contract = _server.Session.FixedContract;
+        return length > 0 &&
+               length <= contract.MaxPacketPayloadBytes &&
+               length % contract.PayloadSize == 0;
     }
 
     public void Dispose()
