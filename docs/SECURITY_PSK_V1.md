@@ -125,6 +125,18 @@ The sender uses pooled protected-packet storage and clears it before returning i
 
 The raw IPv6 receiver decrypts into caller-owned reusable storage. That plaintext storage is cleared after the synchronous DHMP/application publication returns, including exceptional exits.
 
+## Authenticated congestion feedback
+
+The same security session derives separate directional HMAC keys for ongoing congestion feedback.
+
+Feedback packets use magic `DHMF`, carry a directional sequence number plus bounded receive-pressure evidence, and are authenticated with a 16-byte truncated HMAC-SHA256 tag.
+
+The feedback replay window is separate from the encrypted-data replay window.
+
+This allows receiver-driven pacing feedback without accepting unauthenticated remote throttle instructions.
+
+See [authenticated congestion feedback](CONGESTION_FEEDBACK.md).
+
 ## Current limitations
 
 This profile still needs:
