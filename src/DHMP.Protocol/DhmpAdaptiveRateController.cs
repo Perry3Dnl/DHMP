@@ -131,13 +131,17 @@ public sealed class DhmpAdaptiveRateController
         int increase =
             Math.Max(
                 1,
-                checked(
-                    current *
+                checked((int)Math.Min(
+                    int.MaxValue,
+                    (long)current *
                     _recoveryPercent /
-                    100));
+                    100)));
 
-        return Math.Min(
+        long recovered =
+            (long)current + increase;
+
+        return (int)Math.Min(
             _maximumMessagesPerSecond,
-            checked(current + increase));
+            recovered);
     }
 }
