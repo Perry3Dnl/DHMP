@@ -249,7 +249,7 @@ public sealed class DhmpProtocolHardeningTests
     }
 
     [Fact]
-    public void CriticalFlow_DefaultPolicyAndProfileStructsAreRejected()
+    public void BoundaryFlow_DefaultReceivePolicyIsOnlyAllowedAsPacketProcessorConvenience()
     {
         var wire =
             new DhmpWireContract(32);
@@ -262,10 +262,20 @@ public sealed class DhmpProtocolHardeningTests
             default(DhmpPeerProfile)
                 .Validate());
 
-        Assert.Throws<ArgumentException>(() =>
+        var processor =
             new DhmpPacketProcessor(
                 wire,
-                default));
+                default);
+
+        byte[]? published = null;
+
+        processor.Process(
+            new byte[32],
+            span => published =
+                span.ToArray());
+
+        Assert.NotNull(published);
+        Assert.Equal(32, published!.Length);
     }
 
     [Fact]
