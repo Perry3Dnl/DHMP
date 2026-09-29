@@ -2,10 +2,11 @@ using System.Diagnostics;
 
 namespace DHMP.Protocol;
 
+/// <summary>Single-owner, fixed one-second window budget. Reserve once per packet batch.</summary>
+/// <remarks>Not a congestion controller or pacing guarantee. Calls must be serialized.</remarks>
 public sealed class DhmpPmaxBudget
 {
     private readonly int _pmax;
-    private readonly long _windowTicks;
     private long _windowStart;
     private int _count;
 
@@ -13,21 +14,21 @@ public sealed class DhmpPmaxBudget
     {
         if (pmax <= 0) throw new ArgumentOutOfRangeException(nameof(pmax));
         _pmax = pmax;
-        _windowTicks = Stopwatch.Frequency;
         _windowStart = Stopwatch.GetTimestamp();
     }
 
-    public bool TryConsume()
+    public bool TryConsume(int messages = 1)
     {
+        if (messages <= 0) throw new ArgumentOutOfRangeException(nameof(messages));
+        if (messages > _pmax) return false;
         var now = Stopwatch.GetTimestamp();
-        if (now - _windowStart >= _windowTicks)
+        if (now - _windowStart >= Stopwatch.Frequency)
         {
             _windowStart = now;
             _count = 0;
         }
-
-        if (_count >= _pmax) return false;
-        _count++;
+        if (messages > _pmax - _count) return false;
+        _count += messages;
         return true;
     }
 }
