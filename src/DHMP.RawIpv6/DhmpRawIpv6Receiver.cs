@@ -170,8 +170,12 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                             _plaintextBuffer!,
                             out int plaintextBytes))
                     {
+                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(
+                            _plaintextBuffer!);
+
                         Interlocked.Increment(
                             ref _protectionRejectedPackets);
+
                         continue;
                     }
 
