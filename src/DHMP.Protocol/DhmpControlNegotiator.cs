@@ -99,6 +99,12 @@ public static class DhmpControlNegotiator
             throw new DhmpProtocolException(
                 "Accepted DHMP response changed the application schema identifier.");
 
+        if (response.MaximumReceivePayloadBytes <
+            response.RecordSize)
+            throw new DhmpNegotiationException(
+                DhmpControlRejectReason.ReceiveLimitTooSmall,
+                "Accepted DHMP response cannot receive one complete record.");
+
         var remoteProfile = new DhmpPeerProfile(
             new DhmpWireContract(
                 response.RecordSize,
