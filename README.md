@@ -24,7 +24,7 @@ There are **zero DHMP header bytes** before the first record, between records or
 
 The current raw IPv6 research path uses IPv6 Next Header value `253` as an experimental protocol binding. That value is not presented as a permanent IANA assignment for DHMP.
 
-Before packets are exchanged, both endpoints must already agree on one `DhmpSessionContract`: protocol version, fixed record size, publication mode, Pmax and maximum packet payload. Session discovery/negotiation and the production direct-IPv6 backend still need to be built.
+Before packets are exchanged, both endpoints must already agree on one `DhmpSessionContract`: protocol version, fixed record size, publication mode, Pmax and maximum packet payload. Session discovery/negotiation still needs to be built. The first real .NET network backend is now `DHMP.RawIpv6`, currently Linux-only.
 
 ## Active architecture
 
@@ -52,7 +52,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Server packet facade | Processes already-received complete IP payloads |
 | Licensing and ASP.NET host integration | Offline validation at host startup |
 | Raw IPv6 kernel experiment | Experimental loopback harness |
-| Production direct-IPv6 packet backend | Still to build |
+| `DHMP.RawIpv6` Linux backend | Implemented first direct-IP sender/receiver; not production-hardened |
 | Session discovery/negotiation | Still to build |
 | Reordering/freshness, congestion policy and secure direct-IP profile | Still to specify/build |
 
@@ -69,10 +69,11 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 | DHMP.Server | Per-session receiving facade and typed/buffer ownership building blocks |
 | DHMP.Licensing | Offline key verification |
 | DHMP.AspNetCore | Dependency injection and license/startup gating |
+| DHMP.RawIpv6 | Linux raw-IPv6 sender/receiver for one explicit peer/session |
 
 `AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license gate. It does not bind an endpoint or create a hidden transport.
 
-A `DhmpSessionContract` and an `IDhmpPacketSender` implementation are required before a client can send data.
+A `DhmpSessionContract` and an `IDhmpPacketSender` implementation are required before a client can send data. `DhmpRawIpv6PacketSender` is the first concrete implementation. Creating raw IPv6 sockets on Linux requires appropriate raw-socket privileges/capabilities.
 
 ## Validation
 
@@ -81,9 +82,10 @@ python3 tools/check_architecture.py
 dotnet test tests/DHMP.Protocol.Tests -c Release
 dotnet test tests/DHMP.AspNetCore.Tests -c Release
 dotnet test tests/DHMP.Licensing.Tests -c Release
+dotnet test tests/DHMP.RawIpv6.Tests -c Release
 ```
 
-CI is intended to guard the architecture and tests. Physical network measurements require the production backend and corresponding hardware.
+CI guards the architecture, unit/integration tests and compilation of the direct-IP backend. Physical two-host measurements and privileged raw-socket validation remain separate.
 
 ## Measurements and history
 
