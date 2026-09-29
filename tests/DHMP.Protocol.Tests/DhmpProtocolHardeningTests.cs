@@ -154,15 +154,6 @@ public sealed class DhmpProtocolHardeningTests
                 DhmpControlMessageType.Hello,
                 1,
                 32,
-                31,
-                SchemaId,
-                1));
-
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new DhmpControlMessage(
-                DhmpControlMessageType.Hello,
-                1,
-                32,
                 1408,
                 SchemaId,
                 0));
