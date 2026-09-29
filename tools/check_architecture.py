@@ -31,8 +31,9 @@ if actual_projects != expected_projects:
 
 required_paths = {
     "src/DHMP.Protocol/DhmpProtocol.cs",
-    "src/DHMP.Protocol/DhmpSessionContract.cs",
-    "src/DHMP.Protocol/DhmpFixedContract.cs",
+    "src/DHMP.Protocol/DhmpWireContract.cs",
+    "src/DHMP.Protocol/DhmpSendPolicy.cs",
+    "src/DHMP.Protocol/DhmpReceivePolicy.cs",
     "src/DHMP.Protocol/DhmpPacketProcessor.cs",
     "src/DHMP.Protocol/IDhmpPacketSender.cs",
     "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
@@ -47,7 +48,8 @@ for required in sorted(required_paths):
 
 forbidden = re.compile(
     r"\b(?:TcpClient|TcpListener|UdpClient|NetworkStream|SslStream|HttpClient|HttpListener|"
-    r"WebSocket|QuicConnection|DHMPFixedStreamProcessor|DhmpFixedFrameReader)\b"
+    r"WebSocket|QuicConnection|DHMPFixedStreamProcessor|DhmpFixedFrameReader|" 
+    r"DhmpSessionContract|DhmpFixedContract)\b"
     r"|\bSocketType\s*\.\s*(?:Stream|Dgram)\b"
     r"|\bProtocolType\s*\.\s*(?:Tcp|Udp)\b"
 )
@@ -86,11 +88,15 @@ client_file = ROOT / "src" / "DHMP.Client" / "DhmpClient.cs"
 server_file = ROOT / "src" / "DHMP.Server" / "DhmpServer.cs"
 wire_file = ROOT / "docs" / "WIRE_CONTRACT_V1.md"
 
-if client_file.is_file() and "DhmpSessionContract" not in client_file.read_text(encoding="utf-8-sig"):
-    errors.append("DhmpClient must require an explicit DhmpSessionContract")
+if client_file.is_file():
+    client_text = client_file.read_text(encoding="utf-8-sig")
+    if "DhmpWireContract" not in client_text or "DhmpSendPolicy" not in client_text:
+        errors.append("DhmpClient must separate wire compatibility from local send policy")
 
-if server_file.is_file() and "DhmpSessionContract" not in server_file.read_text(encoding="utf-8-sig"):
-    errors.append("DhmpServer must require an explicit DhmpSessionContract")
+if server_file.is_file():
+    server_text = server_file.read_text(encoding="utf-8-sig")
+    if "DhmpWireContract" not in server_text or "DhmpReceivePolicy" not in server_text:
+        errors.append("DhmpServer must separate wire compatibility from local receive policy")
 
 if wire_file.is_file():
     wire_text = wire_file.read_text(encoding="utf-8")
