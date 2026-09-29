@@ -24,7 +24,7 @@ There are **zero DHMP header bytes** before the first record, between records or
 
 The current raw IPv6 research path uses IPv6 Next Header value `253` as an experimental protocol binding. That value is not presented as a permanent IANA assignment for DHMP.
 
-Before packets are exchanged, both endpoints must already agree on one `DhmpSessionContract`: protocol version, fixed record size, publication mode, Pmax and maximum packet payload. Session discovery/negotiation still needs to be built. The first real .NET network backend is now `DHMP.RawIpv6`, currently Linux-only.
+Before packets are exchanged, both endpoints must agree on the `DhmpWireContract`: protocol version and fixed record size. Pmax, packet ceilings and Latest/Sequential are local endpoint policies, not V1 wire identity. Session discovery/negotiation still needs to be built. The first real .NET network backend is `DHMP.RawIpv6`, currently Linux-only.
 
 ## Active architecture
 
@@ -47,7 +47,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Component | Status |
 | --- | --- |
 | Headerless fixed-record packet processor | Implemented |
-| Explicit `DhmpSessionContract` | Implemented |
+| `DhmpWireContract` + separate send/receive policies | Implemented |
 | Client packet facade | Uses an explicitly supplied direct-IP sender |
 | Server packet facade | Processes already-received complete IP payloads |
 | Licensing and ASP.NET host integration | Offline validation at host startup |
@@ -64,7 +64,7 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 
 | Project | Responsibility |
 | --- | --- |
-| DHMP.Protocol | Session/fixed contracts, packet processor, send budget and direct-IP sender boundary |
+| DHMP.Protocol | Wire contract, local send/receive policies, packet processor, budget and direct-IP sender boundary |
 | DHMP.Client | Per-session sending facade |
 | DHMP.Server | Per-session receiving facade and typed/buffer ownership building blocks |
 | DHMP.Licensing | Offline key verification |
@@ -73,7 +73,7 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 
 `AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license gate. It does not bind an endpoint or create a hidden transport.
 
-A `DhmpSessionContract` and an `IDhmpPacketSender` implementation are required before a client can send data. `DhmpRawIpv6PacketSender` is the first concrete implementation. Creating raw IPv6 sockets on Linux requires appropriate raw-socket privileges/capabilities.
+A `DhmpWireContract`, `DhmpSendPolicy` and an `IDhmpPacketSender` are required for a client. A server uses the same wire contract with its own `DhmpReceivePolicy`. `DhmpRawIpv6PacketSender` is the first concrete sender implementation. Creating raw IPv6 sockets on Linux requires appropriate raw-socket privileges/capabilities.
 
 ## Validation
 
