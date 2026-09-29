@@ -35,10 +35,23 @@ Remaining work:
 - authenticated peer identity;
 - secure key establishment;
 - retry/timeout policy for lost control packets;
-- multi-peer/session routing;
+- routing beyond one session per source IPv6 address;
 - capability extension/versioning if future profiles need it.
 
 Keep negotiation off the steady-state record-processing hot path.
+
+## Multi-peer routing baseline
+
+The Linux backend now includes bounded multi-peer routing:
+
+- explicit maximum peer count;
+- source IPv6 address as the V1 routing key;
+- one wire/receive policy and optional security decoder per peer;
+- unknown-peer drop accounting;
+- malformed/protection rejection accounting;
+- decrypted scratch clearing after publication.
+
+V1 still cannot distinguish multiple sessions from the same source IPv6 address without adding a protocol-owned routing identifier, so that remains a future version/profile question rather than a hidden data-plane change.
 
 ## Phase 3: overload and network behavior
 
