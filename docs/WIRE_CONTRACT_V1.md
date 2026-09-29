@@ -63,7 +63,8 @@ The .NET reference implementation uses `DhmpSendPolicy` for local outbound behav
 
 It currently contains:
 
-- Pmax logical messages per local one-second budget window;
+- Pmax logical messages per second;
+- `RejectWindow` or `SmoothPacing` local rate behavior;
 - maximum DHMP payload bytes the endpoint will submit in one packet.
 
 These values do not alter record interpretation and do not need to equal the remote peer's local values.
@@ -99,7 +100,7 @@ Sequential represents receive arrival order, not guaranteed original sender orde
 
 Latest selects the final record in one received packet. It cannot prove that a later-arriving packet contains newer generated state.
 
-Cross-packet freshness requires either an application-owned field or an explicit future version/profile.
+Cross-packet freshness may use an application-owned generation field inside the fixed record without changing V1. The .NET reference implementation provides `DhmpLatestGenerationFilter` for an optional unsigned 64-bit generation field. Because the generation bytes belong to the application schema, DHMP still adds zero data-plane header bytes. A protocol-owned freshness field would still require an explicit future version/profile.
 
 ## Reliability
 
