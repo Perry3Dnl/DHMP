@@ -427,6 +427,8 @@ public sealed class DhmpPskChaCha20Poly1305Session :
             Volatile.Read(ref _disposed) != 0,
             this);
 
+        feedback.Validate();
+
         if (destination.Length <
             CongestionFeedbackPacketSize)
             throw new ArgumentException(
@@ -587,6 +589,8 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         ObjectDisposedException.ThrowIf(
             Volatile.Read(ref _disposed) != 0,
             this);
+
+        message.Validate();
 
         if (destination.Length < PathProbePacketSize)
             throw new ArgumentException(
