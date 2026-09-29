@@ -1,3 +1,4 @@
+using Xunit;
 using System.Security.Cryptography;
 
 namespace DHMP.Licensing.Tests;
