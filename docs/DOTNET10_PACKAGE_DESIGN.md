@@ -64,7 +64,9 @@ There is no `ConnectAsync`, port, hidden socket choice or default compatibility 
 
 `DhmpRawIpv6Options` binds one local IPv6 address, one expected remote IPv6 address and a backend payload ceiling. Data and control protocol numbers are fixed by the experimental profile: 253 for data and 254 for control.
 
-`DhmpRawIpv6PacketSender` sends the DHMP V1 payload directly through an IPv6 raw socket. `DhmpRawIpv6Receiver` accepts payloads only from the configured peer, rejects truncated/malformed packets and hands valid payloads to one `DhmpServer` session.
+`DhmpRawIpv6PacketSender` sends the DHMP V1 payload directly through an IPv6 raw socket. `DhmpRawIpv6Receiver` remains the simple one-peer receive path.
+
+`DhmpRawIpv6MultiPeerReceiver` adds a bounded server-side receive loop. `DhmpRawIpv6PeerRouter` maps source IPv6 address to a `DhmpRawIpv6PeerBinding`, which owns the per-peer `DhmpServer`, publication callback and optional packet decoder. Registration/removal is outside the packet hot path; receive routing uses source-address lookup. Each V1 source IPv6 address may have only one registered DHMP session because the headerless data plane carries no session ID.
 
 `DhmpRawIpv6Handshake` performs a one-shot HELLO/ACCEPT/REJECT exchange on the control binding. It validates wire version, record size and schema UUID, advertises receive capability and returns a `DhmpNegotiatedPeer` with an effective outbound packet ceiling. It does not discover peers or authenticate identity. The backend still cannot multiplex different DHMP contracts between the same address pair because V1 data carries no protocol-owned session ID.
 
