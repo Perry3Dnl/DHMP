@@ -55,16 +55,22 @@ V1 still cannot distinguish multiple sessions from the same source IPv6 address 
 
 ## Phase 3: overload and network behavior
 
-Define explicit bounded behavior for:
+Implemented receive baseline:
 
-- receive-buffer exhaustion;
-- send-buffer exhaustion;
-- loss;
-- duplicates;
-- reordering;
-- packet bursts;
-- Latest replacement;
-- Sequential queue saturation.
+- explicit owned-memory copy at the async application boundary;
+- Latest keeps one pending batch and replaces obsolete pending state;
+- Sequential uses a fixed-capacity queue and rejects new work on saturation;
+- replacement/drop/accepted/consumed counters;
+- application callback failures propagate without automatic retry;
+- multi-peer sessions can use independent dispatchers.
+
+Still to define/harden:
+
+- receive-buffer exhaustion before protocol publication;
+- send-buffer exhaustion beyond natural awaited sender backpressure;
+- network congestion feedback;
+- overload metric export/observability;
+- physical burst/loss testing.
 
 Do not convert these problems into hidden reliability or unbounded memory growth.
 
