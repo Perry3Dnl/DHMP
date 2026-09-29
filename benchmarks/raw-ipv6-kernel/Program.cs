@@ -6,7 +6,7 @@ using DHMP.Protocol;
 
 const int Msg = 32;
 const int Header = 40;
-const int NextHeader = DhmpProtocol.ExperimentalIpv6NextHeader;
+const int NextHeader = DhmpProtocol.ExperimentalIpv6DataNextHeader;
 
 int messages = args.Length > 0 ? int.Parse(args[0]) : 5_000_000;
 int batch = args.Length > 1 ? int.Parse(args[1]) : 44;
