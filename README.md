@@ -57,6 +57,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Multi-peer server routing | Implemented by source IPv6 address; one V1 session per source address |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
 | Smooth local pacing | Implemented opt-in Pmax pacing; congestion feedback still pending |
+| IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
 | PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
 | Congestion control and forward-secret/public-key security | Still to specify/build |
 
