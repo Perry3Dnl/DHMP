@@ -13,6 +13,8 @@ public static class DhmpControlCodec
         DhmpControlMessage message,
         Span<byte> destination)
     {
+        message.Validate();
+
         if (destination.Length < DhmpProtocol.ControlPacketSize)
             throw new ArgumentException(
                 $"DHMP control packets require {DhmpProtocol.ControlPacketSize} bytes.",
