@@ -6,37 +6,60 @@ using DHMP.Server;
 namespace DHMP.RawIpv6;
 
 /// <summary>
-/// Linux raw-IPv6 receive loop for one explicitly configured DHMP peer/session.
-/// Raw IPv6 delivers the protocol payload, not the base IPv6 header.
+/// Linux raw-IPv6 receive loop for one explicitly configured DHMP peer.
+/// Optional packet protection is decoded before headerless V1 validation.
 /// </summary>
 public sealed class DhmpRawIpv6Receiver : IDisposable
 {
     private readonly Socket _socket;
     private readonly DhmpServer _server;
     private readonly IPAddress _remoteAddress;
+    private readonly IDhmpPacketDecoder? _decoder;
     private readonly byte[] _buffer;
+    private readonly byte[]? _plaintextBuffer;
+
     private int _running;
     private int _disposed;
     private long _acceptedPackets;
     private long _rejectedPackets;
     private long _foreignPeerPackets;
+    private long _protectionRejectedPackets;
 
     public DhmpRawIpv6Receiver(
         DhmpRawIpv6Options options,
-        DhmpServer server)
+        DhmpServer server,
+        IDhmpPacketDecoder? decoder = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(server);
         EnsureSupportedPlatform();
 
-        if (server.ReceivePolicy.MaximumPayloadBytes > options.MaximumPayloadBytes)
+        int requiredNetworkPayload =
+            decoder is null
+                ? server.ReceivePolicy.MaximumPayloadBytes
+                : checked(
+                    server.ReceivePolicy.MaximumPayloadBytes +
+                    decoder.OverheadBytes);
+
+        if (requiredNetworkPayload >
+            options.MaximumPayloadBytes)
             throw new ArgumentException(
-                "DHMP session payload limit exceeds the raw IPv6 backend limit.",
+                "DHMP receive policy plus packet-protection overhead exceeds the raw IPv6 backend limit.",
                 nameof(server));
 
         _server = server;
+        _decoder = decoder;
         _remoteAddress = options.RemoteAddress;
-        _buffer = GC.AllocateUninitializedArray<byte>(options.MaximumPayloadBytes);
+        _buffer =
+            GC.AllocateUninitializedArray<byte>(
+                options.MaximumPayloadBytes);
+
+        if (decoder is not null)
+        {
+            _plaintextBuffer =
+                GC.AllocateUninitializedArray<byte>(
+                    server.ReceivePolicy.MaximumPayloadBytes);
+        }
 
         _socket = new Socket(
             AddressFamily.InterNetworkV6,
@@ -45,8 +68,13 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
         try
         {
-            _socket.ReceiveBufferSize = options.SocketBufferBytes;
-            _socket.Bind(new IPEndPoint(options.LocalAddress, 0));
+            _socket.ReceiveBufferSize =
+                options.SocketBufferBytes;
+
+            _socket.Bind(
+                new IPEndPoint(
+                    options.LocalAddress,
+                    0));
         }
         catch
         {
@@ -55,23 +83,38 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         }
     }
 
-    public long AcceptedPackets => Interlocked.Read(ref _acceptedPackets);
-    public long RejectedPackets => Interlocked.Read(ref _rejectedPackets);
-    public long ForeignPeerPackets => Interlocked.Read(ref _foreignPeerPackets);
+    public long AcceptedPackets =>
+        Interlocked.Read(ref _acceptedPackets);
+
+    public long RejectedPackets =>
+        Interlocked.Read(ref _rejectedPackets);
+
+    public long ForeignPeerPackets =>
+        Interlocked.Read(ref _foreignPeerPackets);
+
+    public long ProtectionRejectedPackets =>
+        Interlocked.Read(ref _protectionRejectedPackets);
 
     public async Task RunAsync(
         Action<ReadOnlySpan<byte>> publishBatch,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(publishBatch);
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
 
         if (Interlocked.Exchange(ref _running, 1) != 0)
-            throw new InvalidOperationException("This raw IPv6 receiver is already running.");
+            throw new InvalidOperationException(
+                "This raw IPv6 receiver is already running.");
 
         try
         {
-            EndPoint remoteTemplate = new IPEndPoint(IPAddress.IPv6Any, 0);
+            EndPoint remoteTemplate =
+                new IPEndPoint(
+                    IPAddress.IPv6Any,
+                    0);
 
             while (!cancellationToken.IsCancellationRequested)
             {
@@ -79,40 +122,72 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
                 try
                 {
-                    result = await _socket.ReceiveMessageFromAsync(
-                        _buffer.AsMemory(),
-                        SocketFlags.None,
-                        remoteTemplate,
-                        cancellationToken).ConfigureAwait(false);
+                    result =
+                        await _socket.ReceiveMessageFromAsync(
+                            _buffer.AsMemory(),
+                            SocketFlags.None,
+                            remoteTemplate,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException)
+                    when (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
 
-                if ((result.SocketFlags & SocketFlags.Truncated) != 0)
+                if ((result.SocketFlags &
+                     SocketFlags.Truncated) != 0)
                 {
-                    Interlocked.Increment(ref _rejectedPackets);
+                    Interlocked.Increment(
+                        ref _rejectedPackets);
                     continue;
                 }
 
                 if (result.RemoteEndPoint is not IPEndPoint peer ||
                     !peer.Address.Equals(_remoteAddress))
                 {
-                    Interlocked.Increment(ref _foreignPeerPackets);
+                    Interlocked.Increment(
+                        ref _foreignPeerPackets);
                     continue;
                 }
 
-                if (!IsValidPacketLength(result.ReceivedBytes))
+                ReadOnlySpan<byte> payload =
+                    _buffer.AsSpan(
+                        0,
+                        result.ReceivedBytes);
+
+                if (_decoder is not null)
                 {
-                    Interlocked.Increment(ref _rejectedPackets);
+                    if (!_decoder.TryDecode(
+                            payload,
+                            _plaintextBuffer!,
+                            out int plaintextBytes))
+                    {
+                        Interlocked.Increment(
+                            ref _protectionRejectedPackets);
+                        continue;
+                    }
+
+                    payload =
+                        _plaintextBuffer.AsSpan(
+                            0,
+                            plaintextBytes);
+                }
+
+                if (!IsValidPacketLength(payload.Length))
+                {
+                    Interlocked.Increment(
+                        ref _rejectedPackets);
                     continue;
                 }
 
                 _server.ProcessPacket(
-                    _buffer.AsSpan(0, result.ReceivedBytes),
+                    payload,
                     publishBatch);
-                Interlocked.Increment(ref _acceptedPackets);
+
+                Interlocked.Increment(
+                    ref _acceptedPackets);
             }
         }
         finally
@@ -124,8 +199,10 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
     private bool IsValidPacketLength(int length)
     {
         var wire = _server.WireContract;
+
         return length > 0 &&
-               length <= _server.ReceivePolicy.MaximumPayloadBytes &&
+               length <=
+                   _server.ReceivePolicy.MaximumPayloadBytes &&
                length % wire.RecordSize == 0;
     }
 
