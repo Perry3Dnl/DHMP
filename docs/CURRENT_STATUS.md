@@ -8,7 +8,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 ## Active implementation
 
 - One canonical `DHMP.*` .NET project tree.
-- `DhmpProtocol` defines the current protocol version and experimental IPv6 Next Header binding.
+- `DhmpProtocol` defines data wire version, control version, experimental data binding 253 and experimental control binding 254.
 - `DhmpWireContract` contains only protocol version and fixed record size.
 - `DhmpSendPolicy` contains local Pmax and outbound packet ceiling.
 - `DhmpReceivePolicy` contains local Sequential/Latest mode and inbound packet ceiling.
@@ -18,7 +18,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - No carry storage or cross-packet message reassembly exists.
 - `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
 - `DhmpServer` uses the same wire contract with its own local receive policy.
-- `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: peer-bound raw IPv6 send and receive using experimental Next Header 253/254.
+- `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: data on experimental protocol 253 and control/handshake on 254 for one configured peer.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 
@@ -33,7 +33,7 @@ Record boundaries are recovered from:
 1. the session's fixed record size; and
 2. the received IP payload length.
 
-The current raw IPv6 research work uses Next Header `253`. That is an experimental-use binding, not a permanent protocol assignment.
+The current raw IPv6 research work uses experimental protocol / Next Header `253` for data and `254` for control. Neither is a permanent protocol assignment.
 
 ## Removed from the active project
 
@@ -45,7 +45,7 @@ Historical versions remain available through git history.
 
 1. Harden the Linux raw-IPv6 backend and validate privileged two-host operation.
 2. Add separately validated backend behavior for other operating systems rather than assuming raw-socket portability.
-3. Session discovery/negotiation and a multiplexing strategy beyond the current one-peer/one-contract binding.
+3. Peer discovery, authentication and a multiplexing strategy beyond the current one-peer/one-contract binding. Compatibility/capability negotiation for a configured peer is implemented.
 4. Bounded asynchronous packet-buffer ownership beyond the first receive loop.
 5. Loss/duplicate/reordering/freshness policy beyond V1 packet-local semantics.
 6. MTU/path-MTU handling and pacing/congestion policy.
