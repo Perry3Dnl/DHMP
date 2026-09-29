@@ -116,7 +116,10 @@ public sealed class DhmpRawIpv6PeerRouterTests
             new DhmpRawIpv6PeerBinding(
                 IPAddress.Parse("2001:db8::1"),
                 new DhmpServer(
-                    new DhmpWireContract(4)),
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
                 _ => callbacks++));
 
         Assert.False(
@@ -144,7 +147,10 @@ public sealed class DhmpRawIpv6PeerRouterTests
             new DhmpRawIpv6PeerBinding(
                 peer,
                 new DhmpServer(
-                    new DhmpWireContract(4)),
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
                 _ => callbacks++));
 
         Assert.False(
@@ -170,7 +176,10 @@ public sealed class DhmpRawIpv6PeerRouterTests
             new DhmpRawIpv6PeerBinding(
                 peer,
                 new DhmpServer(
-                    new DhmpWireContract(4)),
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
                 _ => throw new InvalidOperationException(
                     "must not publish"),
                 new PrefixDecoder()));
@@ -207,7 +216,10 @@ public sealed class DhmpRawIpv6PeerRouterTests
             new DhmpRawIpv6PeerBinding(
                 peer,
                 new DhmpServer(
-                    new DhmpWireContract(4)),
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
                 span => received = span.ToArray(),
                 new PrefixDecoder()));
 
@@ -303,7 +315,10 @@ public sealed class DhmpRawIpv6PeerRouterTests
         => new(
             address,
             new DhmpServer(
-                new DhmpWireContract(4)),
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    64)),
             _ => { });
 
     private sealed class PrefixDecoder :
