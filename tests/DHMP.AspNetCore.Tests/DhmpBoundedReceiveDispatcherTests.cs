@@ -207,6 +207,33 @@ public sealed class DhmpBoundedReceiveDispatcherTests
     }
 
     [Fact]
+    public void Snapshot_ReportsSaturationAndLostPendingWork()
+    {
+        using var dispatcher =
+            new DhmpBoundedReceiveDispatcher(
+                DhmpReceiveDispatchMode.SequentialReject,
+                sequentialCapacity: 1,
+                (_, _) => ValueTask.CompletedTask);
+
+        Assert.True(
+            dispatcher.TryPublish(
+                new byte[] { 1 }));
+
+        Assert.False(
+            dispatcher.TryPublish(
+                new byte[] { 2 }));
+
+        var snapshot =
+            dispatcher.GetSnapshot();
+
+        Assert.True(snapshot.IsSaturated);
+        Assert.Equal(1, snapshot.PendingBatches);
+        Assert.Equal(1, snapshot.AcceptedBatches);
+        Assert.Equal(1, snapshot.SaturationDrops);
+        Assert.Equal(1, snapshot.LostPendingWork);
+    }
+
+    [Fact]
     public void ReceivePolicyFactory_MapsLatestAndSequentialExplicitly()
     {
         using var latest =
