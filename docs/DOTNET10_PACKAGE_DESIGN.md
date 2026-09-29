@@ -23,7 +23,8 @@ Namespaces also use `DHMP.*`. There are no case-only alternate projects.
 
 `DhmpSendPolicy` is local sender configuration:
 
-- Pmax logical-message budget;
+- Pmax logical-message rate;
+- local `RejectWindow` or `SmoothPacing` behavior;
 - maximum outbound DHMP payload bytes per packet.
 
 `DhmpReceivePolicy` is local receiver configuration:
@@ -47,11 +48,13 @@ The byte span contains application records only. The processor checks the comple
 
 `DhmpClient` requires an `IDhmpPacketSender`, a validated `DhmpWireContract` and a local `DhmpSendPolicy`.
 
-`SendAsync` accepts one record. `SendBatchAsync` accepts one complete headerless DHMP packet payload. The caller serializes sends through completion and owns the sender lifetime.
+`SendAsync` accepts one record. `SendBatchAsync` accepts one complete headerless DHMP packet payload. The caller serializes sends through completion and owns the sender lifetime. Under `SmoothPacing`, the client asynchronously delays packet submission according to logical message count instead of rejecting a burst at the fixed one-second window boundary.
 
 There is no `ConnectAsync`, port, hidden socket choice or default compatibility transport.
 
 `DhmpServer` is the receiver-side facade for one `DhmpWireContract` plus local `DhmpReceivePolicy`. `ProcessPacket` consumes an already-received complete DHMP payload.
+
+`DhmpLatestGenerationFilter` is an optional server-side helper for Latest workloads whose application schema contains a 64-bit generation field. It filters stale/duplicate cross-packet state without modifying the DHMP V1 data layout. It supports configurable field offset, endianness and modulo-2^64 wraparound.
 
 `IDhmpPacketSender` is the explicit outbound direct-IP boundary. It must not silently add DHMP packet headers or convert the payload into a stream protocol.
 
