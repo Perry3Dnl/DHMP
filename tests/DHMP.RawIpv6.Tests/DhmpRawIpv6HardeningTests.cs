@@ -233,6 +233,48 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_NonLinuxConcreteRawBackendsFailFastBeforeSocketUse()
+    {
+        if (OperatingSystem.IsLinux())
+            return;
+
+        var options =
+            new DhmpRawIpv6Options(
+                IPAddress.IPv6Loopback,
+                IPAddress.Parse("2001:db8::1"),
+                128);
+
+        var listenerOptions =
+            new DhmpRawIpv6ListenerOptions(
+                IPAddress.IPv6Loopback,
+                128);
+
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    64));
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            new DhmpRawIpv6PacketSender(
+                options));
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            new DhmpRawIpv6Receiver(
+                options,
+                server));
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            new DhmpRawIpv6MultiPeerReceiver(
+                listenerOptions));
+
+        Assert.Throws<PlatformNotSupportedException>(() =>
+            new DhmpRawIpv6ControlChannel(
+                options));
+    }
+
+    [Fact]
     public void CriticalFlow_Router_RemoveUnknownPeerIsIdempotent()
     {
         var router =
