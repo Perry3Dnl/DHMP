@@ -12,12 +12,26 @@ public sealed class DhmpProtocolTests
     [InlineData(257)]
     public void CompletePackets_PreserveEveryByteAndBatch(int size)
     {
-        var contract = new DhmpFixedContract(size, 1000, size * 4);
-        var processor = new DhmpPacketProcessor(contract);
-        byte[] packet = Enumerable.Range(0, size * 4).Select(i => (byte)i).ToArray();
+        var wire = new DhmpWireContract(size);
+        var processor = new DhmpPacketProcessor(
+            wire,
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Sequential,
+                size * 4));
+
+        byte[] packet = Enumerable.Range(0, size * 4)
+            .Select(i => (byte)i)
+            .ToArray();
+
         byte[]? actual = null;
         int calls = 0;
-        processor.Process(packet, batch => { calls++; actual = batch.ToArray(); });
+
+        processor.Process(packet, batch =>
+        {
+            calls++;
+            actual = batch.ToArray();
+        });
+
         Assert.Equal(1, calls);
         Assert.Equal(packet, actual);
     }
@@ -30,41 +44,75 @@ public sealed class DhmpProtocolTests
     [InlineData(17)]
     public void InvalidPacket_IsRejectedBeforePublication(int length)
     {
-        var processor = new DhmpPacketProcessor(new DhmpFixedContract(4, 100, 16));
+        var processor = new DhmpPacketProcessor(
+            new DhmpWireContract(4),
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Sequential,
+                16));
+
         int calls = 0;
+
         Assert.Throws<DhmpProtocolException>(() =>
             processor.Process(new byte[length], _ => calls++));
+
         Assert.Equal(0, calls);
     }
 
     [Fact]
     public void SeparatePartialPackets_AreNeverReassembled()
     {
-        var processor = new DhmpPacketProcessor(new DhmpFixedContract(4, 100));
+        var processor = new DhmpPacketProcessor(
+            new DhmpWireContract(4));
+
         int calls = 0;
         Action<ReadOnlySpan<byte>> publish = _ => calls++;
-        Assert.Throws<DhmpProtocolException>(() => processor.Process(new byte[] { 1 }, publish));
-        Assert.Throws<DhmpProtocolException>(() => processor.Process(new byte[] { 2, 3, 4 }, publish));
+
+        Assert.Throws<DhmpProtocolException>(() =>
+            processor.Process(new byte[] { 1 }, publish));
+        Assert.Throws<DhmpProtocolException>(() =>
+            processor.Process(new byte[] { 2, 3, 4 }, publish));
+
         Assert.Equal(0, calls);
+
         byte[]? actual = null;
-        processor.Process(new byte[] { 9, 8, 7, 6 }, s => actual = s.ToArray());
+        processor.Process(
+            new byte[] { 9, 8, 7, 6 },
+            span => actual = span.ToArray());
+
         Assert.Equal(new byte[] { 9, 8, 7, 6 }, actual);
     }
 
     [Fact]
-    public void Latest_SelectsFinalRecordOfThisPacket()
+    public void Latest_IsLocalReceivePolicy()
     {
-        var processor = new DhmpPacketProcessor(new DhmpFixedContract(2, 100), DhmpProcessingMode.Latest);
-        byte[]? actual = null;
-        processor.Process(new byte[] { 1, 2, 3, 4, 5, 6 }, s => actual = s.ToArray());
-        Assert.Equal(new byte[] { 5, 6 }, actual);
+        var wire = new DhmpWireContract(2);
+        var sequential = new DhmpPacketProcessor(
+            wire,
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Sequential));
+        var latest = new DhmpPacketProcessor(
+            wire,
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Latest));
+
+        byte[]? all = null;
+        byte[]? newest = null;
+        byte[] packet = [1, 2, 3, 4, 5, 6];
+
+        sequential.Process(packet, span => all = span.ToArray());
+        latest.Process(packet, span => newest = span.ToArray());
+
+        Assert.Equal(packet, all);
+        Assert.Equal(new byte[] { 5, 6 }, newest);
     }
 
     [Fact]
     public void PublicationBorrowsOriginalStorage()
     {
         byte[] input = [1, 2, 3, 4];
-        var processor = new DhmpPacketProcessor(new DhmpFixedContract(4, 100));
+        var processor = new DhmpPacketProcessor(
+            new DhmpWireContract(4));
+
         processor.Process(input, span =>
         {
             input[0] = 99;
@@ -75,105 +123,220 @@ public sealed class DhmpProtocolTests
     [Fact]
     public void CallbackFailure_PropagatesWithoutRetry()
     {
-        var processor = new DhmpPacketProcessor(new DhmpFixedContract(4, 100));
+        var processor = new DhmpPacketProcessor(
+            new DhmpWireContract(4));
+
         var error = new InvalidOperationException("handoff failed");
         int calls = 0;
+
         var actual = Assert.Throws<InvalidOperationException>(() =>
-            processor.Process(new byte[8], _ => { calls++; throw error; }));
+            processor.Process(
+                new byte[8],
+                _ =>
+                {
+                    calls++;
+                    throw error;
+                }));
+
         Assert.Same(error, actual);
         Assert.Equal(1, calls);
     }
 
     [Fact]
-    public void DefaultContract_IsRejectedAtSetup()
+    public void WireContract_ContainsOnlyProtocolCompatibilityValues()
     {
-        Assert.Throws<ArgumentException>(() => new DhmpPacketProcessor(default));
+        var wire = new DhmpWireContract(32);
+
+        Assert.Equal(DhmpProtocol.CurrentVersion, wire.Version);
+        Assert.Equal(32, wire.RecordSize);
+        wire.Validate();
+    }
+
+    [Fact]
+    public void DefaultWireContract_IsRejected()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            default(DhmpWireContract).Validate());
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpPacketProcessor(default));
     }
 
     [Theory]
-    [InlineData(0, 100, 1408)]
-    [InlineData(-1, 100, 1408)]
-    [InlineData(4, 0, 1408)]
-    [InlineData(4, 100, 3)]
-    [InlineData(4, 100, 65536)]
-    public void InvalidContract_IsRejected(int size, int pmax, int maximum)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new DhmpFixedContract(size, pmax, maximum));
-    }
-
-    [Fact]
-    public void InvalidMode_IsRejectedAtSetup()
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(65536)]
+    public void InvalidWireRecordSize_IsRejected(int recordSize)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new DhmpPacketProcessor(new DhmpFixedContract(4, 100), (DhmpProcessingMode)99));
+            new DhmpWireContract(recordSize));
     }
 
     [Fact]
-    public void SessionContract_ExposesVersionWireAndLocalPolicy()
-    {
-        var fixedContract = new DhmpFixedContract(32, 1234, 1408);
-        var session = new DhmpSessionContract(fixedContract, DhmpProcessingMode.Latest);
-
-        Assert.Equal(DhmpProtocol.CurrentVersion, session.Version);
-        Assert.Equal(32, session.PayloadSize);
-        Assert.Equal(1234, session.Pmax);
-        Assert.Equal(1408, session.MaxPacketPayloadBytes);
-        Assert.Equal(DhmpProcessingMode.Latest, session.Mode);
-        Assert.Equal(fixedContract, session.FixedContract);
-        session.Validate();
-    }
-
-    [Fact]
-    public void SessionContract_DefaultAndUnsupportedVersion_AreRejected()
-    {
-        Assert.Throws<ArgumentException>(() => default(DhmpSessionContract).Validate());
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new DhmpSessionContract(
-                new DhmpFixedContract(32, 100),
-                version: checked((byte)(DhmpProtocol.CurrentVersion + 1))));
-    }
-
-    [Fact]
-    public void SessionContract_InvalidMode_IsRejected()
+    public void UnsupportedWireVersion_IsRejected()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new DhmpSessionContract(
-                new DhmpFixedContract(32, 100),
+            new DhmpWireContract(
+                32,
+                checked((byte)(DhmpProtocol.CurrentVersion + 1))));
+    }
+
+    [Fact]
+    public void SameWireContract_AllowsDifferentLocalSendBudgets()
+    {
+        var wire = new DhmpWireContract(32);
+        var lowRate = new DhmpSendPolicy(100, 1024);
+        var highRate = new DhmpSendPolicy(100_000, 1408);
+
+        lowRate.Validate(wire);
+        highRate.Validate(wire);
+
+        Assert.NotEqual(lowRate.Pmax, highRate.Pmax);
+        Assert.Equal(wire, wire);
+    }
+
+    [Fact]
+    public void SameWireContract_AllowsDifferentLocalReceiveModes()
+    {
+        var wire = new DhmpWireContract(32);
+        var sequential = new DhmpReceivePolicy(
+            DhmpProcessingMode.Sequential,
+            1024);
+        var latest = new DhmpReceivePolicy(
+            DhmpProcessingMode.Latest,
+            1408);
+
+        sequential.Validate(wire);
+        latest.Validate(wire);
+
+        Assert.NotEqual(sequential.Mode, latest.Mode);
+    }
+
+    [Theory]
+    [InlineData(0, 1408)]
+    [InlineData(-1, 1408)]
+    [InlineData(100, 0)]
+    [InlineData(100, 65536)]
+    public void InvalidSendPolicy_IsRejected(
+        int pmax,
+        int maximumPayloadBytes)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpSendPolicy(
+                pmax,
+                maximumPayloadBytes));
+    }
+
+    [Fact]
+    public void SendPolicy_CannotBeSmallerThanOneWireRecord()
+    {
+        var wire = new DhmpWireContract(64);
+        var policy = new DhmpSendPolicy(100, 32);
+
+        Assert.Throws<ArgumentException>(() =>
+            policy.Validate(wire));
+    }
+
+    [Fact]
+    public void DefaultSendPolicy_IsRejected()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            default(DhmpSendPolicy).Validate(
+                new DhmpWireContract(4)));
+    }
+
+    [Fact]
+    public void InvalidReceiveMode_IsRejected()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpReceivePolicy(
                 (DhmpProcessingMode)99));
     }
 
-    [Fact]
-    public void PayloadValidation_RequiresOneWholeMessage()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(65536)]
+    public void InvalidReceivePacketLimit_IsRejected(int maximumPayloadBytes)
     {
-        var contract = new DhmpFixedContract(4, 100);
-        contract.ValidatePayload(4);
-        Assert.Throws<DhmpProtocolException>(() => contract.ValidatePayload(3));
-        Assert.Throws<DhmpProtocolException>(() => contract.ValidatePayload(8));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpReceivePolicy(
+                maximumPayloadBytes: maximumPayloadBytes));
+    }
+
+    [Fact]
+    public void ReceivePolicy_CannotBeSmallerThanOneWireRecord()
+    {
+        var wire = new DhmpWireContract(64);
+        var policy = new DhmpReceivePolicy(
+            DhmpProcessingMode.Sequential,
+            32);
+
+        Assert.Throws<ArgumentException>(() =>
+            policy.Validate(wire));
+    }
+
+    [Fact]
+    public void RecordValidation_RequiresExactlyOneRecord()
+    {
+        var wire = new DhmpWireContract(4);
+
+        wire.ValidateRecord(4);
+
+        Assert.Throws<DhmpProtocolException>(() =>
+            wire.ValidateRecord(3));
+        Assert.Throws<DhmpProtocolException>(() =>
+            wire.ValidateRecord(8));
+    }
+
+    [Fact]
+    public void PacketValidation_UsesLocalPacketCeiling()
+    {
+        var wire = new DhmpWireContract(4);
+
+        wire.ValidatePacket(8, 8);
+
+        Assert.Throws<DhmpProtocolException>(() =>
+            wire.ValidatePacket(12, 8));
+        Assert.Throws<DhmpProtocolException>(() =>
+            wire.ValidatePacket(6, 8));
     }
 
     [Fact]
     public void Budget_ReservesWholeBatchOrNothing()
     {
         var budget = new DhmpPmaxBudget(4);
+
         Assert.False(budget.TryConsume(5));
         Assert.True(budget.TryConsume(3));
         Assert.False(budget.TryConsume(2));
         Assert.True(budget.TryConsume());
         Assert.False(budget.TryConsume());
-        Assert.Throws<ArgumentOutOfRangeException>(() => budget.TryConsume(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            budget.TryConsume(0));
     }
 
     [Fact]
     public void PacketProcessing_AllocatesNothingAfterWarmup()
     {
-        var processor = new DhmpPacketProcessor(new DhmpFixedContract(32, 1000));
+        var processor = new DhmpPacketProcessor(
+            new DhmpWireContract(32));
         var packet = new byte[1408];
+
         long count = 0;
-        Action<ReadOnlySpan<byte>> publish = s => count += s.Length;
-        for (int i = 0; i < 1000; i++) processor.Process(packet, publish);
+        Action<ReadOnlySpan<byte>> publish =
+            span => count += span.Length;
+
+        for (int i = 0; i < 1000; i++)
+            processor.Process(packet, publish);
+
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++) processor.Process(packet, publish);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        for (int i = 0; i < 1000; i++)
+            processor.Process(packet, publish);
+
+        long allocated =
+            GC.GetAllocatedBytesForCurrentThread() - before;
+
         Assert.Equal(0, allocated);
         Assert.Equal(1408L * 2000, count);
     }
