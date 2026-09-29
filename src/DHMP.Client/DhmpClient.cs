@@ -1,35 +1,42 @@
-using System.Net;
 using DHMP.Protocol;
 
 namespace DHMP.Client;
 
-public sealed class DhmpClient : IAsyncDisposable
+/// <summary>Validates and budgets complete packets before handing them to an explicit direct-IP sender.</summary>
+/// <remarks>
+/// Use one client per preconfigured session and serialize sends through completion.
+/// The caller owns the sender lifetime. There is no implicit endpoint, connection or network backend.
+/// A failed backend send is not retried and its reserved budget is not refunded.
+/// </remarks>
+public sealed class DhmpClient
 {
-    private readonly System.Net.Sockets.TcpClient _client = new();
-    private DhmpFixedContract? _contract;
-    private DhmpPmaxBudget? _budget;
+    private readonly IDhmpPacketSender _sender;
+    private readonly DhmpFixedContract _contract;
+    private readonly DhmpPmaxBudget _budget;
 
-    public bool IsConnected => _client.Connected;
-
-    public Task ConnectAsync(IPEndPoint endpoint, DhmpFixedContract contract, CancellationToken cancellationToken = default)
+    public DhmpClient(IDhmpPacketSender sender, DhmpFixedContract contract)
     {
+        ArgumentNullException.ThrowIfNull(sender);
+        contract.Validate();
+        if (sender.MaximumPayloadBytes < contract.MaxPacketPayloadBytes)
+            throw new ArgumentException("Contract exceeds the sender's packet payload limit.", nameof(contract));
+        _sender = sender;
         _contract = contract;
         _budget = new DhmpPmaxBudget(contract.Pmax);
-        return _client.ConnectAsync(endpoint.Address, endpoint.Port, cancellationToken).AsTask();
     }
 
     public ValueTask SendAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
     {
-        if (!_client.Connected) throw new InvalidOperationException("DHMP client is not connected.");
-        var contract = _contract ?? throw new InvalidOperationException("DHMP fixed contract is not configured.");
-        contract.ValidatePayload(payload.Length);
-        if (!_budget!.TryConsume()) throw new DhmpProtocolException($"Configured Pmax of {contract.Pmax} messages/second exceeded.");
-        return _client.GetStream().WriteAsync(payload, cancellationToken);
+        _contract.ValidatePayload(payload.Length);
+        return SendBatchAsync(payload, cancellationToken);
     }
 
-    public ValueTask DisposeAsync()
+    public ValueTask SendBatchAsync(ReadOnlyMemory<byte> packet, CancellationToken cancellationToken = default)
     {
-        _client.Dispose();
-        return ValueTask.CompletedTask;
+        cancellationToken.ThrowIfCancellationRequested();
+        _contract.ValidatePacket(packet.Length);
+        if (!_budget.TryConsume(packet.Length / _contract.PayloadSize))
+            throw new DhmpProtocolException("Configured message budget exhausted.");
+        return _sender.SendPacketAsync(packet, cancellationToken);
     }
 }

@@ -1,62 +1,26 @@
-# Transport tuning follow-up
+# Direct-IP implementation plan
 
-This is a short implementation note for a later optimization round. It does **not** change the DHMP wire protocol.
+## First: establish a real packet backend
 
-## Goal
+- Implement the explicit packet sender/receiver boundary for the target OS.
+- Configure session/peer association and exact payload/header delivery behavior.
+- Define bounded receive storage, buffer release and shutdown.
+- Validate packet lengths and malformed inputs before any state/publication changes.
+- Define and test loss, duplication, reordering and Latest freshness rules.
+- Negotiate/configure path MTU including all IP and security overhead; never split a message.
 
-Benchmark and package sensible transport/runtime defaults around DHMP so the reference implementation can reduce kernel/socket overhead without requiring users to hand-tune their system.
+## Then: measure and tune
 
-## First settings to sweep
+- Batch records within a packet and packet submissions per kernel boundary.
+- Preinitialize fixed IP-header fields where the backend owns header construction.
+- Reuse buffers and minimize copies without violating ownership.
+- Evaluate registered buffers, polling and kernel bypass only with measurable justification.
+- Compare kernel-loopback, NIC and physical two-host measurements independently.
+- Measure latency and CPU as well as throughput and memory.
+- Develop pacing/congestion behavior beyond the prototype fixed-window send budget.
 
-- receive workspace size: 4 / 8 / 12 / 16 / 32 / 64 / 128 KiB
-- sender batch size: 4 KiB through 1 MiB
-- `SO_RCVBUF`
-- `SO_SNDBUF`
-- `TCP_NODELAY` vs normal coalescing / `TCP_CORK` where applicable
-- spin / yield / adaptive waiting
-- CPU affinity and cache topology
-- TLS record/buffer sizing for DHMPS
+## Security and release gates
 
-## Later platform-specific paths
-
-- `io_uring`
-- registered buffers
-- multishot receive
-- busy polling
-- kernel TLS
-- zero-copy send
-- NIC/RSS affinity diagnostics
-
-## Benchmark rule
-
-Keep two categories separate:
-
-1. **Protocol comparison:** same transport settings for DHMP and baselines.
-2. **Maximum DHMP implementation:** use the best validated DHMP-specific runtime settings.
-
-Measure logical frames/s, payload throughput, recv/send syscalls, bytes per syscall, receiver/sender CPU per frame, publications/s, validation errors, latency, context switches, and cache misses where available.
-
-## Packaging direction
-
-These belong in the implementation/runtime, not the protocol specification.
-
-Potential future API shape:
-
-```text
-Default
-LowLatency
-Throughput
-HighPerformance
-AutoTune
-```
-
-## Revisit
-
-Revisit after the RX -> processor -> output-slab pipeline is integrated and benchmarked, so transport tuning is measured against the current fastest processor architecture rather than an obsolete path.
-
-
-## Topology-aware placement experiment
-
-A first Ring-3 placement A/B has now been completed. The isolated ownership test showed a modest benefit for one reported shared lower-cache producer/consumer pair, but the full TCP loopback path did not reproduce a stable throughput win. Keep topology-aware placement on the AutoTune list and repeat it on physical hardware before selecting automatic rules.
-
-See [BENCHMARKS.md](BENCHMARKS.md) and the raw `ring3-cpu-topology-*` result files.
+Select a standard reviewed direct-packet security design. Validate authentication, resource
+limits and hostile inputs before production release. No custom cryptography or implicit
+stream-security fallback is part of this plan.

@@ -1,65 +1,50 @@
-name: .NET tests
+name: Direct-IP core and licensing tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  fixed-stream-tests:
-    name: Fixed stream framing and callback contract
+  architecture:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce direct-IP project boundaries
+        run: python3 tools/check_architecture.py
+
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        project: [DHMP.Protocol.Tests, DHMP.Licensing.Tests, DHMP.AspNetCore.Tests]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Test fixed stream processor
-        run: dotnet run --project benchmarks/dotnet-receive-boundary-tests/Dhmp.ReceiveBoundary.Tests.csproj --configuration Release
+      - name: Test packet contracts and startup gates
+        run: dotnet test tests/${{ matrix.project }}/${{ matrix.project }}.csproj --configuration Release --logger "console;verbosity=normal"
 
-  licensing-tests:
-    name: Licensing unit + startup integration paths
+  build-packet-experiments:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-
-      - name: Restore licensing tests
-        run: dotnet restore tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj
-
-      - name: Restore protocol tests
-        run: dotnet restore tests/DHMP.Protocol.Tests/DHMP.Protocol.Tests.csproj
-
-      - name: Restore ASP.NET integration tests
-        run: dotnet restore tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj
-
-      - name: Build licensing tests
-        run: dotnet build tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj --configuration Release --no-restore
-
-      - name: Build protocol tests
-        run: dotnet build tests/DHMP.Protocol.Tests/DHMP.Protocol.Tests.csproj --configuration Release --no-restore
-
-      - name: Build ASP.NET integration tests
-        run: dotnet build tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj --configuration Release --no-restore
-
-      - name: Test licensing unit paths
-        run: dotnet test tests/DHMP.Licensing.Tests/DHMP.Licensing.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
-
-      - name: Test protocol fixed-contract paths
-        run: dotnet test tests/DHMP.Protocol.Tests/DHMP.Protocol.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
-
-      - name: Test ASP.NET startup paths
-        run: dotnet test tests/DHMP.AspNetCore.Tests/DHMP.AspNetCore.Tests.csproj --configuration Release --no-build --logger "console;verbosity=normal"
+      - name: Build direct-IP experiments
+        shell: bash
+        run: |
+          set -euo pipefail
+          for project in benchmarks/*/*.csproj; do
+            dotnet build "$project" --configuration Release
+          done

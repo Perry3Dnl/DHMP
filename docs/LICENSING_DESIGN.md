@@ -339,7 +339,7 @@ It MUST NOT:
 - add fields to every DHMP message;
 - add per-message cryptographic work;
 - add license identifiers to the DHMP steady-state wire format solely for DRM;
-- perform network license checks in the Stream Processor;
+- perform network license checks in the Packet Processor;
 - add locks or allocations to the message hot path;
 - alter `Every`/`Latest` processing semantics.
 
@@ -465,3 +465,4 @@ DHMP Licensing v1 will not attempt to provide:
 - proprietary cryptographic algorithms.
 
 The goal is a small, understandable and maintainable licensing system that discourages casual misuse while keeping the legitimate developer experience simple.
+

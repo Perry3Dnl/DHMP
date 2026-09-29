@@ -4,181 +4,87 @@
 
 # DHMP — Direct Headerless Message Protocol
 
-DHMP is an experimental fixed-contract protocol for persistent machine-to-machine communication. Its steady-state design is simple: negotiate what can be known once, then keep repeated metadata, avoidable copies, per-message synchronization and unbounded queue growth out of the hot path.
+**DHMP is being built as its own packet layer directly over IP. IPv6 is the current
+research target.** The active implementation has no TCP/UDP compatibility path.
 
-## Protocol contract
+At setup, endpoints must agree on a fixed message contract. During operation, each
+IP payload carries a batch of complete fixed-size messages. DHMP manages its own
+packet processing, bounded buffers, ownership, publication policy and send budget.
 
-DHMP is fire-and-forget and fixed-contract.
+## Active architecture
 
-- One logical application message MUST fit completely inside the negotiated fixed payload contract.
-- DHMP does not fragment or reassemble application messages.
-- Oversize sends MUST be rejected before bytes enter the send path.
-- DHMP defines no per-message delivery ACK, replay or reconnect history.
-- Senders are bounded by a configured processing ceiling `Pmax`; exceeding the budget must not create an unbounded reliable queue.
-- TCP/TLS may segment or coalesce the byte stream internally. That is transport behavior, not DHMP fragmentation.
-- DHMPS is DHMP over standard TLS; DHMP does not define custom cryptography.
+IP packet I/O → complete DHMP packet payload → fixed-contract validation →
+Latest or Sequential batch publication → typed boundary → application.
 
-# Transport direction
+- A message fits entirely inside one packet. Incomplete packets are rejected; bytes
+  from separate packets are never combined into a message.
+- Sequential publishes complete received records in arrival order. It is not reliable delivery.
+- Latest selects the last record in an incoming batch. Cross-packet freshness/reordering
+  handling remains an explicit open design item.
+- No DHMP delivery ACK, retransmission, replay history or unbounded queue.
+- Buffer ownership must be explicit across asynchronous boundaries.
+- Pmax is a configured per-session send budget, not a capacity guarantee or congestion controller.
 
-DHMP's core is **transport-independent**. TCP/TLS remains a compatibility transport, but DHMP is no longer architected on the assumption that another transport protocol must define its hot path. The current high-performance research direction is a direct packet transport over IP, with IPv6 as the present candidate. Mock/IP results are software ceilings, not network-throughput claims.
+## What exists today
 
-See [Direct transport direction and plan](docs/DIRECT_TRANSPORT_DIRECTION.md) for the architecture decision, current IPv4/IPv6 findings, benchmark ladder and production plan.
+| Component | Status |
+| --- | --- |
+| Fixed-contract packet processor | Implemented; borrowed batch publication without carry storage |
+| Client packet facade | Validates/budgets packets and calls an explicitly supplied packet sender |
+| Server packet facade | Processes complete packet payloads; does not open a listener |
+| Licensing and ASP.NET host integration | Offline validation at host startup |
+| IPv4/IPv6 framing experiments | In-memory, separately classified benchmarks |
+| Raw IPv6 kernel experiment | Experimental loopback harness; not a production backend |
+| Production direct-IP backend and session negotiation | Still to build |
+| Reordering/freshness, congestion policy and secure direct-IP profile | Still to specify and validate |
 
-# Current performance
+Removing the earlier transport implementations does **not** mean a production-ready
+network stack has already been implemented.
 
-> **Performance-data policy:** this README contains only current-generation benchmark results. Historical benchmark data remains available under `benchmarks/` and `docs/`, but old results are not mixed into the current headline comparison.
+## .NET packages
 
-## Current verified result — DHMP vs raw TCP
+All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 
-<p align="center">
-  <img src="benchmarks/results/charts/current-dotnet-tcp-32b-2026-09-28.svg" alt="Current DHMP versus raw fixed TCP 32-byte loopback throughput">
-</p>
+| Project | Responsibility |
+| --- | --- |
+| DHMP.Protocol | Fixed packet contract, batch processor, send budget and packet-sender boundary |
+| DHMP.Client | Per-session sending facade using an explicit direct-IP backend |
+| DHMP.Server | Packet receiving facade and typed/buffer ownership building blocks |
+| DHMP.Licensing | Offline key verification |
+| DHMP.AspNetCore | Dependency injection and license/startup gating |
 
-The latest `.NET 10` `TCP_CURRENT_V1` comparison uses the same 32-byte payload, loopback socket path, 64 KiB send chunks and the same static-abstract typed consumer for both paths.
+`AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license
+gate. It does not bind an endpoint or choose a transport. A session contract and
+an `IDhmpPacketSender` implementation are required to construct a client.
 
-| Path | Median logical messages/s | Median logical payload | Median time/message |
-| --- | ---: | ---: | ---: |
-| Raw fixed TCP | **171.864 M/s** | **5.500 GB/s** | **5.819 ns** |
-| DHMP current | **162.685 M/s** | **5.206 GB/s** | **6.147 ns** |
+## Validation
 
-On this run DHMP reaches **94.7% of raw fixed TCP's message rate**. Raw TCP remains the correct lower-overhead baseline: DHMP does additional fixed-contract framing/typed-boundary work.
-
-The individual DHMP runs were 153.727, 166.790 and 162.685 M messages/s. The raw-TCP runs were 154.408, 171.864 and 177.360 M messages/s. Three runs are enough for a current checkpoint, not for a claim that a few-percent difference is universally stable.
-
-## The comparison we are building next
-
-The next public graph will use **one frozen current-generation harness**. No historical v6 values and no third-party benchmark numbers will be inserted into the bars.
-
-The comparison set is deliberately split into two useful groups. Some protocols appear in both groups because being widely deployed and being performance-relevant are different properties.
-
-### Five performance-relevant targets
-
-| Target | Why it belongs in the comparison | Current same-harness result |
-| --- | --- | --- |
-| Raw fixed TCP | Practical minimum-overhead reliable byte-stream baseline | **Measured** |
-| UDP datagrams | Minimal datagram transport reference; semantics differ from DHMP | Pending |
-| QUIC / HTTP/3 transport | Modern UDP-based multiplexed reliable transport | Pending |
-| WebSocket binary | Persistent message-oriented application transport | Pending |
-| gRPC streaming / HTTP/2 | High-performance typed service/streaming stack | Pending |
-
-### Five widely recognized application/messaging targets
-
-| Target | Why it belongs in the comparison | Current same-harness result |
-| --- | --- | --- |
-| HTTP/1.1 | Ubiquitous request/response baseline | Pending |
-| HTTP/2 | Widely deployed multiplexed HTTP transport | Pending |
-| WebSocket binary | Common persistent real-time channel | Pending |
-| gRPC streaming | Common typed service-to-service RPC/streaming stack | Pending |
-| MQTT QoS 0 | Common lightweight telemetry/IoT messaging protocol | Pending |
-
-NATS will also be retained as an additional messaging-system reference once the official/version-pinned client/server benchmark is available.
-
-**A protocol gets a performance bar only after it has actually run under the frozen current harness.** This prevents an attractive graph from becoming an invalid comparison between different CPUs, runtimes, payloads, implementations or benchmark generations.
-
-Independent research also supports keeping these categories separate: raw TCP tends to minimize baseline protocol overhead, while higher-level protocols add semantics, multiplexing, framing or ecosystem features that change both cost and behavior. The DHMP repository therefore treats throughput as one measured property, not as proof that protocols with different semantics are interchangeable.
-
-# What DHMP optimizes
-
-DHMP targets workloads containing many small, fixed-layout state/event messages where both endpoints already know the connection contract.
-
-```text
-TCP / TLS byte stream
-        ↓
-DHMP Stream Processor
-  fixed-size package extraction
-  payload remains opaque
-        ↓
-borrowed contiguous package span
-        ↓
-.NET typed boundary
-  zero-copy typed view where layout permits
-        ↓
-ReadOnlySpan<T> / usable typed data
-===============================
-DHMP performance scope ends
-===============================
-        ↓
-application / game / service logic
+```sh
+python3 tools/check_architecture.py
+dotnet test tests/DHMP.Protocol.Tests -c Release
+dotnet test tests/DHMP.AspNetCore.Tests -c Release
+dotnet test tests/DHMP.Licensing.Tests -c Release
 ```
 
-The Stream Processor and the .NET typed boundary are optimized independently. The processor does not materialize C# models, dispatch application workers or execute business logic.
+CI checks architecture, builds the packet experiments and runs the tests on Linux and
+Windows. Physical network measurements require the corresponding backend and hardware.
 
-## Receive semantics
+## Measurements and history
 
-`Latest` allows a newer state to replace stale unconsumed state. It is intended for state where processing obsolete updates has no value.
+[Benchmark scope and retained evidence](docs/BENCHMARKS.md) separates memory experiments,
+kernel experiments and physical network results. There is no published production
+direct-IP speedup claim.
 
-`Sequential` offers every complete package that reaches the receive path in FIFO order, but remains bounded. DHMP still does not add an application-level delivery guarantee.
+Earlier stream-framing and compatibility results, including the single-carry A/B,
+remain in [git history](https://github.com/Perry3Dnl/DHMP/tree/7b85bd961b12d433ed8fd3ea3b5f623dc47a20e7). They are not the active runtime or direct-IP evidence.
 
-Neither mode changes the maximum-payload rule.
+## Documentation
 
-# Protocol versus implementation
-
-| Protocol-level contract | Runtime / implementation detail |
-| --- | --- |
-| Fixed connection contract | Receive-region/slab sizing |
-| Fixed deterministic wire layout | Region ownership implementation |
-| `Latest` / `Sequential` semantics | .NET typed-span adapter |
-| Fire-and-forget delivery | CPU/cache placement |
-| No application-message fragmentation | Socket buffer tuning |
-| DHMP / DHMPS | Batching and polling strategy |
-
-The protocol is intended to be implementable outside .NET. The NuGet packages are the reference .NET implementation, not the definition of the protocol itself.
-
-# .NET 10 packages
-
-| Package | Purpose |
-| --- | --- |
-| `DHMP.Protocol` | wire contract, stream processor and protocol invariants |
-| `DHMP.Client` | client connection/send surface |
-| `DHMP.Server` | server listener/session/runtime surface |
-| `DHMP.AspNetCore` | ASP.NET Core DI and hosted lifecycle integration |
-
-Target ASP.NET Core setup:
-
-```csharp
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddDHMP();
-
-var app = builder.Build();
-app.Run();
-```
-
-The common setup should stay small. Advanced transport/runtime tuning must remain optional.
-
-# Benchmark rules
-
-Current and future public comparison graphs follow these rules:
-
-1. Same machine and CPU allocation for compared paths.
-2. Same logical payload and message count.
-3. Same application-level consumer work.
-4. Same warmup and measurement policy.
-5. Multiple rotated runs; median plus run distribution retained.
-6. Exact implementation/version recorded for every external stack.
-7. Network throughput, logical payload throughput and processor-only capacity are labelled separately.
-8. A processor microbenchmark is never presented as NIC/network throughput.
-9. Different benchmark generations are never combined into one performance ranking.
-10. If DHMP loses a fair test, the slower DHMP result is published.
-
-# Current engineering priorities
-
-1. Expand `TCP_CURRENT_V1` into the frozen current cross-protocol harness.
-2. Run the five performance-relevant and five widely recognized targets above with real/version-pinned implementations.
-3. Increase the current TCP/DHMP comparison from three short runs to longer rotated runs before making small percentage claims.
-4. Add a fresh DHMPS/TLS comparison under the same-generation secure harness.
-5. Continue optimizing Stream Processor and .NET boundary independently without moving application work into DHMP's benchmark scope.
-
-# Documentation
-
-- [Architecture comparison](docs/ARCHITECTURE_COMPARISON.md)
-- [Current development status](docs/CURRENT_STATUS.md)
-- [Protocol draft](docs/PROTOCOL_DRAFT.md)
-- [Benchmark methodology/history](docs/BENCHMARKS.md)
-- [Transport/runtime tuning](docs/TRANSPORT_TUNING_TODO.md)
-- [Native benchmark labs](benchmarks/native-showcase)
-- [Processor labs](benchmarks/native-gen2)
-- [Raw benchmark results](benchmarks/results)
-
-# Requirements
-
-The primary reference implementation target is **.NET 10**.
+- [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
+- [Current implementation status](docs/CURRENT_STATUS.md)
+- [Packet protocol draft](docs/PROTOCOL_DRAFT.md)
+- [Architecture and ownership](docs/ARCHITECTURE_COMPARISON.md)
+- [.NET API design](docs/DOTNET10_PACKAGE_DESIGN.md)
+- [Conformance](docs/CONFORMANCE.md)
+- [Licensing](docs/LICENSING_DESIGN.md)
+- [Direct-IP implementation plan](docs/TRANSPORT_TUNING_TODO.md)

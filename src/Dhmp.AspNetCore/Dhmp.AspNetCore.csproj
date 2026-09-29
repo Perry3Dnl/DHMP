@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><PackageId>DHMP.AspNetCore</PackageId></PropertyGroup>
-  <ItemGroup>
-    <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <ProjectReference Include="../Dhmp.Server/Dhmp.Server.csproj" />
-    <ProjectReference Include="../Dhmp.Client/Dhmp.Client.csproj" />
-  </ItemGroup>
-</Project>

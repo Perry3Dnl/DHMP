@@ -22,10 +22,9 @@ public static class DhmpServiceCollectionExtensions
         });
 
         services.AddSingleton<DhmpRuntimeState>();
-        services.AddSingleton<DHMP.Client.DhmpClient>();
-        services.AddSingleton<DHMP.Server.DhmpServer>();
         services.AddHostedService<DhmpLicenseStartupGate>();
         services.AddHostedService<DhmpRuntimeHostedService>();
         return services;
     }
 }
+

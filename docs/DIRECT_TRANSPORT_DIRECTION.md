@@ -1,128 +1,59 @@
-# DHMP Direct Transport Direction
+# Authoritative direction: DHMP directly over IP
 
-Status: engineering direction, 2026-09-29.
+Decision updated 2026-09-29. This document and AGENTS.md supersede the earlier
+compatibility/byte-stream architecture.
 
 ## Decision
 
-DHMP is no longer designed on the assumption that TCP, UDP, HTTP, QUIC, WebSocket, gRPC, or another application/transport protocol must sit underneath it.
+DHMP is its own packet layer directly over IP, with IPv6 as the current research target.
+TCP, UDP, HTTP, QUIC, WebSocket, gRPC and TLS-stream adapters are not active project
+paths or fallbacks. Their earlier code and measurements remain only in git history.
 
-The protocol contract and Stream Processor remain transport-independent. TCP/TLS support remains useful as a compatibility/deployment transport, but it must not define DHMP's architecture or performance ceiling.
+The project manages its fixed contract, packet batching, bounded buffers, ownership,
+Latest/Sequential publication and send budget. IP, kernel packet I/O, drivers and NICs
+remain distinct lower layers; this project does not claim to have replaced those layers.
 
-The experimental high-performance direction is a **direct packet transport for DHMP over IP**, with IPv6 currently the preferred research path. This is not yet a claim that a production DHMP/IP transport outperforms TCP; that requires real end-to-end measurements.
+## Required boundaries
 
-## Why this direction exists
+1. A direct-IP backend delivers a complete packet payload and its session/peer context.
+2. The fixed-contract processor rejects invalid lengths before publishing any records.
+3. A valid packet contains an integer number of whole messages within its configured MTU budget.
+4. The processor publishes a borrowed batch; consumers finish before returning or acquire
+   explicit ownership elsewhere before asynchronous use.
+5. Application processing stays outside the payload-opaque protocol core.
 
-Current same-generation measurements expose a large difference between DHMP's software processing capacity and the existing socket transports. These benchmark classes are deliberately not presented as equivalent network measurements:
+No partial-message carry exists between IP packets. No retransmission, ACK, replay or
+implicit reliable queue is introduced.
 
-| Benchmark scope | 32-byte Latest workload | Result |
-| --- | ---: | ---: |
-| Mock DHMP packet ceiling, batch 44 | logical offered payload | ~50.98 GB/s / ~1.593 B msg/s |
-| Mock IPv4 framing, batch 44 | logical offered payload | median ~28.21 GB/s / ~881.6 M msg/s |
-| Mock IPv6 framing, batch 44 | logical offered payload | median ~28.95 GB/s / ~904.7 M msg/s |
-| Current raw TCP loopback | real loopback socket path | median 5.500 GB/s / 171.864 M msg/s |
-| Current DHMP/TCP loopback | real loopback socket path | median 5.206 GB/s / 162.685 M msg/s |
+## Implemented versus pending
 
-The mock results do **not** prove network throughput. They show that the fixed-contract DHMP processing model has substantially more software headroom than the currently measured socket path.
+The repository implements the packet-processing boundary and client/server facades.
+The client requires an explicitly supplied IDhmpPacketSender; there is no default network
+backend. The server facade accepts already-delivered packets; it is not a listening service.
+The mock-IP experiments and raw IPv6 kernel harness are research tools.
 
-IPv6 is the current direct-IP research candidate because the mock IPv6 path reached ~28.95 GB/s at batch 44 versus ~28.21 GB/s for the mock IPv4 implementation. That result is specific to these implementations and includes no kernel, driver or NIC.
+Production packet I/O, session discovery/negotiation, peer validation, sequence/freshness
+policy, real path-MTU handling, congestion behavior and a reviewed secure packet profile
+remain work items. Removing legacy transports is not evidence that these are complete.
 
-## Architectural rule
+Latest currently chooses the final record inside one received packet. It must not be
+described as newest-by-generation across reordered packets until the wire/session policy
+for that is defined. Sequential currently preserves arrival order, not original sender order.
 
-Keep these layers independent:
+## Work order
 
-```text
-DHMP protocol contract
-        |
-DHMP Stream Processor
-        |
-DHMP packet transport interface
-   +----+------------------+
-   |                       |
-compatibility          high-performance research
-TCP / TLS              direct IP / IPv6
-   |                       |
-OS socket stack        minimal packet-I/O path
-```
+1. Keep the active packet core small, validated and allocation-free for borrowed publication.
+2. Define the direct-IP session and bounded packet-buffer ownership interfaces.
+3. Implement the direct IPv6 backend and explicitly validate OS receive behavior.
+4. Validate malformed packets, overload, loss, duplicates, reordering, shutdown and buffer reuse.
+5. Measure kernel costs; then driver/NIC behavior and two physical endpoints.
+6. Specify and evaluate a standard reviewed security mechanism for the direct packet path.
 
-A transport may carry DHMP, but must not leak its semantics into the core contract. In particular, DHMP does not gain TCP-style delivery ACKs, retransmission history, stream head-of-line semantics, or application-message fragmentation merely because one implementation can run over TCP.
+Existing mock-IP contracts remain frozen. Header-template and other optimizations get a
+separate A/B harness; previous evidence is not silently rewritten.
 
-## Invariants that do not change
+## Measurement scope
 
-- Fire-and-forget remains fundamental.
-- One logical application message fits completely in the negotiated fixed contract.
-- No DHMP application-message fragmentation/reassembly.
-- Oversize sends are rejected before entering the send path.
-- `Latest` may discard stale unconsumed state.
-- `Sequential` remains bounded FIFO without adding a delivery guarantee.
-- The Stream Processor remains payload-opaque.
-- The .NET typed boundary remains separate from the Stream Processor.
-- Security must use a standard, reviewed mechanism; DHMP will not invent custom cryptography.
-- TCP/TLS compatibility support is retained; it is not the definition of DHMP.
-
-## Measurement ladder
-
-Do not jump from an in-memory ceiling directly to a protocol performance claim. Measure every boundary independently:
-
-1. **DHMP core / mock packet ceiling** — fixed-contract processing only.
-2. **IP framing ceiling** — IPv4 and IPv6 header construction/parsing in memory.
-3. **Kernel boundary** — quantify syscall, packet allocation/copy, scheduling and kernel packet-I/O costs without TCP/UDP semantics where the environment permits.
-4. **Driver/NIC path** — real packet movement through the host networking stack.
-5. **Two physical endpoints** — sender and receiver on separate machines with a link faster than the tested implementation.
-6. **Direct DHMP/IP vs raw TCP** — same hardware, payload, message semantics, CPU allocation, duration and consumer.
-7. **Security path** — benchmark the selected standardized security layer independently and end-to-end.
-
-GitHub-hosted runners may not provide the privileges or deterministic hardware required for steps 3-5. A privileged/self-hosted Linux benchmark machine is therefore expected for the direct packet experiments.
-
-## Immediate plan
-
-### Phase A — freeze the current evidence
-
-Preserve the existing mock-IP, mock-IPv4 and mock-IPv6 contracts. Do not silently change them. Keep their results classified as logical software ceilings.
-
-### Phase B — build a packet-transport abstraction
-
-Separate the DHMP Stream Processor from TCP-specific I/O. The interface should expose bounded packet/span ownership and preserve the existing `Latest` and `Sequential` contracts without introducing per-message allocations or synchronization.
-
-TCP/TLS becomes one transport implementation. Direct IPv6 becomes another experimental implementation.
-
-### Phase C — kernel-cost benchmark
-
-Use a Linux high-performance packet-I/O path suitable for controlled benchmarking. Measure TX and RX independently first, then coupled. Record syscall/batch cost, packet rate, payload rate, CPU/core allocation, loss and queue behavior.
-
-Do not optimize the Stream Processor around kernel limitations; optimize the packet-I/O implementation independently.
-
-### Phase D — physical two-host benchmark
-
-Run two dedicated machines. Avoid loopback as the headline result. Use fixed 32-byte messages and MTU-safe batches, with batch 44 / 1408-byte DHMP payload retained as a reference point. Measure offered, received and lost messages separately.
-
-### Phase E — fair TCP comparison
-
-Freeze one harness that can run direct DHMP/IP and raw fixed TCP under equivalent conditions. Alternate test order, run long enough to suppress JIT/scheduler noise, force identical minimal typed observation, and publish medians plus run distributions.
-
-### Phase F — productionization
-
-Only after the real datapath is understood:
-- define direct-IP discovery/addressing/configuration;
-- define capability negotiation;
-- define bounded overload behavior;
-- select standardized security;
-- test MTU/path-MTU behavior without violating the no-fragmentation rule;
-- document NAT/firewall/middlebox deployment constraints;
-- retain TCP/TLS as the broadly deployable compatibility option.
-
-## Performance target versus claim
-
-The research target remains ambitious: investigate whether a direct DHMP datapath can approach the software ceilings and materially outperform the current raw-TCP reference for small fixed-contract Latest traffic.
-
-The earlier ~9x/10x numbers are **engineering targets**, not public network-performance claims. A multiplier becomes a DHMP performance claim only after it is reproduced end-to-end against the same-generation raw-TCP control on equivalent physical hardware.
-
-## Benchmark integrity
-
-Every result must state whether it is:
-- processor/in-memory logical throughput;
-- mock IP framing throughput;
-- kernel/loopback packet throughput;
-- NIC/link throughput; or
-- physical end-to-end application payload throughput.
-
-Never combine those scopes into a single ranking as if they measured the same thing.
+Memory framing, kernel loopback, NIC/link traffic and two-host application payload
+throughput are different measurements. No one is a substitute for another.
+The architectural direction is chosen; superior physical network performance is not yet proven.
