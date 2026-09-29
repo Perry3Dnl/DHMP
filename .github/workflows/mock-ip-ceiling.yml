@@ -23,7 +23,7 @@ jobs:
         run: dotnet build benchmarks/mock-ip-ceiling/Dhmp.MockIpCeiling.csproj -c Release
       - name: Benchmark
         run: |
-          echo "MOCK_IP_CONTRACT=V1 -- in-memory packet boundary, fixed 32-byte DHMP messages, Latest consumes newest complete message"
+          echo "MOCK_IP_CONTRACT=V1 -- sanity run: in-memory packet boundary, fixed 32-byte DHMP messages, Latest consumes newest complete message"
           DLL=benchmarks/mock-ip-ceiling/bin/Release/net10.0/Dhmp.MockIpCeiling.dll
           for i in 1 2 3 4 5; do
             echo "===== MOCK IP RUN $i / 5 ====="
