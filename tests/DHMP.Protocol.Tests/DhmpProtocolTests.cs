@@ -260,7 +260,8 @@ public sealed class DhmpProtocolTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new DhmpReceivePolicy(
-                maximumPayloadBytes: maximumPayloadBytes));
+                DhmpProcessingMode.Sequential,
+                maximumPayloadBytes));
     }
 
     [Fact]
