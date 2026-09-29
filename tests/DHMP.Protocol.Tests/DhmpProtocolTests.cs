@@ -366,6 +366,134 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void AdaptiveRate_HardPressureReducesImmediately()
+    {
+        var controller =
+            new DhmpAdaptiveRateController(
+                maximumMessagesPerSecond: 10_000,
+                minimumMessagesPerSecond: 500);
+
+        int next =
+            controller.ApplyFeedback(
+                new DhmpCongestionFeedback(
+                    DhmpCongestionPressure.Hard,
+                    rateScalePermille: 500,
+                    pendingBatches: 4,
+                    capacity: 4,
+                    lostPendingWork: 10));
+
+        Assert.Equal(5_000, next);
+        Assert.Equal(5_000, controller.CurrentMessagesPerSecond);
+        Assert.Equal(1, controller.DecreaseCount);
+        Assert.Equal(1, controller.FeedbackCount);
+    }
+
+    [Fact]
+    public void AdaptiveRate_NeverDropsBelowLocalMinimum()
+    {
+        var controller =
+            new DhmpAdaptiveRateController(
+                maximumMessagesPerSecond: 1_000,
+                minimumMessagesPerSecond: 200);
+
+        for (int i = 0; i < 10; i++)
+        {
+            controller.ApplyFeedback(
+                new DhmpCongestionFeedback(
+                    DhmpCongestionPressure.Hard,
+                    rateScalePermille: 100,
+                    pendingBatches: 1,
+                    capacity: 1,
+                    lostPendingWork: i + 1));
+        }
+
+        Assert.Equal(
+            200,
+            controller.CurrentMessagesPerSecond);
+    }
+
+    [Fact]
+    public void AdaptiveRate_NoPressureRecoversGraduallyButNotPastMaximum()
+    {
+        var controller =
+            new DhmpAdaptiveRateController(
+                maximumMessagesPerSecond: 1_000,
+                minimumMessagesPerSecond: 100,
+                recoveryPercent: 10);
+
+        controller.ApplyFeedback(
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Hard,
+                500,
+                1,
+                1,
+                1));
+
+        Assert.Equal(
+            500,
+            controller.CurrentMessagesPerSecond);
+
+        int recovered =
+            controller.ApplyFeedback(
+                new DhmpCongestionFeedback(
+                    DhmpCongestionPressure.None,
+                    1000,
+                    0,
+                    1,
+                    1));
+
+        Assert.Equal(550, recovered);
+        Assert.Equal(1, controller.RecoveryCount);
+
+        for (int i = 0; i < 20; i++)
+        {
+            controller.ApplyFeedback(
+                new DhmpCongestionFeedback(
+                    DhmpCongestionPressure.None,
+                    1000,
+                    0,
+                    1,
+                    1));
+        }
+
+        Assert.Equal(
+            1_000,
+            controller.CurrentMessagesPerSecond);
+    }
+
+    [Fact]
+    public void CongestionFeedback_ValidatesEvidenceAndScale()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Soft,
+                99,
+                0,
+                1,
+                0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Soft,
+                750,
+                2,
+                1,
+                0));
+
+        var feedback =
+            new DhmpCongestionFeedback(
+                DhmpCongestionPressure.Soft,
+                750,
+                1,
+                4,
+                12);
+
+        Assert.Equal(
+            (ushort)750,
+            feedback.RateScalePermille);
+    }
+
+    [Fact]
     public void PacketProcessing_AllocatesNothingAfterWarmup()
     {
         var processor = new DhmpPacketProcessor(
