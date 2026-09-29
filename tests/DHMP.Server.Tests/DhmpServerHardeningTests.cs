@@ -121,7 +121,7 @@ public sealed class DhmpServerHardeningTests
         Parallel.For(
             0,
             20_000,
-            _ =>
+            iteration =>
             {
                 DHMPReceiveRegion? region;
 
@@ -145,7 +145,7 @@ public sealed class DhmpServerHardeningTests
 
                 active.TryRemove(
                     region,
-                    out _);
+                    out byte _);
 
                 region.Release();
             });
