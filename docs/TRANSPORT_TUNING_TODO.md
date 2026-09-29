@@ -70,13 +70,20 @@ Do not convert these problems into hidden reliability or unbounded memory growth
 
 ## Phase 4: MTU, pacing and congestion
 
-Add:
+Implemented baseline:
 
-- real path-MTU handling;
-- MTU-aware batch sizing;
-- pacing rather than only a one-second budget window;
+- known IPv6 PMTU -> raw protocol payload calculation;
+- 40-byte IPv6 base-header accounting plus optional extension-header budget;
+- security/envelope subtraction and whole-record alignment;
+- `SocketError.MessageSize` surfaced as `DhmpPathMtuException`;
+- opt-in smooth Pmax pacing.
+
+Still to add:
+
+- dynamic PMTU discovery/ICMPv6 feedback handling;
+- automatic downward/upward path-budget adaptation;
 - congestion/backpressure behavior suitable for direct IP;
-- explicit accounting for future security overhead.
+- real-path validation that fragmentation is avoided.
 
 Normal operation should not depend on IP fragmentation.
 
