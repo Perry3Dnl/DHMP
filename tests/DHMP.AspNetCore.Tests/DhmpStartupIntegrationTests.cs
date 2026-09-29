@@ -15,6 +15,8 @@ public sealed class DhmpStartupIntegrationTests
         using var host = BuildHost(applicationId, issuer.Issue(applicationId), issuer.PublicKey);
 
         await host.StartAsync(TestContext.Current.CancellationToken);
+        Assert.True(host.Services.GetRequiredService<DhmpRuntimeState>().LicenseValidated);
+        Assert.True(host.Services.GetRequiredService<DhmpRuntimeState>().RuntimeActivated);
         await host.StopAsync(TestContext.Current.CancellationToken);
     }
 
