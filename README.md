@@ -37,10 +37,10 @@ Latest or Sequential publication -> typed/application boundary.
 - Invalid or incomplete packets are rejected as a whole.
 - Sequential publishes complete records in receive order.
 - Latest publishes the final record of the received packet.
-- V1 has no cross-packet sequence/freshness field.
+- V1 has no protocol-owned cross-packet sequence field. Optional `DhmpLatestGenerationFilter` can use an application-owned 64-bit generation inside the record to drop stale/duplicate Latest state without adding DHMP bytes.
 - DHMP adds no delivery ACK, retransmission, replay history or hidden reliable queue.
 - Buffer ownership must be explicit across asynchronous boundaries.
-- Pmax is a configured local send budget, not a capacity guarantee or congestion controller.
+- Pmax is local sender policy. `RejectWindow` preserves the hard fixed-window budget; `SmoothPacing` spaces packet submissions over time. Neither is congestion control.
 
 ## What exists today
 
@@ -54,7 +54,9 @@ Latest or Sequential publication -> typed/application boundary.
 | Raw IPv6 kernel experiment | Experimental loopback harness |
 | `DHMP.RawIpv6` Linux backend | Direct data sender/receiver plus Control V1 handshake for a configured peer |
 | Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery/authentication still pending |
-| Reordering/freshness, congestion policy and secure direct-IP profile | Still to specify/build |
+| Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
+| Smooth local pacing | Implemented opt-in Pmax pacing; congestion feedback still pending |
+| Congestion control and secure direct-IP profile | Still to specify/build |
 
 Removing the old transports does **not** mean a production-ready network stack already exists. The repository now intentionally favors a clean protocol boundary over temporary compatibility.
 
