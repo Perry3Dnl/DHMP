@@ -57,8 +57,10 @@ public sealed class DhmpRawIpv6OptionsTests
 
     [Theory]
     [InlineData(0)]
+    [InlineData(6)]
+    [InlineData(17)]
     [InlineData(255)]
-    public void BlockedPath_ReservedProtocolBinding_IsRejected(int protocolNumber)
+    public void BlockedPath_NonExperimentalProtocolBinding_IsRejected(int protocolNumber)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new DhmpRawIpv6Options(
@@ -66,6 +68,18 @@ public sealed class DhmpRawIpv6OptionsTests
                 IPAddress.IPv6Loopback,
                 1408,
                 (byte)protocolNumber));
+    }
+
+    [Fact]
+    public void HappyPath_AlternateExperimentalProtocolBinding_IsAccepted()
+    {
+        var options = new DhmpRawIpv6Options(
+            IPAddress.IPv6Loopback,
+            IPAddress.IPv6Loopback,
+            1408,
+            protocolNumber: 254);
+
+        Assert.Equal(254, options.ProtocolNumber);
     }
 
     [Fact]
