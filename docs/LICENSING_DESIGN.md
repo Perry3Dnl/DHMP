@@ -37,14 +37,18 @@ A commercial application license becomes relevant when software using the offici
 
 Licensing is product/application-centric.
 
-One application license applies to one licensed application. It is not multiplied by:
+Commercial licensing and technical keys are separate concepts.
+
+A commercial license may cover one or more deployable applications according to the commercial terms. The technical runtime, however, uses **one key per ApplicationId**.
+
+A single deployable application may run on any legitimate number of machines/instances under the same ApplicationId/key. It is not multiplied by:
 
 - number of developers;
 - number of development machines;
 - number of end users;
-- number of running instances;
-- sender versus receiver role;
-- client versus server role when both are components of the same licensed product.
+- number of running instances.
+
+A client application and a separate server application normally have different ApplicationIds and therefore require separate keys, even when the commercial license or subscription groups them as one product.
 
 The intended rule is:
 
@@ -92,7 +96,7 @@ DHMP Licensing
        |
        +-- verify signature
        |
-       +-- verify application identity
+       +-- verify signed ApplicationId/key binding
        |
        +-- optional cached/online status
        |
@@ -113,35 +117,24 @@ A production license is a signed data object. Version 1 should contain at least:
 
 ```text
 LicenseVersion
-LicenseId
+KeyId
 ApplicationId
-ApplicationName
-Licensee
-Tier
 IssuedAt
-[optional validity/subscription fields]
+[optional validity/status fields]
 Signature
 ```
 
-### LicenseId
+### KeyId
 
-A globally unique, cryptographically random identifier for the issued license. It MUST NOT depend on a simple sequential public number for security.
+A globally unique identifier for the issued runtime key. It MUST NOT depend on a simple sequential public number for security.
 
 ### ApplicationId
 
-A stable identifier assigned to one licensed application/product. This is the primary machine-readable binding between the license and the application.
+A stable identifier for exactly one deployable application identity. The signed key is bound to this ApplicationId.
 
-### ApplicationName
+ApplicationId is the runtime identity boundary. Human-readable application names, process names, executable names, assembly names, company names, pricing tiers, and commercial product groupings are not part of offline identity validation.
 
-The human-recognizable application/game name. The runtime may compare this with configured and/or runtime application identity as an additional lightweight anti-sharing check.
-
-### Licensee
-
-The legal person or organization to whom the application license was issued.
-
-### Tier
-
-The commercial tier under which the application is licensed. Tier is licensing metadata and MUST NOT alter protocol interoperability unless a future commercial policy explicitly introduces separately licensed implementation features.
+The licensing website/account system may store friendly application names and commercial metadata for management purposes, but those fields are control-plane/account data rather than runtime trust inputs.
 
 ## 6. Offline-first verification
 
@@ -210,37 +203,48 @@ Before implementation, DHMP Licensing v1 must define one canonical representatio
 
 A license parser must reject ambiguous, malformed, unsupported, or duplicate representations rather than guessing.
 
-## 8. Application identity check
+## 8. Startup key registration and ApplicationId validation
 
-The application identity check is intentionally a lightweight anti-sharing measure rather than strong DRM.
+The official .NET integration should register the key once during application startup.
 
-At startup the verifier should compare the signed license identity with the identity configured by the application.
+Target developer experience:
 
-Minimum comparison:
-
-```text
-license.ApplicationId   == application.ApplicationId
-license.ApplicationName == application.ApplicationName
+```csharp
+builder.Services.AddDHMP(key);
 ```
 
-Where useful, the .NET implementation may additionally inspect assembly/process metadata. Such metadata is supplementary; it must not replace the stable ApplicationId.
+or an equivalent overload/configuration API if both ApplicationId and key must be supplied explicitly.
 
-Example:
+During `AddDHMP(...)` / DHMP startup, the licensing component performs the offline check before the DHMP runtime becomes active.
+
+The minimum offline validation is:
 
 ```text
-License:
-  ApplicationId   = 7a92...
-  ApplicationName = CookieClicker
-
-Runtime:
-  ApplicationId   = 7a92...
-  ApplicationName = Battlefield
-
-Result:
-  APPLICATION_MISMATCH
+1. parse key
+2. verify cryptographic signature with trusted DHMP public key
+3. obtain signed ApplicationId
+4. verify that the key is valid for the configured ApplicationId
+5. establish runtime license state
+6. start DHMP
 ```
 
-Renaming or modifying a program may eventually bypass local identity checks if the developer controls the executable. Preventing that at all costs is explicitly not a goal.
+There is deliberately **no process-name, executable-name, assembly-name, or ApplicationName comparison**.
+
+A key issued for ApplicationId A must not validate for ApplicationId B.
+
+Example deployment:
+
+```text
+Game client
+  ApplicationId = APP-CLIENT-123
+  Key           = key signed for APP-CLIENT-123
+
+Dedicated server
+  ApplicationId = APP-SERVER-456
+  Key           = key signed for APP-SERVER-456
+```
+
+These require two technical keys. Whether both keys are included in one commercial product license/subscription is a separate business decision and MUST NOT be encoded into the protocol or offline verifier.
 
 ## 9. Development mode
 
@@ -348,13 +352,13 @@ The .NET implementation must include automated tests for at least:
 1. valid signed license;
 2. invalid signature;
 3. modified signed payload;
-4. wrong ApplicationId;
-5. wrong ApplicationName;
-6. malformed license;
-7. unsupported license version;
-8. missing license under each supported runtime policy;
-9. development-mode behavior;
-10. expired license if expiry is adopted;
+4. key used with the wrong ApplicationId;
+5. malformed key;
+6. unsupported key/license format version;
+7. missing key under each supported runtime policy;
+8. development-mode behavior;
+9. separate client/server ApplicationIds require their respective keys;
+10. expired key/status if expiry is adopted;
 11. revoked status when online validation is implemented;
 12. licensing-service outage/grace behavior when online validation is implemented;
 13. proof that no private production signing key is present in distributed artifacts.
@@ -376,10 +380,11 @@ Production private keys must be backed up and protected separately from source c
 A future licensing database will likely need:
 
 ```text
-LicenseId
+AccountId / customer reference
 ApplicationId
-ApplicationName
-Licensee / customer reference
+Friendly application name
+KeyId
+Commercial license/subscription reference
 Tier
 Issue date
 Current status
@@ -437,8 +442,8 @@ When the .NET implementation is ready, licensing should be added in this order:
 3. create test-only issuer/signing utilities;
 4. implement license parser;
 5. implement offline signature verifier;
-6. implement ApplicationId/ApplicationName verification;
-7. integrate one startup validation point;
+6. implement strict ApplicationId/key verification with no application-name check;
+7. integrate validation into the AddDHMP(key) startup path;
 8. add negative/tampering tests;
 9. verify zero steady-state hot-path interaction;
 10. design production issuer/key storage separately;
