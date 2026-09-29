@@ -1,59 +1,80 @@
 # Authoritative direction: DHMP directly over IP
 
-Decision updated 2026-09-29. This document and AGENTS.md supersede the earlier
-compatibility/byte-stream architecture.
+Decision updated 2026-09-29.
+
+This document, [WIRE_CONTRACT_V1.md](WIRE_CONTRACT_V1.md) and `AGENTS.md` supersede the older compatibility/byte-stream architecture.
 
 ## Decision
 
-DHMP is its own packet layer directly over IP, with IPv6 as the current research target.
-TCP, UDP, HTTP, QUIC, WebSocket, gRPC and TLS-stream adapters are not active project
-paths or fallbacks. Their earlier code and measurements remain only in git history.
+DHMP is its own packet protocol directly over IP, with IPv6 as the current implementation target.
 
-The project manages its fixed contract, packet batching, bounded buffers, ownership,
-Latest/Sequential publication and send budget. IP, kernel packet I/O, drivers and NICs
-remain distinct lower layers; this project does not claim to have replaced those layers.
+The active project does not use TCP, UDP, HTTP, QUIC, WebSocket, gRPC or TLS-stream transports as DHMP data-plane implementations or fallbacks.
+
+Historical code and measurements remain in git history only.
+
+## V1 data-plane decision
+
+The V1 DHMP data payload is headerless.
+
+A received DHMP payload contains only one or more complete fixed-size application records. DHMP adds no packet header, per-record header, separator or trailer in V1.
+
+The session contract supplies the information that is intentionally not repeated in every packet:
+
+- protocol version;
+- record size;
+- Sequential/Latest mode;
+- Pmax;
+- maximum packet payload.
+
+The current IPv6 research binding uses Next Header `253`. It is experimental, not a permanent protocol assignment.
 
 ## Required boundaries
 
-1. A direct-IP backend delivers a complete packet payload and its session/peer context.
-2. The fixed-contract processor rejects invalid lengths before publishing any records.
-3. A valid packet contains an integer number of whole messages within its configured MTU budget.
-4. The processor publishes a borrowed batch; consumers finish before returning or acquire
-   explicit ownership elsewhere before asynchronous use.
-5. Application processing stays outside the payload-opaque protocol core.
+1. A direct-IP backend identifies the peer/path/session and delivers one complete DHMP payload.
+2. The session contract is established before data-plane processing.
+3. The fixed-contract processor validates the complete received payload before publication.
+4. A valid payload contains an integer number of whole records within its session packet budget.
+5. No record spans two IP packets.
+6. The processor publishes borrowed data synchronously unless ownership is explicitly transferred elsewhere.
+7. Application schema/model processing remains outside the payload-opaque protocol core.
 
-No partial-message carry exists between IP packets. No retransmission, ACK, replay or
-implicit reliable queue is introduced.
+No partial-message carry, ACK, retransmission, replay history or implicit reliable queue is introduced.
 
 ## Implemented versus pending
 
-The repository implements the packet-processing boundary and client/server facades.
-The client requires an explicitly supplied IDhmpPacketSender; there is no default network
-backend. The server facade accepts already-delivered packets; it is not a listening service.
-The mock-IP experiments and raw IPv6 kernel harness are research tools.
+Implemented:
 
-Production packet I/O, session discovery/negotiation, peer validation, sequence/freshness
-policy, real path-MTU handling, congestion behavior and a reviewed secure packet profile
-remain work items. Removing legacy transports is not evidence that these are complete.
+- headerless fixed-record packet validation;
+- Sequential and packet-local Latest publication;
+- explicit `DhmpSessionContract`;
+- explicit outbound `IDhmpPacketSender` boundary;
+- client/server protocol facades;
+- offline licensing/host startup integration;
+- raw/mock IP research harnesses;
+- architecture checks preventing legacy transport restoration.
 
-Latest currently chooses the final record inside one received packet. It must not be
-described as newest-by-generation across reordered packets until the wire/session policy
-for that is defined. Sequential currently preserves arrival order, not original sender order.
+Pending:
+
+- production direct-IPv6 packet I/O;
+- peer/path binding;
+- session discovery and negotiation;
+- bounded asynchronous packet-buffer ownership;
+- path-MTU behavior;
+- cross-packet freshness/reordering policy;
+- pacing/congestion behavior;
+- reviewed production security.
+
+Removing the legacy transports is not evidence that these pending pieces already exist.
 
 ## Work order
 
-1. Keep the active packet core small, validated and allocation-free for borrowed publication.
-2. Define the direct-IP session and bounded packet-buffer ownership interfaces.
-3. Implement the direct IPv6 backend and explicitly validate OS receive behavior.
-4. Validate malformed packets, overload, loss, duplicates, reordering, shutdown and buffer reuse.
-5. Measure kernel costs; then driver/NIC behavior and two physical endpoints.
-6. Specify and evaluate a standard reviewed security mechanism for the direct packet path.
+1. Build the production direct-IPv6 send/receive backend around the V1 headerless payload contract.
+2. Define peer/path binding and control-plane session establishment.
+3. Add bounded packet-buffer ownership for asynchronous I/O.
+4. Define overload, loss, duplicate and reordering behavior.
+5. Add MTU/path handling and pacing/congestion policy.
+6. Specify and evaluate a reviewed direct-packet security profile.
+7. Validate kernel, NIC and two-physical-host behavior.
+8. Optimize only after the actual direct-IP path is measurable.
 
-Existing mock-IP contracts remain frozen. Header-template and other optimizations get a
-separate A/B harness; previous evidence is not silently rewritten.
-
-## Measurement scope
-
-Memory framing, kernel loopback, NIC/link traffic and two-host application payload
-throughput are different measurements. No one is a substitute for another.
-The architectural direction is chosen; superior physical network performance is not yet proven.
+Existing benchmark evidence remains historically valid only for the scope it measured. It must not be relabeled as production direct-IP performance.
