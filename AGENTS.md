@@ -15,12 +15,14 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 - Reject empty, incomplete and oversized packet payloads.
 - Keep control-plane state out of the hot data packet unless a later wire version explicitly defines otherwise.
 - Control V1 may validate compatibility/capabilities for a configured peer but must never be described as authentication.
+- The separate PSK security profile may authenticate possession of the configured shared key. Do not describe it as forward-secret or independently reviewed.
 - The current raw IPv6 experimental profile reserves protocol / Next Header 253 for headerless data and 254 for control. Treat both as experimental, not permanent assignments.
 
 ## Architecture boundaries
 
 - Use `DhmpWireContract` for protocol compatibility. Keep `DhmpSendPolicy` and `DhmpReceivePolicy` local to endpoints; do not merge them back into wire identity.
-- Keep direct-IP packet I/O, session establishment, packet processing, storage ownership and application execution separate.
+- Keep direct-IP packet I/O, session establishment, packet protection, packet processing, storage ownership and application execution separate.
+- Base V1 stays headerless. Security overhead belongs only to an explicitly selected security profile and must be accounted for separately.
 - Batch publication and bounded memory are the baseline.
 - No per-message allocation or synchronization in the framing core.
 - Do not remove real cross-thread ownership protection merely to improve a benchmark.
