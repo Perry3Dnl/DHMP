@@ -7,10 +7,12 @@ namespace DHMP.AspNetCore;
 internal sealed class DhmpLicenseStartupGate : IHostedService
 {
     private readonly DhmpOptions _options;
+    private readonly DhmpRuntimeState _state;
 
-    public DhmpLicenseStartupGate(IOptions<DhmpOptions> options)
+    public DhmpLicenseStartupGate(IOptions<DhmpOptions> options, DhmpRuntimeState state)
     {
         _options = options.Value;
+        _state = state;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -27,8 +29,13 @@ internal sealed class DhmpLicenseStartupGate : IHostedService
         if (!result.IsValid)
             throw new DhmpLicenseException(result.Status);
 
+        _state.LicenseValidated = true;
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        _state.LicenseValidated = false;
+        return Task.CompletedTask;
+    }
 }
