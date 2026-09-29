@@ -25,7 +25,20 @@ A conforming V1 data-plane implementation must:
 - keep storage alive until the local consumer/send operation releases ownership;
 - use a reviewed security design before advertising a secure DHMP mode.
 
-For the current raw IPv6 research path, Next Header `253` is an experimental binding only.
+For the current raw IPv6 experimental profile, protocol / Next Header 253 carries data and 254 carries control. Neither is a permanent assignment.
+
+## Control-plane behavior
+
+A conforming implementation of the current Control V1 profile must:
+
+- use the fixed 32-byte control format;
+- keep control metadata off the V1 data payload;
+- preserve HELLO correlation IDs in ACCEPT/REJECT responses;
+- reject incompatible wire version, record size or schema UUID;
+- advertise a receive capability that can hold at least one complete record;
+- not describe successful compatibility negotiation as authentication.
+
+Pmax and Sequential/Latest are local policy and must not be treated as wire compatibility requirements.
 
 ## Application-schema compatibility
 
@@ -48,6 +61,6 @@ The compatibility designation is separate from any commercial implementation lic
 
 ## Current automated coverage
 
-The repository contains prototype coverage for packet/record sizes, Sequential/Latest behavior, malformed packets, no cross-packet carry, borrowed storage, callback failures, send-budget rejection, cancellation, sender integration, typed boundaries and startup license gates.
+The repository contains prototype coverage for packet/record sizes, Sequential/Latest behavior, malformed packets, no cross-packet carry, borrowed storage, callback failures, send-budget rejection, cancellation, sender integration, control codec/negotiation behavior, typed boundaries and startup license gates.
 
 Production raw-IP behavior, independent cross-language interoperability, security and physical-network validation remain additional gates.
