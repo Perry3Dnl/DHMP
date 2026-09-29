@@ -1,60 +1,103 @@
-# DHMP direct-IP packet draft
+# DHMP protocol design notes
 
-Updated 2026-09-29. Working design, not a frozen interoperability specification.
-[The direct-IP decision](DIRECT_TRANSPORT_DIRECTION.md) is authoritative.
+Updated 2026-09-29.
 
-## Packet contract
+The active V1 data-plane contract is defined in [WIRE_CONTRACT_V1.md](WIRE_CONTRACT_V1.md).
+The architectural direction is defined in [DIRECT_TRANSPORT_DIRECTION.md](DIRECT_TRANSPORT_DIRECTION.md).
 
-A preconfigured session currently supplies a positive message size, a positive Pmax and
-a maximum packet payload size. Every incoming IP payload must be nonempty, within that
-limit and an exact multiple of the message size. Validate the entire length before publishing.
+This file tracks protocol work that is deliberately not yet part of the V1 wire contract.
 
-The payload is a contiguous batch of fixed-layout messages. No per-message length field
-is required once the contract is known. An application message must fit in one packet.
-Invalid or truncated packets are rejected in full; no bytes are saved for the next packet.
+## Frozen for the current V1 build direction
 
-The default prototype payload limit, 1408 bytes, is a lab setting for 44 records of 32 bytes,
-not a universally valid path-MTU limit. The backend must account for all IP and security
-overhead and must reject any packet that would exceed the actual configured path limit.
+- DHMP runs directly over IP; IPv6 is the current implementation target.
+- The data payload is headerless: only complete fixed-size records are present.
+- A packet contains one or more whole records.
+- Partial record bytes are never carried into another packet.
+- Sequential and Latest are receive/publication policies, not reliability modes.
+- No ACK, retransmission, replay history or hidden reliable queue is introduced.
+- The protocol core treats application record bytes as opaque.
+- Session state is explicit and represented in .NET by `DhmpSessionContract`.
 
-## Session metadata is not finished
+## Session/control plane still to design
 
-Session identity, versioning, negotiation, peer association, record schema and byte order,
-freshness metadata and the final secure wire format are not yet frozen.
-Current tests supply a matching contract directly at both ends; they do not implement a handshake.
-Do not infer that the final packet needs no session/security metadata merely because record
-length is fixed. Headerless refers to avoiding repeated per-message metadata where possible.
+The V1 data plane assumes that both peers already possess the same session contract.
 
-## Publication semantics
+The future control plane must define how peers establish or reject at least:
 
-Sequential publishes all complete records received in the packet, in arrival order. It
-does not guarantee delivery, uniqueness or sender order across the network.
+- protocol version;
+- fixed record size;
+- publication mode;
+- packet payload limit;
+- Pmax/pacing policy;
+- peer/path association;
+- application schema identifier if one is required;
+- security profile and key material.
 
-Latest publishes the packet's final complete record. Global newest-state selection across
-packet reordering requires session/freshness rules that are still to be defined. Keep the
-bounded Ring-3 newest-state handoff as a candidate, not a claim that it is already integrated.
+Negotiation must stay outside the hot record-processing path. It must not make the data plane depend on a stream transport.
 
-## Sending and overload
+## Protocol identification
 
-The sender validates a whole message or batch before forwarding it to an explicit direct-IP
-backend. Pmax counts logical messages, not packets. A batch consumes its whole budget or
-is rejected; rejection does not create a queue. The current fixed one-second window is a
-prototype local budget, not smooth pacing or network congestion control. Production work
-must address those concerns without adding delivery recovery.
+The current raw IPv6 experiments use Next Header `253` for research.
 
-No per-message ACKs, retransmission, replay history or application-message reassembly.
-Packet loss, duplicates and reordering must be handled according to the selected application
-semantics; they must not silently turn into a reliable transport.
+That value is experimental and must remain configurable in backend work. A permanent protocol-number strategy is a separate standards/deployment concern and must not be implied by the prototype constant.
 
-## Memory and failure contract
+## Freshness and ordering
 
-Callbacks borrow spans only for the duration of the call. Async consumers must obtain
-explicit ownership or copy at that boundary. A send buffer remains valid until SendPacketAsync
-completes; completion indicates release of local buffer use, not remote delivery.
-Exceptions propagate and there is no implicit retry. A failed send retains its reserved budget.
+DHMP V1 deliberately has no protocol-owned sequence number or timestamp in each data packet.
+
+Consequences:
+
+- Sequential can preserve received arrival order, not original send order after network reordering.
+- Latest can choose the last record inside one received packet, but cannot prove that a later-arriving packet was generated later.
+
+If protocol-owned cross-packet freshness becomes necessary, it requires an explicit versioned wire-format change. It must not be added invisibly to V1.
+
+An application may include its own generation field inside its fixed record schema without changing DHMP V1.
+
+## MTU and packet sizing
+
+`MaxPacketPayloadBytes` is the maximum DHMP data payload for a session, not the full IP packet size.
+
+The direct-IP backend must account for IPv6 and future security overhead. Production operation should avoid relying on IP fragmentation as a normal mechanism.
+
+Automatic path-MTU discovery/response is not implemented yet.
+
+## Pacing and congestion
+
+The current `DhmpPmaxBudget` is only a fixed local one-second logical-message budget.
+
+It is not:
+
+- smooth pacing;
+- congestion control;
+- receiver feedback;
+- fairness;
+- a network-capacity measurement.
+
+A direct-IP deployment needs a bounded pacing/congestion policy before production use on shared networks.
+
+## Ownership and overload
+
+The hot receive callback borrows the supplied span synchronously.
+
+Future packet I/O must use bounded buffer ownership across asynchronous boundaries. Overload policy must be explicit and mode-aware rather than growing an unbounded queue.
+
+Likely direction:
+
+- Latest may replace obsolete queued state;
+- Sequential requires a bounded queue or explicit rejection/drop behavior;
+- neither mode silently becomes reliable delivery.
 
 ## Security
 
-No production secure profile is implemented. Select a standard, reviewed mechanism suitable
-for the direct packet path. Do not invent cryptography, advertise an unimplemented secure mode,
-or reintroduce a stream transport as an implicit security fallback.
+No production secure profile exists yet.
+
+The eventual design must use a reviewed mechanism suitable for direct packets. Security framing, nonce/counter requirements and authentication failure behavior must be versioned explicitly.
+
+Do not solve security by restoring an implicit stream transport underneath DHMP.
+
+## Interoperability target
+
+The protocol definition must remain implementable without the .NET packages.
+
+A conforming Rust, C, C++, Go, kernel or hardware implementation should need the protocol/session specification and application record schema, not DHMP's .NET runtime internals.
