@@ -27,8 +27,10 @@ public sealed class DhmpRawIpv6Options
             throw new ArgumentException("DHMP raw IPv6 requires native IPv6 addresses.");
         if (maximumPayloadBytes <= 0 || maximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(maximumPayloadBytes));
-        if (protocolNumber == 0 || protocolNumber == byte.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(protocolNumber));
+        if (protocolNumber is not 253 and not 254)
+            throw new ArgumentOutOfRangeException(
+                nameof(protocolNumber),
+                "Until DHMP has a permanent assignment, raw IPv6 bindings are restricted to experimental protocol numbers 253 or 254.");
         if (socketBufferBytes < maximumPayloadBytes)
             throw new ArgumentOutOfRangeException(nameof(socketBufferBytes));
 
