@@ -18,7 +18,7 @@ A conforming V1 data-plane implementation must:
 - reject empty, incomplete and oversized payloads;
 - never reconstruct a record by joining separate IP packets;
 - correctly interpret the declared V1 wire version and fixed record size;
-- avoid claiming delivery, uniqueness, sender ordering or cross-packet freshness that V1 does not provide;
+- avoid claiming delivery, uniqueness or sender ordering that V1 does not provide; any cross-packet freshness claim must identify the application-owned generation/profile used;
 - keep memory and pending work bounded;
 - keep any local send budget and receive publication policy separate from wire compatibility;
 - add no delivery ACK, replay, retransmission or automatic recovery semantics;
@@ -61,6 +61,6 @@ The compatibility designation is separate from any commercial implementation lic
 
 ## Current automated coverage
 
-The repository contains prototype coverage for packet/record sizes, Sequential/Latest behavior, malformed packets, no cross-packet carry, borrowed storage, callback failures, send-budget rejection, cancellation, sender integration, control codec/negotiation behavior, typed boundaries and startup license gates.
+The repository contains prototype coverage for packet/record sizes, Sequential/Latest behavior, schema-owned cross-packet generation filtering including wraparound, malformed packets, no cross-packet carry, borrowed storage, callback failures, reject-window and smooth-pacing behavior, cancellation, sender integration, control codec/negotiation behavior, typed boundaries and startup license gates.
 
 Production raw-IP behavior, independent cross-language interoperability, security and physical-network validation remain additional gates.
