@@ -71,11 +71,13 @@ static void Run(int messages, int batch, bool print)
     double seconds =
         (double)ticks / Stopwatch.Frequency;
 
+    long logicalBytes = (long)messages * RecordSize;
+
     Console.WriteLine(
         $"DIRECT_IP_CORE_CURRENT_V1 batch={batch} payload_bytes={packetBytes} " +
         $"messages={messages} packets={packets} wall_s={seconds:F6} " +
         $"logical_mps={messages / seconds / 1e6:F3} " +
-        $"logical_GBps={messages * RecordSize / seconds / 1e9:F3} " +
+        $"logical_GBps={logicalBytes / seconds / 1e9:F3} " +
         $"ns_msg={seconds * 1e9 / messages:F3} " +
         $"ns_packet={seconds * 1e9 / packets:F3} guard={guard}");
 }
