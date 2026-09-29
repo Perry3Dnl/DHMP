@@ -55,8 +55,8 @@ jobs:
           git rev-parse HEAD >> carry-results/environment.txt
           echo 'baseline=213e39825174384b5c92c80066b63164231949dd TieredCompilation=0' >> carry-results/environment.txt
           for profile in receive fragmented; do
-            passes=1000
-            if [[ "$profile" == fragmented ]]; then passes=10; fi
+            passes=50000
+            if [[ "$profile" == fragmented ]]; then passes=100; fi
             for run in 1 2 3 4 5; do
               variants=(baseline current)
               if (( run % 2 == 0 )); then variants=(current baseline); fi
