@@ -474,6 +474,65 @@ public sealed class DhmpSecurityHardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_InvalidAuthenticatedControlObjectsAreRejectedBeforeEncoding()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                1,
+                KeyBytes());
+
+        using var session =
+            new DhmpPskChaCha20Poly1305Session(
+                key,
+                SessionId,
+                DhmpSecurityRole.Initiator);
+
+        Assert.Throws<ArgumentException>(() =>
+            session.EncodeCongestionFeedback(
+                default,
+                new byte[
+                    DhmpPskChaCha20Poly1305Session
+                        .CongestionFeedbackPacketSize]));
+
+        Assert.Throws<ArgumentException>(() =>
+            session.EncodePathProbe(
+                default,
+                new byte[
+                    DhmpPskChaCha20Poly1305Session
+                        .PathProbePacketSize]));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpPathProbeMessage(
+                (DhmpPathProbeType)99,
+                1,
+                1,
+                0,
+                0,
+                0,
+                0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpPathProbeMessage(
+                DhmpPathProbeType.Request,
+                0,
+                1,
+                0,
+                0,
+                0,
+                0));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpPathProbeMessage(
+                DhmpPathProbeType.Request,
+                1,
+                0,
+                0,
+                0,
+                0,
+                0));
+    }
+
+    [Fact]
     public void CriticalFlow_DisposedSessionRejectsDataAndControlOperations()
     {
         using var key =
