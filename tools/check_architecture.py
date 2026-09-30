@@ -84,7 +84,7 @@ for required in sorted(required_paths):
         errors.append(f"Required standalone protocol file missing: {required}")
 
 forbidden = re.compile(
-    r"\b(?:TcpClient|TcpListener|UdpClient|NetworkStream|SslStream|HttpClient|HttpListener|"
+    r"\b(?:TcpClient|TcpListener|UdpClient|NetworkStream|SslStream|HttpListener|"
     r"WebSocket|QuicConnection|DHMPFixedStreamProcessor|DhmpFixedFrameReader|" 
     r"DhmpSessionContract|DhmpFixedContract|ExperimentalIpv6NextHeader)\b"
     r"|\bSocketType\s*\.\s*(?:Stream|Dgram)\b"
@@ -96,6 +96,8 @@ for file in files:
 
     if file.suffix == ".cs":
         text = file.read_text(encoding="utf-8-sig")
+        if re.search(r"\bHttpClient\b", text) and relative not in {"src/DHMP.AspNetCore/Api/DhmpApiHttpMessageHandler.cs", "tests/DHMP.AspNetCore.Tests/DhmpApiIntegrationTests.cs"}:
+            errors.append(f"HTTP client outside the explicit API application facade in {relative}")
         if forbidden.search(text):
             errors.append(f"Legacy transport/stream implementation in {relative}")
         if re.search(r"\b(?:namespace|using)\s+Dhmp\.", text):
@@ -168,3 +170,4 @@ if errors:
     sys.exit(1)
 
 print("PASS: standalone direct-IP boundary, headerless V1 contract, canonical projects and local references")
+
