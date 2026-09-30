@@ -4,139 +4,97 @@ using DHMP.Security;
 namespace DHMP.RawIpv6;
 
 /// <summary>
-/// Authenticated PSK security setup over DHMP control protocol 254.
-/// This runs after/beside compatibility negotiation for an already configured peer.
+/// Bounded one-shot PSK setup over experimental control protocol 254.
+/// Initiator attempts use fresh session IDs; no control retransmission is performed.
 /// </summary>
 public static class DhmpRawIpv6SecurityHandshake
 {
-    public static async Task<DhmpPskChaCha20Poly1305Session> InitiateAsync(
-        DhmpRawIpv6Options options,
-        DhmpPreSharedKey preSharedKey,
+    public static Task<DhmpPskChaCha20Poly1305Session> InitiateAsync(
+        DhmpRawIpv6Options options, DhmpPreSharedKey preSharedKey,
+        CancellationToken cancellationToken = default)
+        => InitiateCoreAsync(options, preSharedKey,
+            () => new DhmpRawIpv6ControlChannel(options), TimeProvider.System, cancellationToken);
+
+    public static Task<DhmpPskChaCha20Poly1305Session> RespondOnceAsync(
+        DhmpRawIpv6Options options, DhmpPreSharedKey preSharedKey,
+        CancellationToken cancellationToken = default)
+        => RespondCoreAsync(options, preSharedKey,
+            () => new DhmpRawIpv6ControlChannel(options), TimeProvider.System, cancellationToken);
+
+    internal static async Task<DhmpPskChaCha20Poly1305Session> InitiateCoreAsync(
+        DhmpRawIpv6Options options, DhmpPreSharedKey preSharedKey,
+        Func<IDhmpControlPacketChannel> channelFactory, TimeProvider timeProvider,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(preSharedKey);
-
         Guid sessionId = Guid.NewGuid();
+        uint correlationId = checked((uint)RandomNumberGenerator.GetInt32(1, int.MaxValue));
+        var offer = new DhmpSecurityControlMessage(DhmpSecurityControlType.Offer,
+            DhmpSecuritySuite.PskChaCha20Poly1305HkdfSha256, sessionId, preSharedKey.KeyId, correlationId);
 
-        uint correlationId =
-            checked((uint)RandomNumberGenerator.GetInt32(
-                1,
-                int.MaxValue));
+        return await DhmpHandshakeDeadline.RunAsync(options.HandshakeTimeout, timeProvider,
+            cancellationToken, async token =>
+            {
+                token.ThrowIfCancellationRequested();
+                byte[] packet = new byte[DhmpSecurityControlCodec.PacketSize];
+                DhmpSecurityControlCodec.Encode(offer, preSharedKey, packet);
+                using var channel = channelFactory();
+                await channel.SendPacketAsync(packet, token).ConfigureAwait(false);
 
-        var offer =
-            new DhmpSecurityControlMessage(
-                DhmpSecurityControlType.Offer,
-                DhmpSecuritySuite.PskChaCha20Poly1305HkdfSha256,
-                sessionId,
-                preSharedKey.KeyId,
-                correlationId);
+                var response = await ReceiveAsync(channel, packet, preSharedKey, token).ConfigureAwait(false);
+                if (response.CorrelationId != correlationId || response.SessionId != sessionId ||
+                    response.KeyId != preSharedKey.KeyId)
+                    throw new DhmpSecurityException(
+                        "DHMP security response does not match the outstanding session offer.");
+                if (response.Type == DhmpSecurityControlType.Reject)
+                    throw new DhmpSecurityException($"DHMP security setup rejected: {response.RejectReason}.");
+                if (response.Type != DhmpSecurityControlType.Accept)
+                    throw new DhmpSecurityException("Expected authenticated DHMP security ACCEPT or REJECT.");
 
-        byte[] packet =
-            new byte[DhmpSecurityControlCodec.PacketSize];
-
-        DhmpSecurityControlCodec.Encode(
-            offer,
-            preSharedKey,
-            packet);
-
-        using var channel =
-            new DhmpRawIpv6ControlChannel(options);
-
-        await channel.SendPacketAsync(
-            packet,
-            cancellationToken).ConfigureAwait(false);
-
-        byte[] responsePacket =
-            new byte[DhmpSecurityControlCodec.PacketSize];
-
-        int received =
-            await channel.ReceivePacketAsync(
-                responsePacket,
-                cancellationToken).ConfigureAwait(false);
-
-        if (received != responsePacket.Length ||
-            !DhmpSecurityControlCodec.TryDecode(
-                responsePacket,
-                preSharedKey,
-                out var response))
-            throw new DhmpSecurityException(
-                "DHMP security response failed PSK authentication or format validation.");
-
-        if (response.CorrelationId != correlationId ||
-            response.SessionId != sessionId ||
-            response.KeyId != preSharedKey.KeyId)
-            throw new DhmpSecurityException(
-                "DHMP security response does not match the outstanding session offer.");
-
-        if (response.Type == DhmpSecurityControlType.Reject)
-            throw new DhmpSecurityException(
-                $"DHMP security setup rejected: {response.RejectReason}.");
-
-        if (response.Type != DhmpSecurityControlType.Accept)
-            throw new DhmpSecurityException(
-                "Expected authenticated DHMP security ACCEPT or REJECT.");
-
-        return new DhmpPskChaCha20Poly1305Session(
-            preSharedKey,
-            sessionId,
-            DhmpSecurityRole.Initiator);
+                token.ThrowIfCancellationRequested();
+                return new DhmpPskChaCha20Poly1305Session(preSharedKey, sessionId, DhmpSecurityRole.Initiator);
+            }).ConfigureAwait(false);
     }
 
-    public static async Task<DhmpPskChaCha20Poly1305Session> RespondOnceAsync(
-        DhmpRawIpv6Options options,
-        DhmpPreSharedKey preSharedKey,
+    internal static async Task<DhmpPskChaCha20Poly1305Session> RespondCoreAsync(
+        DhmpRawIpv6Options options, DhmpPreSharedKey preSharedKey,
+        Func<IDhmpControlPacketChannel> channelFactory, TimeProvider timeProvider,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(preSharedKey);
 
-        using var channel =
-            new DhmpRawIpv6ControlChannel(options);
+        return await DhmpHandshakeDeadline.RunAsync(options.HandshakeTimeout, timeProvider,
+            cancellationToken, async token =>
+            {
+                token.ThrowIfCancellationRequested();
+                using var channel = channelFactory();
+                byte[] packet = new byte[DhmpSecurityControlCodec.PacketSize];
+                var offer = await ReceiveAsync(channel, packet, preSharedKey, token).ConfigureAwait(false);
+                if (offer.Type != DhmpSecurityControlType.Offer)
+                    throw new DhmpSecurityException("Expected an authenticated DHMP security OFFER.");
 
-        byte[] offerPacket =
-            new byte[DhmpSecurityControlCodec.PacketSize];
+                var accept = new DhmpSecurityControlMessage(DhmpSecurityControlType.Accept,
+                    offer.Suite, offer.SessionId, preSharedKey.KeyId, offer.CorrelationId);
+                DhmpSecurityControlCodec.Encode(accept, preSharedKey, packet);
+                await channel.SendPacketAsync(packet, token).ConfigureAwait(false);
 
-        int received =
-            await channel.ReceivePacketAsync(
-                offerPacket,
-                cancellationToken).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                return new DhmpPskChaCha20Poly1305Session(
+                    preSharedKey, offer.SessionId, DhmpSecurityRole.Responder);
+            }).ConfigureAwait(false);
+    }
 
-        if (received != offerPacket.Length ||
-            !DhmpSecurityControlCodec.TryDecode(
-                offerPacket,
-                preSharedKey,
-                out var offer))
+    private static async ValueTask<DhmpSecurityControlMessage> ReceiveAsync(
+        IDhmpControlPacketChannel channel, Memory<byte> packet,
+        DhmpPreSharedKey preSharedKey, CancellationToken token)
+    {
+        int received = await channel.ReceivePacketAsync(packet, token).ConfigureAwait(false);
+        if (received != packet.Length ||
+            !DhmpSecurityControlCodec.TryDecode(packet.Span, preSharedKey, out var message))
             throw new DhmpSecurityException(
-                "DHMP security offer failed PSK authentication or format validation.");
-
-        if (offer.Type != DhmpSecurityControlType.Offer)
-            throw new DhmpSecurityException(
-                "Expected an authenticated DHMP security OFFER.");
-
-        var accept =
-            new DhmpSecurityControlMessage(
-                DhmpSecurityControlType.Accept,
-                offer.Suite,
-                offer.SessionId,
-                preSharedKey.KeyId,
-                offer.CorrelationId);
-
-        byte[] responsePacket =
-            new byte[DhmpSecurityControlCodec.PacketSize];
-
-        DhmpSecurityControlCodec.Encode(
-            accept,
-            preSharedKey,
-            responsePacket);
-
-        await channel.SendPacketAsync(
-            responsePacket,
-            cancellationToken).ConfigureAwait(false);
-
-        return new DhmpPskChaCha20Poly1305Session(
-            preSharedKey,
-            offer.SessionId,
-            DhmpSecurityRole.Responder);
+                "DHMP security control packet failed PSK authentication or format validation.");
+        return message;
     }
 }

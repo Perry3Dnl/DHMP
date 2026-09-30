@@ -7,7 +7,7 @@ namespace DHMP.RawIpv6;
 /// <summary>
 /// Linux raw-IPv6 control channel using the experimental DHMP control binding.
 /// </summary>
-public sealed class DhmpRawIpv6ControlChannel : IDisposable
+public sealed class DhmpRawIpv6ControlChannel : IDisposable, IDhmpControlPacketChannel
 {
     private readonly Socket _socket;
     private readonly EndPoint _remoteEndPoint;

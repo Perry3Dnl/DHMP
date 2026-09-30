@@ -24,6 +24,7 @@ Release objective: [finish the existing feature set into a stable base](STABLE_B
 - `DHMP.Security` provides an experimental PSK security profile using authenticated control setup, HKDF-derived directional keys, ChaCha20-Poly1305 packet protection, bounded replay, rolling protected-packet loss telemetry and authenticated RTT probes.
 - `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics. `DhmpCongestionAdvisor` converts snapshot deltas into bounded receiver pressure recommendations.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
+- Compatibility and PSK one-shot handshakes have a configurable total deadline (ten seconds by default), caller cancellation before socket creation and privilege-free lifecycle/composition tests. They do not implement retransmission or a persistent session manager. PSK responder OFFER freshness remains a security release blocker.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 
 ## V1 data plane

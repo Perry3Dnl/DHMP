@@ -36,9 +36,13 @@ Offset  Size  Field
 
 The HMAC is computed with the configured PSK.
 
-An authenticated OFFER proves possession of the configured PSK to the responder. An authenticated ACCEPT proves possession to the initiator. This authenticates possession of a shared secret; the operational identity attached to that secret is a deployment responsibility.
+A valid HMAC proves that the message was created by a holder of the configured PSK. A matching authenticated ACCEPT is bound to the initiator's fresh outstanding session offer. An OFFER alone does not establish freshness or live possession by the current sender, because a captured OFFER can be replayed. The operational identity attached to the shared secret is a deployment responsibility.
 
 The session identifier must be fresh for each security session. The .NET raw-IPv6 initiator currently creates it with `Guid.NewGuid()`.
+
+The .NET one-shot initiator and responder use the configured `DhmpRawIpv6Options.HandshakeTimeout` (ten seconds by default) for the entire exchange. Timeout raises `TimeoutException`; explicit caller cancellation remains cancellation. No timeout, authentication failure, unexpected response or send failure returns an active security session. The channel is disposed on all exits. A subsequent initiator call creates a new session identifier rather than resending the previous OFFER.
+
+This deadline does not add handshake replay protection. The responder currently has no persistent freshness check for OFFER session identifiers, and a captured authenticated OFFER must not be assumed fresh merely because its HMAC verifies. Recreating a session with the same PSK/session ID would reset data counters under identical derived keys. Responder freshness/confirmation across retries and process restarts is an explicit security release blocker requiring a reviewed design; fresh locally generated initiator IDs alone do not close it. A lost ACCEPT can leave the responder with a session the initiator did not activate. Applications must not automatically recreate or resume a timed-out session with its old ID.
 
 ## Directional key derivation
 
