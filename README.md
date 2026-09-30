@@ -95,7 +95,7 @@ dotnet test tests/DHMP.RawIpv6.Tests -c Release
 dotnet test tests/DHMP.Security.Tests -c Release
 ```
 
-CI guards the architecture, unit/integration tests and compilation of the direct-IP backend. Physical two-host measurements and privileged raw-socket validation remain separate.
+CI guards the architecture, unit/integration tests and compilation of the direct-IP backend. Physical two-host measurements and privileged raw-socket validation remain separate. The [first two-host smoke run](docs/TWO_HOST_SMOKE.md) provides a low-rate real-backend runner and acceptance criteria. See [session shutdown](docs/SESSION_SHUTDOWN.md) for outgoing/control resource ownership.
 
 ## Measurements and history
 
