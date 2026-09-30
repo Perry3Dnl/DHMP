@@ -155,18 +155,49 @@ public sealed class DhmpSessionLifecycleTests
     }
 
     [Fact]
+    public async Task RetirementWaitsForEveryAdmittedSend()
+    {
+        using var key = Key();
+        using var session = Session(key, DhmpSecurityRole.Initiator);
+        var backend = new MultipleSender();
+        var sender = new DhmpProtectedPacketSender(backend, session);
+        Task first = sender.SendPacketAsync(new byte[16], TestContext.Current.CancellationToken).AsTask();
+        Task second = sender.SendPacketAsync(new byte[16], TestContext.Current.CancellationToken).AsTask();
+        Task retired = sender.DisposeAsync().AsTask();
+        backend.First.SetResult();
+        await first.WaitAsync(TestContext.Current.CancellationToken);
+        Assert.False(retired.IsCompleted);
+        backend.Second.SetResult();
+        await second.WaitAsync(TestContext.Current.CancellationToken);
+        await retired.WaitAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
     public async Task InvalidAndAlreadyCancelledSendsDoNotLeakLeasesOrSubmitPackets()
     {
         using var key = Key();
         using var session = Session(key, DhmpSecurityRole.Initiator);
         var backend = new BlockedSender();
         var sender = new DhmpProtectedPacketSender(backend, session);
-        await Assert.ThrowsAsync<DhmpProtocolException>(async () => await sender.SendPacketAsync(ReadOnlyMemory<byte>.Empty));
+        await Assert.ThrowsAsync<DhmpProtocolException>(async () => await sender.SendPacketAsync(ReadOnlyMemory<byte>.Empty, TestContext.Current.CancellationToken));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sender.SendPacketAsync(new byte[16], cancellation.Token));
         await sender.DisposeAsync().AsTask().WaitAsync(TestContext.Current.CancellationToken);
         Assert.Equal(0, backend.Calls);
+    }
+
+    private sealed class MultipleSender : IDhmpPacketSender
+    {
+        private int _calls;
+        public int MaximumPayloadBytes => 128;
+        public TaskCompletionSource First { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Second { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public async ValueTask SendPacketAsync(ReadOnlyMemory<byte> payload, CancellationToken cancellationToken = default)
+        {
+            TaskCompletionSource completion = Interlocked.Increment(ref _calls) == 1 ? First : Second;
+            await completion.Task.WaitAsync(cancellationToken);
+        }
     }
 
     private sealed class BlockedSender : IDhmpPacketSender, IDisposable

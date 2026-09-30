@@ -43,7 +43,7 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     private readonly DhmpReplayWindow _feedbackReplayWindow = new();
     private readonly DhmpReplayWindow _pathRequestReplayWindow = new();
     private readonly DhmpReplayWindow _pathResponseReplayWindow = new();
-    // Synchronization belongs to session ownership, outside the headerless framing core.
+    // Session ownership gates; no lock spans socket awaits or application callbacks.
     private readonly object _sendGate = new();
     private readonly object _receiveGate = new();
     private readonly object _controlGate = new();
@@ -233,69 +233,74 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         Span<byte> destination)
     {
         lock (_sendGate)
-        {
-            ObjectDisposedException.ThrowIf(
-                Volatile.Read(ref _disposed) != 0,
-                this);
+            return ProtectCore(plaintext, destination);
+    }
 
-            if (plaintext.IsEmpty)
-                throw new ArgumentException(
-                    "Protected DHMP payload cannot be empty.",
-                    nameof(plaintext));
+    private int ProtectCore(
+        ReadOnlySpan<byte> plaintext,
+        Span<byte> destination)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
 
-            int required = checked(
-                plaintext.Length + Overhead);
+        if (plaintext.IsEmpty)
+            throw new ArgumentException(
+                "Protected DHMP payload cannot be empty.",
+                nameof(plaintext));
 
-            if (destination.Length < required)
-                throw new ArgumentException(
-                    "Destination is too small for the protected DHMP packet.",
-                    nameof(destination));
+        int required = checked(
+            plaintext.Length + Overhead);
 
-            if (_sendCounter == ulong.MaxValue)
-                throw new CryptographicException(
-                    "DHMP security packet counter exhausted; rekey before sending more data.");
+        if (destination.Length < required)
+            throw new ArgumentException(
+                "Destination is too small for the protected DHMP packet.",
+                nameof(destination));
 
-            ulong counter = ++_sendCounter;
+        if (_sendCounter == ulong.MaxValue)
+            throw new CryptographicException(
+                "DHMP security packet counter exhausted; rekey before sending more data.");
 
-            Span<byte> counterBytes =
-                destination[..CounterSize];
+        ulong counter = ++_sendCounter;
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                counterBytes,
-                counter);
+        Span<byte> counterBytes =
+            destination[..CounterSize];
 
-            Span<byte> nonce =
-                stackalloc byte[NonceSize];
+        BinaryPrimitives.WriteUInt64BigEndian(
+            counterBytes,
+            counter);
 
-            BinaryPrimitives.WriteUInt32BigEndian(
-                nonce[..4],
-                _sendNoncePrefix);
+        Span<byte> nonce =
+            stackalloc byte[NonceSize];
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                nonce[4..],
-                counter);
+        BinaryPrimitives.WriteUInt32BigEndian(
+            nonce[..4],
+            _sendNoncePrefix);
 
-            Span<byte> ciphertext =
-                destination.Slice(
-                    CounterSize,
-                    plaintext.Length);
+        BinaryPrimitives.WriteUInt64BigEndian(
+            nonce[4..],
+            counter);
 
-            Span<byte> tag =
-                destination.Slice(
-                    CounterSize + plaintext.Length,
-                    TagSize);
+        Span<byte> ciphertext =
+            destination.Slice(
+                CounterSize,
+                plaintext.Length);
 
-            _sendCipher.Encrypt(
-                nonce,
-                plaintext,
-                ciphertext,
-                tag,
-                _sessionIdBytes);
+        Span<byte> tag =
+            destination.Slice(
+                CounterSize + plaintext.Length,
+                TagSize);
 
-            CryptographicOperations.ZeroMemory(nonce);
+        _sendCipher.Encrypt(
+            nonce,
+            plaintext,
+            ciphertext,
+            tag,
+            _sessionIdBytes);
 
-            return required;
-        }
+        CryptographicOperations.ZeroMemory(nonce);
+
+        return required;
     }
 
     public bool TryDecode(
@@ -304,104 +309,110 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         out int plaintextBytes)
     {
         lock (_receiveGate)
+            return TryDecodeCore(packet, plaintextDestination, out plaintextBytes);
+    }
+
+    private bool TryDecodeCore(
+        ReadOnlySpan<byte> packet,
+        Span<byte> plaintextDestination,
+        out int plaintextBytes)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        plaintextBytes = 0;
+
+        if (packet.Length <= Overhead)
+            return false;
+
+        int ciphertextBytes =
+            packet.Length - Overhead;
+
+        if (plaintextDestination.Length <
+            ciphertextBytes)
+            throw new ArgumentException(
+                "Plaintext destination is too small.",
+                nameof(plaintextDestination));
+
+        ulong counter =
+            BinaryPrimitives.ReadUInt64BigEndian(
+                packet[..CounterSize]);
+
+        if (counter == 0)
+            return false;
+
+        Span<byte> nonce =
+            stackalloc byte[NonceSize];
+
+        BinaryPrimitives.WriteUInt32BigEndian(
+            nonce[..4],
+            _receiveNoncePrefix);
+
+        BinaryPrimitives.WriteUInt64BigEndian(
+            nonce[4..],
+            counter);
+
+        ReadOnlySpan<byte> ciphertext =
+            packet.Slice(
+                CounterSize,
+                ciphertextBytes);
+
+        ReadOnlySpan<byte> tag =
+            packet.Slice(
+                CounterSize + ciphertextBytes,
+                TagSize);
+
+        Span<byte> plaintext =
+            plaintextDestination[..ciphertextBytes];
+
+        try
         {
-            ObjectDisposedException.ThrowIf(
-                Volatile.Read(ref _disposed) != 0,
-                this);
-
-            plaintextBytes = 0;
-
-            if (packet.Length <= Overhead)
-                return false;
-
-            int ciphertextBytes =
-                packet.Length - Overhead;
-
-            if (plaintextDestination.Length <
-                ciphertextBytes)
-                throw new ArgumentException(
-                    "Plaintext destination is too small.",
-                    nameof(plaintextDestination));
-
-            ulong counter =
-                BinaryPrimitives.ReadUInt64BigEndian(
-                    packet[..CounterSize]);
-
-            if (counter == 0)
-                return false;
-
-            Span<byte> nonce =
-                stackalloc byte[NonceSize];
-
-            BinaryPrimitives.WriteUInt32BigEndian(
-                nonce[..4],
-                _receiveNoncePrefix);
-
-            BinaryPrimitives.WriteUInt64BigEndian(
-                nonce[4..],
-                counter);
-
-            ReadOnlySpan<byte> ciphertext =
-                packet.Slice(
-                    CounterSize,
-                    ciphertextBytes);
-
-            ReadOnlySpan<byte> tag =
-                packet.Slice(
-                    CounterSize + ciphertextBytes,
-                    TagSize);
-
-            Span<byte> plaintext =
-                plaintextDestination[..ciphertextBytes];
-
-            try
-            {
-                _receiveCipher.Decrypt(
-                    nonce,
-                    ciphertext,
-                    tag,
-                    plaintext,
-                    _sessionIdBytes);
-            }
-            catch (CryptographicException)
-            {
-                Interlocked.Increment(
-                    ref _authenticationFailures);
-
-                CryptographicOperations.ZeroMemory(
-                    plaintext);
-
-                CryptographicOperations.ZeroMemory(
-                    nonce);
-
-                return false;
-            }
-
-            CryptographicOperations.ZeroMemory(nonce);
-
-            if (!_replayWindow.TryAccept(
-                    counter,
-                    out var decision))
-            {
-                _replayRejectedDataPackets++;
-
-                CryptographicOperations.ZeroMemory(
-                    plaintext);
-
-                return false;
-            }
-
-            _acceptedDataPackets++;
-
-            if (decision ==
-                DhmpReplayDecision.AcceptedReordered)
-                _reorderedDataPackets++;
-
-
-            plaintextBytes = ciphertextBytes;
-
-            return true;
+            _receiveCipher.Decrypt(
+                nonce,
+                ciphertext,
+                tag,
+                plaintext,
+                _sessionIdBytes);
         }
+        catch (CryptographicException)
+        {
+            Interlocked.Increment(
+                ref _authenticationFailures);
+
+            CryptographicOperations.ZeroMemory(
+                plaintext);
+
+            CryptographicOperations.ZeroMemory(
+                nonce);
+
+            return false;
+        }
+
+        CryptographicOperations.ZeroMemory(nonce);
+
+        if (!_replayWindow.TryAccept(
+                counter,
+                out var decision))
+        {
+            _replayRejectedDataPackets++;
+
+            CryptographicOperations.ZeroMemory(
+                plaintext);
+
+            return false;
+        }
+
+        _acceptedDataPackets++;
+
+        if (decision ==
+            DhmpReplayDecision.AcceptedReordered)
+            _reorderedDataPackets++;
+
+
+        plaintextBytes = ciphertextBytes;
+
+        return true;
     }
 
     public DhmpSecureReceiveSnapshot GetReceiveSnapshot()
@@ -431,80 +442,85 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         Span<byte> destination)
     {
         lock (_controlGate)
-        {
-            ObjectDisposedException.ThrowIf(
-                Volatile.Read(ref _disposed) != 0,
-                this);
+            return EncodeCongestionFeedbackCore(feedback, destination);
+    }
 
-            feedback.Validate();
+    private int EncodeCongestionFeedbackCore(
+        DhmpCongestionFeedback feedback,
+        Span<byte> destination)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
 
-            if (destination.Length <
-                CongestionFeedbackPacketSize)
-                throw new ArgumentException(
-                    $"DHMP congestion feedback requires {CongestionFeedbackPacketSize} bytes.",
-                    nameof(destination));
+        feedback.Validate();
 
-            if (_sendFeedbackCounter ==
-                ulong.MaxValue)
-                throw new CryptographicException(
-                    "DHMP congestion feedback counter exhausted; rekey required.");
+        if (destination.Length <
+            CongestionFeedbackPacketSize)
+            throw new ArgumentException(
+                $"DHMP congestion feedback requires {CongestionFeedbackPacketSize} bytes.",
+                nameof(destination));
 
-            ulong sequence =
-                ++_sendFeedbackCounter;
+        if (_sendFeedbackCounter ==
+            ulong.MaxValue)
+            throw new CryptographicException(
+                "DHMP congestion feedback counter exhausted; rekey required.");
 
-            Span<byte> packet =
-                destination[
-                    ..CongestionFeedbackPacketSize];
+        ulong sequence =
+            ++_sendFeedbackCounter;
 
-            packet.Clear();
+        Span<byte> packet =
+            destination[
+                ..CongestionFeedbackPacketSize];
 
-            "DHMF"u8.CopyTo(packet);
-            packet[4] = 1;
-            packet[5] =
-                (byte)feedback.Pressure;
+        packet.Clear();
 
-            BinaryPrimitives.WriteUInt16BigEndian(
-                packet.Slice(6, 2),
-                feedback.RateScalePermille);
+        "DHMF"u8.CopyTo(packet);
+        packet[4] = 1;
+        packet[5] =
+            (byte)feedback.Pressure;
 
-            _sessionIdBytes.CopyTo(
-                packet.Slice(8, 16));
+        BinaryPrimitives.WriteUInt16BigEndian(
+            packet.Slice(6, 2),
+            feedback.RateScalePermille);
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                packet.Slice(24, 8),
-                sequence);
+        _sessionIdBytes.CopyTo(
+            packet.Slice(8, 16));
 
-            BinaryPrimitives.WriteUInt32BigEndian(
-                packet.Slice(32, 4),
-                checked((uint)feedback.PendingBatches));
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(24, 8),
+            sequence);
 
-            BinaryPrimitives.WriteUInt32BigEndian(
-                packet.Slice(36, 4),
-                checked((uint)feedback.Capacity));
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(32, 4),
+            checked((uint)feedback.PendingBatches));
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                packet.Slice(40, 8),
-                checked((ulong)feedback.LostPendingWork));
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(36, 4),
+            checked((uint)feedback.Capacity));
 
-            Span<byte> fullTag =
-                stackalloc byte[32];
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(40, 8),
+            checked((ulong)feedback.LostPendingWork));
 
-            HMACSHA256.HashData(
-                _sendFeedbackKey,
-                packet[..CongestionFeedbackBodySize],
-                fullTag);
+        Span<byte> fullTag =
+            stackalloc byte[32];
 
-            fullTag[..CongestionFeedbackTagSize]
-                .CopyTo(
-                    packet.Slice(
-                        CongestionFeedbackBodySize,
-                        CongestionFeedbackTagSize));
+        HMACSHA256.HashData(
+            _sendFeedbackKey,
+            packet[..CongestionFeedbackBodySize],
+            fullTag);
 
-            CryptographicOperations.ZeroMemory(
-                fullTag);
+        fullTag[..CongestionFeedbackTagSize]
+            .CopyTo(
+                packet.Slice(
+                    CongestionFeedbackBodySize,
+                    CongestionFeedbackTagSize));
 
-            return CongestionFeedbackPacketSize;
-        }
+        CryptographicOperations.ZeroMemory(
+            fullTag);
+
+        return CongestionFeedbackPacketSize;
     }
 
     public bool TryDecodeCongestionFeedback(
@@ -512,86 +528,91 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         out DhmpCongestionFeedback feedback)
     {
         lock (_controlGate)
+            return TryDecodeCongestionFeedbackCore(packet, out feedback);
+    }
+
+    private bool TryDecodeCongestionFeedbackCore(
+        ReadOnlySpan<byte> packet,
+        out DhmpCongestionFeedback feedback)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        feedback = default;
+
+        if (packet.Length !=
+                CongestionFeedbackPacketSize ||
+            !packet[..4].SequenceEqual("DHMF"u8) ||
+            packet[4] != 1 ||
+            !packet.Slice(8, 16)
+                .SequenceEqual(_sessionIdBytes))
+            return false;
+
+        Span<byte> fullTag =
+            stackalloc byte[32];
+
+        HMACSHA256.HashData(
+            _receiveFeedbackKey,
+            packet[..CongestionFeedbackBodySize],
+            fullTag);
+
+        bool authenticated =
+            CryptographicOperations.FixedTimeEquals(
+                fullTag[..CongestionFeedbackTagSize],
+                packet.Slice(
+                    CongestionFeedbackBodySize,
+                    CongestionFeedbackTagSize));
+
+        CryptographicOperations.ZeroMemory(
+            fullTag);
+
+        if (!authenticated)
+            return false;
+
+        ulong sequence =
+            BinaryPrimitives.ReadUInt64BigEndian(
+                packet.Slice(24, 8));
+
+        if (sequence == 0)
+            return false;
+
+        ulong lost =
+            BinaryPrimitives.ReadUInt64BigEndian(
+                packet.Slice(40, 8));
+
+        if (lost > long.MaxValue)
+            return false;
+
+        try
         {
-            ObjectDisposedException.ThrowIf(
-                Volatile.Read(ref _disposed) != 0,
-                this);
+            var decoded =
+                new DhmpCongestionFeedback(
+                    (DhmpCongestionPressure)packet[5],
+                    BinaryPrimitives.ReadUInt16BigEndian(
+                        packet.Slice(6, 2)),
+                    checked((int)
+                        BinaryPrimitives.ReadUInt32BigEndian(
+                            packet.Slice(32, 4))),
+                    checked((int)
+                        BinaryPrimitives.ReadUInt32BigEndian(
+                            packet.Slice(36, 4))),
+                    checked((long)lost));
 
-            feedback = default;
-
-            if (packet.Length !=
-                    CongestionFeedbackPacketSize ||
-                !packet[..4].SequenceEqual("DHMF"u8) ||
-                packet[4] != 1 ||
-                !packet.Slice(8, 16)
-                    .SequenceEqual(_sessionIdBytes))
+            if (!_feedbackReplayWindow
+                    .TryAccept(sequence))
                 return false;
 
-            Span<byte> fullTag =
-                stackalloc byte[32];
+            feedback = decoded;
 
-            HMACSHA256.HashData(
-                _receiveFeedbackKey,
-                packet[..CongestionFeedbackBodySize],
-                fullTag);
-
-            bool authenticated =
-                CryptographicOperations.FixedTimeEquals(
-                    fullTag[..CongestionFeedbackTagSize],
-                    packet.Slice(
-                        CongestionFeedbackBodySize,
-                        CongestionFeedbackTagSize));
-
-            CryptographicOperations.ZeroMemory(
-                fullTag);
-
-            if (!authenticated)
-                return false;
-
-            ulong sequence =
-                BinaryPrimitives.ReadUInt64BigEndian(
-                    packet.Slice(24, 8));
-
-            if (sequence == 0)
-                return false;
-
-            ulong lost =
-                BinaryPrimitives.ReadUInt64BigEndian(
-                    packet.Slice(40, 8));
-
-            if (lost > long.MaxValue)
-                return false;
-
-            try
-            {
-                var decoded =
-                    new DhmpCongestionFeedback(
-                        (DhmpCongestionPressure)packet[5],
-                        BinaryPrimitives.ReadUInt16BigEndian(
-                            packet.Slice(6, 2)),
-                        checked((int)
-                            BinaryPrimitives.ReadUInt32BigEndian(
-                                packet.Slice(32, 4))),
-                        checked((int)
-                            BinaryPrimitives.ReadUInt32BigEndian(
-                                packet.Slice(36, 4))),
-                        checked((long)lost));
-
-                if (!_feedbackReplayWindow
-                        .TryAccept(sequence))
-                    return false;
-
-                feedback = decoded;
-
-                return true;
-            }
-            catch (Exception error)
-                when (error is
-                    ArgumentException or
-                    OverflowException)
-            {
-                return false;
-            }
+            return true;
+        }
+        catch (Exception error)
+            when (error is
+                ArgumentException or
+                OverflowException)
+        {
+            return false;
         }
     }
 
@@ -600,72 +621,77 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         Span<byte> destination)
     {
         lock (_controlGate)
-        {
-            ObjectDisposedException.ThrowIf(
-                Volatile.Read(ref _disposed) != 0,
-                this);
+            return EncodePathProbeCore(message, destination);
+    }
 
-            message.Validate();
+    private int EncodePathProbeCore(
+        DhmpPathProbeMessage message,
+        Span<byte> destination)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
 
-            if (destination.Length < PathProbePacketSize)
-                throw new ArgumentException(
-                    $"DHMP path probe requires {PathProbePacketSize} bytes.",
-                    nameof(destination));
+        message.Validate();
 
-            Span<byte> packet =
-                destination[..PathProbePacketSize];
+        if (destination.Length < PathProbePacketSize)
+            throw new ArgumentException(
+                $"DHMP path probe requires {PathProbePacketSize} bytes.",
+                nameof(destination));
 
-            packet.Clear();
-            "DHMR"u8.CopyTo(packet);
+        Span<byte> packet =
+            destination[..PathProbePacketSize];
 
-            packet[4] = 1;
-            packet[5] = (byte)message.Type;
+        packet.Clear();
+        "DHMR"u8.CopyTo(packet);
 
-            _sessionIdBytes.CopyTo(
-                packet.Slice(8, 16));
+        packet[4] = 1;
+        packet[5] = (byte)message.Type;
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                packet.Slice(24, 8),
-                message.ProbeId);
+        _sessionIdBytes.CopyTo(
+            packet.Slice(8, 16));
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                packet.Slice(32, 8),
-                message.SenderTimestamp);
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(24, 8),
+            message.ProbeId);
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                packet.Slice(40, 8),
-                message.HighestPacketCounter);
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(32, 8),
+            message.SenderTimestamp);
 
-            BinaryPrimitives.WriteUInt32BigEndian(
-                packet.Slice(48, 4),
-                checked((uint)message.WindowSpan));
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(40, 8),
+            message.HighestPacketCounter);
 
-            BinaryPrimitives.WriteUInt32BigEndian(
-                packet.Slice(52, 4),
-                checked((uint)message.MissingWithinWindow));
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(48, 4),
+            checked((uint)message.WindowSpan));
 
-            BinaryPrimitives.WriteUInt64BigEndian(
-                packet.Slice(56, 8),
-                checked((ulong)message.AcceptedPackets));
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(52, 4),
+            checked((uint)message.MissingWithinWindow));
 
-            Span<byte> fullTag =
-                stackalloc byte[32];
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(56, 8),
+            checked((ulong)message.AcceptedPackets));
 
-            HMACSHA256.HashData(
-                _sendPathKey,
-                packet[..PathProbeBodySize],
-                fullTag);
+        Span<byte> fullTag =
+            stackalloc byte[32];
 
-            fullTag[..PathProbeTagSize]
-                .CopyTo(
-                    packet.Slice(
-                        PathProbeBodySize,
-                        PathProbeTagSize));
+        HMACSHA256.HashData(
+            _sendPathKey,
+            packet[..PathProbeBodySize],
+            fullTag);
 
-            CryptographicOperations.ZeroMemory(fullTag);
+        fullTag[..PathProbeTagSize]
+            .CopyTo(
+                packet.Slice(
+                    PathProbeBodySize,
+                    PathProbeTagSize));
 
-            return PathProbePacketSize;
-        }
+        CryptographicOperations.ZeroMemory(fullTag);
+
+        return PathProbePacketSize;
     }
 
     public bool TryDecodePathProbe(
@@ -673,79 +699,84 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         out DhmpPathProbeMessage message)
     {
         lock (_controlGate)
+            return TryDecodePathProbeCore(packet, out message);
+    }
+
+    private bool TryDecodePathProbeCore(
+        ReadOnlySpan<byte> packet,
+        out DhmpPathProbeMessage message)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        message = default;
+
+        if (packet.Length != PathProbePacketSize ||
+            !packet[..4].SequenceEqual("DHMR"u8) ||
+            packet[4] != 1 ||
+            !packet.Slice(8, 16)
+                .SequenceEqual(_sessionIdBytes))
+            return false;
+
+        Span<byte> fullTag =
+            stackalloc byte[32];
+
+        HMACSHA256.HashData(
+            _receivePathKey,
+            packet[..PathProbeBodySize],
+            fullTag);
+
+        bool authenticated =
+            CryptographicOperations.FixedTimeEquals(
+                fullTag[..PathProbeTagSize],
+                packet.Slice(
+                    PathProbeBodySize,
+                    PathProbeTagSize));
+
+        CryptographicOperations.ZeroMemory(fullTag);
+
+        if (!authenticated)
+            return false;
+
+        try
         {
-            ObjectDisposedException.ThrowIf(
-                Volatile.Read(ref _disposed) != 0,
-                this);
+            var decoded =
+                new DhmpPathProbeMessage(
+                    (DhmpPathProbeType)packet[5],
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(24, 8)),
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(32, 8)),
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(40, 8)),
+                    checked((int)
+                        BinaryPrimitives.ReadUInt32BigEndian(
+                            packet.Slice(48, 4))),
+                    checked((int)
+                        BinaryPrimitives.ReadUInt32BigEndian(
+                            packet.Slice(52, 4))),
+                    checked((long)
+                        BinaryPrimitives.ReadUInt64BigEndian(
+                            packet.Slice(56, 8))));
 
-            message = default;
+            DhmpReplayWindow replay =
+                decoded.Type == DhmpPathProbeType.Request
+                    ? _pathRequestReplayWindow
+                    : _pathResponseReplayWindow;
 
-            if (packet.Length != PathProbePacketSize ||
-                !packet[..4].SequenceEqual("DHMR"u8) ||
-                packet[4] != 1 ||
-                !packet.Slice(8, 16)
-                    .SequenceEqual(_sessionIdBytes))
+            if (!replay.TryAccept(decoded.ProbeId))
                 return false;
 
-            Span<byte> fullTag =
-                stackalloc byte[32];
-
-            HMACSHA256.HashData(
-                _receivePathKey,
-                packet[..PathProbeBodySize],
-                fullTag);
-
-            bool authenticated =
-                CryptographicOperations.FixedTimeEquals(
-                    fullTag[..PathProbeTagSize],
-                    packet.Slice(
-                        PathProbeBodySize,
-                        PathProbeTagSize));
-
-            CryptographicOperations.ZeroMemory(fullTag);
-
-            if (!authenticated)
-                return false;
-
-            try
-            {
-                var decoded =
-                    new DhmpPathProbeMessage(
-                        (DhmpPathProbeType)packet[5],
-                        BinaryPrimitives.ReadUInt64BigEndian(
-                            packet.Slice(24, 8)),
-                        BinaryPrimitives.ReadUInt64BigEndian(
-                            packet.Slice(32, 8)),
-                        BinaryPrimitives.ReadUInt64BigEndian(
-                            packet.Slice(40, 8)),
-                        checked((int)
-                            BinaryPrimitives.ReadUInt32BigEndian(
-                                packet.Slice(48, 4))),
-                        checked((int)
-                            BinaryPrimitives.ReadUInt32BigEndian(
-                                packet.Slice(52, 4))),
-                        checked((long)
-                            BinaryPrimitives.ReadUInt64BigEndian(
-                                packet.Slice(56, 8))));
-
-                DhmpReplayWindow replay =
-                    decoded.Type == DhmpPathProbeType.Request
-                        ? _pathRequestReplayWindow
-                        : _pathResponseReplayWindow;
-
-                if (!replay.TryAccept(decoded.ProbeId))
-                    return false;
-
-                message = decoded;
-                return true;
-            }
-            catch (Exception error)
-                when (error is
-                    ArgumentException or
-                    OverflowException)
-            {
-                return false;
-            }
+            message = decoded;
+            return true;
+        }
+        catch (Exception error)
+            when (error is
+                ArgumentException or
+                OverflowException)
+        {
+            return false;
         }
     }
 
