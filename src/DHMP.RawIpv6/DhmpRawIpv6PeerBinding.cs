@@ -8,6 +8,7 @@ namespace DHMP.RawIpv6;
 /// <summary>
 /// One source-IPv6-address to DHMP server/session binding.
 /// The callback and optional decoder are owned by the caller.
+/// Await router retirement and join all other decoder users before disposing those resources.
 /// </summary>
 public sealed class DhmpRawIpv6PeerBinding
 {

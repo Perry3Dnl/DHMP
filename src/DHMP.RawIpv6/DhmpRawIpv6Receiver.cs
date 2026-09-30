@@ -158,75 +158,16 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                     continue;
                 }
 
-                ReadOnlySpan<byte> payload =
-                    _buffer.AsSpan(
-                        0,
-                        result.ReceivedBytes);
-
-                if (_decoder is not null)
+                bool accepted = DhmpRawIpv6PayloadProcessor.TryProcess(_server, _decoder,
+                    _buffer.AsSpan(0, result.ReceivedBytes), _plaintextBuffer,
+                    publishBatch, out bool protectionRejected);
+                if (!accepted)
                 {
-                    if (!_decoder.TryDecode(
-                            payload,
-                            _plaintextBuffer!,
-                            out int plaintextBytes))
-                    {
-                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(
-                            _plaintextBuffer!);
-
-                        Interlocked.Increment(
-                            ref _protectionRejectedPackets);
-
-                        continue;
-                    }
-
-                    if (plaintextBytes <= 0 ||
-                        plaintextBytes >
-                            _server.ReceivePolicy.MaximumPayloadBytes ||
-                        plaintextBytes >
-                            _plaintextBuffer!.Length)
-                    {
-                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(
-                            _plaintextBuffer);
-
-                        Interlocked.Increment(
-                            ref _protectionRejectedPackets);
-                        continue;
-                    }
-
-                    payload =
-                        _plaintextBuffer.AsSpan(
-                            0,
-                            plaintextBytes);
-                }
-
-                if (!IsValidPacketLength(payload.Length))
-                {
-                    Interlocked.Increment(
-                        ref _rejectedPackets);
+                    if (protectionRejected)
+                        Interlocked.Increment(ref _protectionRejectedPackets);
+                    else
+                        Interlocked.Increment(ref _rejectedPackets);
                     continue;
-                }
-
-                if (_decoder is null)
-                {
-                    _server.ProcessPacket(
-                        payload,
-                        publishBatch);
-                }
-                else
-                {
-                    try
-                    {
-                        _server.ProcessPacket(
-                            payload,
-                            publishBatch);
-                    }
-                    finally
-                    {
-                        System.Security.Cryptography.CryptographicOperations.ZeroMemory(
-                            _plaintextBuffer!.AsSpan(
-                                0,
-                                payload.Length));
-                    }
                 }
 
                 Interlocked.Increment(
@@ -237,16 +178,6 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         {
             Volatile.Write(ref _running, 0);
         }
-    }
-
-    private bool IsValidPacketLength(int length)
-    {
-        var wire = _server.WireContract;
-
-        return length > 0 &&
-               length <=
-                   _server.ReceivePolicy.MaximumPayloadBytes &&
-               length % wire.RecordSize == 0;
     }
 
     public void Dispose()
@@ -262,3 +193,4 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                 "The first DHMP raw IPv6 backend is Linux-only. Other OS backends require separately validated socket semantics.");
     }
 }
+

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net;
-using System.Security.Cryptography;
 
 namespace DHMP.RawIpv6;
 
@@ -12,7 +11,7 @@ public sealed class DhmpRawIpv6PeerRouter
 {
     private readonly ConcurrentDictionary<
         IPAddress,
-        DhmpRawIpv6PeerBinding> _peers = new();
+        PeerRegistration> _peers = new();
 
     private readonly object _registrationGate = new();
     private readonly int _maximumPeers;
@@ -62,11 +61,7 @@ public sealed class DhmpRawIpv6PeerRouter
     {
         ArgumentNullException.ThrowIfNull(binding);
 
-        if (binding.MaximumNetworkPayloadBytes >
-            _maximumNetworkPayloadBytes)
-            throw new ArgumentException(
-                "Peer receive policy plus protection overhead exceeds the listener payload ceiling.",
-                nameof(binding));
+        ValidateBinding(binding);
 
         lock (_registrationGate)
         {
@@ -80,23 +75,70 @@ public sealed class DhmpRawIpv6PeerRouter
 
             if (!_peers.TryAdd(
                     binding.RemoteAddress,
-                    binding))
+                    new PeerRegistration(binding)))
                 throw new InvalidOperationException(
                     "Could not register the DHMP peer binding.");
         }
     }
 
-    public bool Remove(
-        IPAddress remoteAddress)
+    /// <summary>Stops new routes immediately; does not wait for callbacks already executing.</summary>
+    public bool Remove(IPAddress remoteAddress)
     {
         ArgumentNullException.ThrowIfNull(remoteAddress);
-
         lock (_registrationGate)
         {
-            return _peers.TryRemove(
-                remoteAddress,
-                out _);
+            if (!_peers.TryRemove(remoteAddress, out var registration))
+                return false;
+            registration.Retire();
+            return true;
         }
+    }
+
+    /// <summary>
+    /// Remove a peer and return its caller-owned binding only after all its active routes exit.
+    /// Await before disposing receive resources. Does not dispose callbacks, decoders or send/control paths.
+    /// </summary>
+    public async Task<DhmpRawIpv6PeerBinding?> RemoveAsync(IPAddress remoteAddress)
+    {
+        ArgumentNullException.ThrowIfNull(remoteAddress);
+        PeerRegistration registration;
+        lock (_registrationGate)
+        {
+            if (!_peers.TryRemove(remoteAddress, out registration!))
+                return null;
+            registration.Retire();
+        }
+        await registration.Drained.ConfigureAwait(false);
+        return registration.Binding;
+    }
+
+    /// <summary>
+    /// Atomically publish a new binding for an existing address, then drain and return the old one.
+    /// Packets already leased to the old binding finish there; subsequent routes use the replacement.
+    /// </summary>
+    public async Task<DhmpRawIpv6PeerBinding> ReplaceAsync(DhmpRawIpv6PeerBinding replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        ValidateBinding(replacement);
+        PeerRegistration previous;
+        lock (_registrationGate)
+        {
+            if (!_peers.TryGetValue(replacement.RemoteAddress, out previous!))
+                throw new InvalidOperationException("No DHMP peer is registered for replacement.");
+            if (ReferenceEquals(previous.Binding, replacement))
+                throw new ArgumentException("Replacement must be a distinct peer binding.", nameof(replacement));
+            _peers[replacement.RemoteAddress] = new PeerRegistration(replacement);
+            previous.Retire();
+        }
+        await previous.Drained.ConfigureAwait(false);
+        return previous.Binding;
+    }
+
+    private void ValidateBinding(DhmpRawIpv6PeerBinding binding)
+    {
+        if (binding.MaximumNetworkPayloadBytes > _maximumNetworkPayloadBytes)
+            throw new ArgumentException(
+                "Peer receive policy plus protection overhead exceeds the listener payload ceiling.", nameof(binding));
     }
 
     /// <summary>
@@ -110,96 +152,84 @@ public sealed class DhmpRawIpv6PeerRouter
     {
         ArgumentNullException.ThrowIfNull(remoteAddress);
 
-        if (!_peers.TryGetValue(
-                remoteAddress,
-                out var binding))
+        PeerRegistration registration;
+        while (true)
         {
-            Interlocked.Increment(
-                ref _unknownPeerPackets);
-            return false;
-        }
-
-        ReadOnlySpan<byte> payload =
-            networkPayload;
-
-        int plaintextBytes = 0;
-        bool decoded = false;
-
-        if (binding.Decoder is not null)
-        {
-            if (plaintextScratch.Length <
-                binding.Server.ReceivePolicy.MaximumPayloadBytes)
-                throw new ArgumentException(
-                    "Plaintext scratch buffer is smaller than the peer receive policy.",
-                    nameof(plaintextScratch));
-
-            if (!binding.Decoder.TryDecode(
-                    networkPayload,
-                    plaintextScratch,
-                    out plaintextBytes))
+            if (!_peers.TryGetValue(remoteAddress, out registration!))
             {
-                CryptographicOperations.ZeroMemory(
-                    plaintextScratch);
-
-                Interlocked.Increment(
-                    ref _protectionRejectedPackets);
-
+                Interlocked.Increment(ref _unknownPeerPackets);
                 return false;
             }
-
-            if (plaintextBytes <= 0 ||
-                plaintextBytes >
-                    binding.Server.ReceivePolicy.MaximumPayloadBytes ||
-                plaintextBytes >
-                    plaintextScratch.Length)
-            {
-                CryptographicOperations.ZeroMemory(
-                    plaintextScratch);
-
-                Interlocked.Increment(
-                    ref _protectionRejectedPackets);
-
-                return false;
-            }
-
-            payload =
-                plaintextScratch[..plaintextBytes];
-
-            decoded = true;
+            if (registration.TryAcquire())
+                break;
+            // A replacement retired this snapshot. Resolve the current binding instead.
         }
 
         try
         {
-            var wire =
-                binding.Server.WireContract;
-
-            if (payload.Length <= 0 ||
-                payload.Length >
-                    binding.Server.ReceivePolicy.MaximumPayloadBytes ||
-                payload.Length %
-                    wire.RecordSize != 0)
-            {
-                Interlocked.Increment(
-                    ref _rejectedPackets);
-                return false;
-            }
-
-            binding.Server.ProcessPacket(
-                payload,
-                binding.PublishBatch);
-
-            Interlocked.Increment(
-                ref _acceptedPackets);
-
-            return true;
+            return RouteLeased(registration.Binding, networkPayload, plaintextScratch);
         }
         finally
         {
-            if (decoded &&
-                plaintextBytes > 0)
+            registration.Release();
+        }
+    }
+
+    private bool RouteLeased(DhmpRawIpv6PeerBinding binding,
+        ReadOnlySpan<byte> networkPayload, Span<byte> plaintextScratch)
+    {
+        if (networkPayload.IsEmpty || networkPayload.Length > binding.MaximumNetworkPayloadBytes ||
+            networkPayload.Length > _maximumNetworkPayloadBytes)
+        {
+            Interlocked.Increment(ref _rejectedPackets);
+            return false;
+        }
+        bool accepted = DhmpRawIpv6PayloadProcessor.TryProcess(binding.Server, binding.Decoder,
+            networkPayload, plaintextScratch, binding.PublishBatch, out bool protectionRejected);
+        if (accepted)
+            Interlocked.Increment(ref _acceptedPackets);
+        else if (protectionRejected)
+            Interlocked.Increment(ref _protectionRejectedPackets);
+        else
+            Interlocked.Increment(ref _rejectedPackets);
+        return accepted;
+    }
+
+    // A lease spans decoding, publication and plaintext cleanup. No packet allocation is introduced.
+    private sealed class PeerRegistration(DhmpRawIpv6PeerBinding binding)
+    {
+        private readonly object _gate = new();
+        private readonly TaskCompletionSource _drained = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _activeRoutes;
+        private bool _retired;
+        public DhmpRawIpv6PeerBinding Binding { get; } = binding;
+        public Task Drained => _drained.Task;
+
+        public bool TryAcquire()
+        {
+            lock (_gate)
             {
-                CryptographicOperations.ZeroMemory(
-                    plaintextScratch[..plaintextBytes]);
+                if (_retired) return false;
+                _activeRoutes++;
+                return true;
+            }
+        }
+        public void Release()
+        {
+            lock (_gate)
+            {
+                _activeRoutes--;
+                if (_retired && _activeRoutes == 0)
+                    _drained.TrySetResult();
+            }
+        }
+        public void Retire()
+        {
+            lock (_gate)
+            {
+                _retired = true;
+                if (_activeRoutes == 0)
+                    _drained.TrySetResult();
             }
         }
     }

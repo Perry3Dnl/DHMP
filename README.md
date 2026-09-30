@@ -54,7 +54,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Raw IPv6 kernel experiment | Experimental loopback harness |
 | `DHMP.RawIpv6` Linux backend | Direct data sender/receiver plus Control V1 handshake for a configured peer |
 | Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery still pending |
-| Multi-peer server routing | Implemented by source IPv6 address; one V1 session per source address |
+| Multi-peer server routing | Source IPv6 routing with drained removal/replacement; one registered V1 session per address |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
 | Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
 | IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
@@ -109,6 +109,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
 - [DHMP PSK security setup V2](docs/SECURITY_PSK_V2.md)
 - [Bounded overload behavior](docs/OVERLOAD_BEHAVIOR.md)
+- [Peer receive lifecycle and retirement](docs/PEER_LIFECYCLE.md)
 - [Authenticated congestion feedback](docs/CONGESTION_FEEDBACK.md)
 - [Test strategy](docs/TEST_STRATEGY.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
