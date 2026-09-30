@@ -56,7 +56,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery still pending |
 | Multi-peer server routing | Implemented by source IPv6 address; one V1 session per source address |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
-| Smooth local pacing | Implemented opt-in Pmax pacing; congestion feedback still pending |
+| Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
 | IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
 | PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
@@ -113,6 +113,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [Test strategy](docs/TEST_STRATEGY.md)
 - [Authoritative direct-IP direction](docs/DIRECT_TRANSPORT_DIRECTION.md)
 - [Current implementation status](docs/CURRENT_STATUS.md)
+- [Stable-base release acceptance plan](docs/STABLE_BASE_RELEASE.md)
 - [Protocol design notes](docs/PROTOCOL_DRAFT.md)
 - [Architecture and ownership](docs/ARCHITECTURE_COMPARISON.md)
 - [.NET API design](docs/DOTNET10_PACKAGE_DESIGN.md)

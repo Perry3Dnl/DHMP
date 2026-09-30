@@ -1,9 +1,11 @@
 # DHMP current status
 
-Updated 2026-09-29.
+Updated 2026-09-30.
 
 Authoritative direction: [direct DHMP over IP](DIRECT_TRANSPORT_DIRECTION.md).
 Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
+
+Release objective: [finish the existing feature set into a stable base](STABLE_BASE_RELEASE.md) before performance fine-tuning. The acceptance matrix tracks remaining evidence; implementation status alone is not release qualification.
 
 ## Active implementation
 

@@ -8,7 +8,9 @@ namespace DHMP.Server;
 /// </summary>
 /// <remarks>
 /// One RunAsync consumer is supported. Publish may be called concurrently.
-/// Dispose only after RunAsync has stopped.
+/// Dispose rejects new publications, discards pending work and wakes an idle RunAsync.
+/// An active consumer keeps its buffer until it finishes. Await RunAsync to join shutdown;
+/// cancel its caller-supplied token when the consumer must be interrupted.
 /// </remarks>
 public sealed class DhmpBoundedReceiveDispatcher : IDisposable
 {
@@ -210,13 +212,14 @@ public sealed class DhmpBoundedReceiveDispatcher : IDisposable
                 Interlocked.Increment(
                     ref _acceptedBatches);
             }
+
+            // Publish and disposal share the gate: never signal a disposed semaphore.
+            if (signal)
+                _available.Release();
         }
 
         if (replaced is not null)
             Return(replaced);
-
-        if (signal)
-            _available.Release();
 
         return true;
     }
@@ -228,19 +231,20 @@ public sealed class DhmpBoundedReceiveDispatcher : IDisposable
     public async Task RunAsync(
         CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(
-            Volatile.Read(ref _disposed) != 0,
-            this);
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed != 0, this);
 
-        if (Interlocked.Exchange(
-                ref _running,
-                1) != 0)
-            throw new InvalidOperationException(
-                "This DHMP receive dispatcher is already running.");
+            if (_running != 0)
+                throw new InvalidOperationException(
+                    "This DHMP receive dispatcher is already running.");
+
+            _running = 1;
+        }
 
         try
         {
-            while (true)
+            while (Volatile.Read(ref _disposed) == 0)
             {
                 await _available.WaitAsync(
                     cancellationToken).ConfigureAwait(false);
@@ -275,19 +279,25 @@ public sealed class DhmpBoundedReceiveDispatcher : IDisposable
         }
         finally
         {
-            Volatile.Write(ref _running, 0);
+            lock (_gate)
+            {
+                _running = 0;
+
+                if (_disposed != 0)
+                    _available.Dispose();
+            }
         }
     }
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(
-                ref _disposed,
-                1) != 0)
-            return;
-
         lock (_gate)
         {
+            if (_disposed != 0)
+                return;
+
+            Volatile.Write(ref _disposed, 1);
+
             while (_count > 0)
             {
                 OwnedBatch? owned =
@@ -296,9 +306,12 @@ public sealed class DhmpBoundedReceiveDispatcher : IDisposable
                 if (owned is not null)
                     Return(owned);
             }
-        }
 
-        _available.Dispose();
+            if (_running == 0)
+                _available.Dispose();
+            else if (_available.CurrentCount == 0)
+                _available.Release();
+        }
     }
 
     private OwnedBatch? Dequeue()
