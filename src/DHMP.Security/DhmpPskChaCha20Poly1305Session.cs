@@ -43,7 +43,10 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     private readonly DhmpReplayWindow _feedbackReplayWindow = new();
     private readonly DhmpReplayWindow _pathRequestReplayWindow = new();
     private readonly DhmpReplayWindow _pathResponseReplayWindow = new();
-    private readonly object _receiveTelemetryGate = new();
+    // Session ownership gates; no lock spans socket awaits or application callbacks.
+    private readonly object _sendGate = new();
+    private readonly object _receiveGate = new();
+    private readonly object _controlGate = new();
 
     private long _acceptedDataPackets;
     private long _reorderedDataPackets;
@@ -229,6 +232,14 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         ReadOnlySpan<byte> plaintext,
         Span<byte> destination)
     {
+        lock (_sendGate)
+            return ProtectCore(plaintext, destination);
+    }
+
+    private int ProtectCore(
+        ReadOnlySpan<byte> plaintext,
+        Span<byte> destination)
+    {
         ObjectDisposedException.ThrowIf(
             Volatile.Read(ref _disposed) != 0,
             this);
@@ -293,6 +304,15 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     }
 
     public bool TryDecode(
+        ReadOnlySpan<byte> packet,
+        Span<byte> plaintextDestination,
+        out int plaintextBytes)
+    {
+        lock (_receiveGate)
+            return TryDecodeCore(packet, plaintextDestination, out plaintextBytes);
+    }
+
+    private bool TryDecodeCore(
         ReadOnlySpan<byte> packet,
         Span<byte> plaintextDestination,
         out int plaintextBytes)
@@ -371,26 +391,24 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
         CryptographicOperations.ZeroMemory(nonce);
 
-        lock (_receiveTelemetryGate)
+        if (!_replayWindow.TryAccept(
+                counter,
+                out var decision))
         {
-            if (!_replayWindow.TryAccept(
-                    counter,
-                    out var decision))
-            {
-                _replayRejectedDataPackets++;
+            _replayRejectedDataPackets++;
 
-                CryptographicOperations.ZeroMemory(
-                    plaintext);
+            CryptographicOperations.ZeroMemory(
+                plaintext);
 
-                return false;
-            }
-
-            _acceptedDataPackets++;
-
-            if (decision ==
-                DhmpReplayDecision.AcceptedReordered)
-                _reorderedDataPackets++;
+            return false;
         }
+
+        _acceptedDataPackets++;
+
+        if (decision ==
+            DhmpReplayDecision.AcceptedReordered)
+            _reorderedDataPackets++;
+
 
         plaintextBytes = ciphertextBytes;
 
@@ -399,7 +417,7 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
     public DhmpSecureReceiveSnapshot GetReceiveSnapshot()
     {
-        lock (_receiveTelemetryGate)
+        lock (_receiveGate)
         {
             DhmpReplayWindowSnapshot replay =
                 _replayWindow.GetSnapshot();
@@ -420,6 +438,14 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     /// Create one direction-authenticated, replay-protected congestion feedback packet.
     /// </summary>
     public int EncodeCongestionFeedback(
+        DhmpCongestionFeedback feedback,
+        Span<byte> destination)
+    {
+        lock (_controlGate)
+            return EncodeCongestionFeedbackCore(feedback, destination);
+    }
+
+    private int EncodeCongestionFeedbackCore(
         DhmpCongestionFeedback feedback,
         Span<byte> destination)
     {
@@ -498,6 +524,14 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     }
 
     public bool TryDecodeCongestionFeedback(
+        ReadOnlySpan<byte> packet,
+        out DhmpCongestionFeedback feedback)
+    {
+        lock (_controlGate)
+            return TryDecodeCongestionFeedbackCore(packet, out feedback);
+    }
+
+    private bool TryDecodeCongestionFeedbackCore(
         ReadOnlySpan<byte> packet,
         out DhmpCongestionFeedback feedback)
     {
@@ -586,6 +620,14 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         DhmpPathProbeMessage message,
         Span<byte> destination)
     {
+        lock (_controlGate)
+            return EncodePathProbeCore(message, destination);
+    }
+
+    private int EncodePathProbeCore(
+        DhmpPathProbeMessage message,
+        Span<byte> destination)
+    {
         ObjectDisposedException.ThrowIf(
             Volatile.Read(ref _disposed) != 0,
             this);
@@ -653,6 +695,14 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     }
 
     public bool TryDecodePathProbe(
+        ReadOnlySpan<byte> packet,
+        out DhmpPathProbeMessage message)
+    {
+        lock (_controlGate)
+            return TryDecodePathProbeCore(packet, out message);
+    }
+
+    private bool TryDecodePathProbeCore(
         ReadOnlySpan<byte> packet,
         out DhmpPathProbeMessage message)
     {
@@ -732,27 +782,33 @@ public sealed class DhmpPskChaCha20Poly1305Session :
 
     public void Dispose()
     {
-        if (Interlocked.Exchange(
-                ref _disposed,
-                1) != 0)
-            return;
+        lock (_sendGate)
+        lock (_receiveGate)
+        lock (_controlGate)
+        {
+            if (Interlocked.Exchange(
+                    ref _disposed,
+                    1) != 0)
+                return;
 
-        _sendCipher.Dispose();
-        _receiveCipher.Dispose();
+            _sendCipher.Dispose();
+            _receiveCipher.Dispose();
 
-        CryptographicOperations.ZeroMemory(
-            _sessionIdBytes);
+            CryptographicOperations.ZeroMemory(
+                _sessionIdBytes);
 
-        CryptographicOperations.ZeroMemory(
-            _sendFeedbackKey);
+            CryptographicOperations.ZeroMemory(
+                _sendFeedbackKey);
 
-        CryptographicOperations.ZeroMemory(
-            _receiveFeedbackKey);
+            CryptographicOperations.ZeroMemory(
+                _receiveFeedbackKey);
 
-        CryptographicOperations.ZeroMemory(
-            _sendPathKey);
+            CryptographicOperations.ZeroMemory(
+                _sendPathKey);
 
-        CryptographicOperations.ZeroMemory(
-            _receivePathKey);
+            CryptographicOperations.ZeroMemory(
+                _receivePathKey);
+        }
     }
 }
+

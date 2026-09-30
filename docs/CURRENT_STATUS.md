@@ -28,6 +28,8 @@ Release objective: [finish the existing feature set into a stable base](STABLE_B
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 - Peer routing has per-registration receive leases, drained `RemoveAsync` and atomic `ReplaceAsync`; retired receive resources remain caller-owned. Single/multi-peer paths share whole-scratch cleanup even on decoder exceptions. See [peer lifecycle](PEER_LIFECYCLE.md); send/control joining and unprotected cross-session freshness remain application/profile concerns.
 
+- Security operations now serialize counter/cipher/replay ownership and join synchronous crypto during disposal. The protected sender has awaitable send retirement; backend/session ownership stays with the caller. See [session shutdown](SESSION_SHUTDOWN.md). A [two-host smoke runner](TWO_HOST_SMOKE.md) is prepared; physical execution remains open.
+
 ## V1 data plane
 
 The V1 DHMP packet payload contains application records only.

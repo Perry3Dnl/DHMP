@@ -7,8 +7,13 @@ namespace DHMP.Security;
 /// Wraps any direct-IP packet sender with the explicit DHMP PSK security envelope.
 /// The wrapped sender lifetime is owned by the caller.
 /// </summary>
-public sealed class DhmpProtectedPacketSender : IDhmpPacketSender
+public sealed class DhmpProtectedPacketSender : IDhmpPacketSender, IAsyncDisposable
 {
+    private readonly object _lifetimeGate = new();
+    private readonly TaskCompletionSource _drained =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int _activeSends;
+    private bool _retired;
     private readonly IDhmpPacketSender _inner;
     private readonly DhmpPskChaCha20Poly1305Session _session;
 
@@ -38,6 +43,46 @@ public sealed class DhmpProtectedPacketSender : IDhmpPacketSender
     public async ValueTask SendPacketAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken = default)
+    {
+        lock (_lifetimeGate)
+        {
+            ObjectDisposedException.ThrowIf(_retired, this);
+            _activeSends++;
+        }
+
+        try
+        {
+            await SendCoreAsync(payload, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_lifetimeGate)
+            {
+                _activeSends--;
+                if (_retired && _activeSends == 0)
+                    _drained.TrySetResult();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Stop admitting sends and wait for local backend completion and pooled-buffer cleanup.
+    /// The caller retains ownership of the backend and security session.
+    /// </summary>
+    public ValueTask DisposeAsync()
+    {
+        lock (_lifetimeGate)
+        {
+            _retired = true;
+            if (_activeSends == 0)
+                _drained.TrySetResult();
+            return new ValueTask(_drained.Task);
+        }
+    }
+
+    private async ValueTask SendCoreAsync(
+        ReadOnlyMemory<byte> payload,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -75,3 +120,4 @@ public sealed class DhmpProtectedPacketSender : IDhmpPacketSender
         }
     }
 }
+

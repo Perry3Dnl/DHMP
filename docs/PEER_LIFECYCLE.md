@@ -33,7 +33,7 @@ Caller-owned decoder, callback, dispatcher, freshness filter and send/control st
 
 1. Stop admitting application work for the retiring session.
 2. Start/await `RemoveAsync`, or install a fully established fresh binding through `ReplaceAsync` and await the retired result.
-3. Separately stop/join outstanding sends, feedback/control loops and other users of the same security session.
+3. Separately stop/join outstanding sends, feedback/control loops and other users of the same security session; see [session shutdown](SESSION_SHUTDOWN.md) for protected sender retirement.
 4. Dispose/drain the old asynchronous application dispatcher according to its own ownership contract.
 5. Dispose the caller-owned old decoder/security session only after all its users finish.
 
