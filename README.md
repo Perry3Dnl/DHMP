@@ -59,7 +59,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
 | IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
-| PSK secure packet profile | Implemented experimental ChaCha20-Poly1305/HKDF/HMAC profile; independent review pending |
+| PSK secure packet profile | Experimental ChaCha20-Poly1305/HKDF/HMAC profile with V2 challenge/confirm setup; independent review pending |
 | Authenticated receiver backpressure | Implemented experimental pressure feedback + bounded adaptive pacing |
 | Secure path telemetry | Implemented rolling protected-packet loss window + authenticated RTT probe/echo |
 | Full network congestion control and forward-secret/public-key security | Still to specify/build |
@@ -107,7 +107,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 
 - [DHMP wire contract V1](docs/WIRE_CONTRACT_V1.md)
 - [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
-- [DHMP PSK security profile V1](docs/SECURITY_PSK_V1.md)
+- [DHMP PSK security setup V2](docs/SECURITY_PSK_V2.md)
 - [Bounded overload behavior](docs/OVERLOAD_BEHAVIOR.md)
 - [Authenticated congestion feedback](docs/CONGESTION_FEEDBACK.md)
 - [Test strategy](docs/TEST_STRATEGY.md)

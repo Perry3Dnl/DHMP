@@ -6,6 +6,7 @@ namespace DHMP.Security;
 /// <summary>
 /// Fixed 48-byte PSK-authenticated security control packet:
 /// 32-byte body plus a 16-byte truncated HMAC-SHA256 tag.
+/// Historical V1 codec; it does not establish OFFER freshness. Use DhmpSecuritySetupCodec V2 for new setup.
 /// </summary>
 public static class DhmpSecurityControlCodec
 {

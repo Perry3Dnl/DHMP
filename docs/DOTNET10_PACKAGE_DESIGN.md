@@ -92,9 +92,9 @@ See [Control V1](CONTROL_PLANE_V1.md) for the byte layout and security limitatio
 
 `IDhmpPacketDecoder` is the receive-side protocol boundary. `DhmpRawIpv6Receiver` can use a decoder before V1 validation and clears decrypted packet storage after the synchronous callback returns.
 
-`DhmpRawIpv6SecurityHandshake` exchanges a 48-byte HMAC-SHA256-authenticated PSK security setup over control protocol 254. It proves possession of the configured shared key but does not provide forward secrecy.
+`DhmpRawIpv6SecurityHandshake` uses 64-byte HMAC-SHA256-authenticated PSK setup V2 over control protocol 254, with a fresh responder challenge and transcript confirmation before session activation. It does not provide forward secrecy or automatically downgrade to historical setup V1.
 
-See [PSK security profile V1](SECURITY_PSK_V1.md).
+See [PSK security setup V2](SECURITY_PSK_V2.md).
 
 `DhmpRawIpv6CongestionChannel` uses the security session to authenticate/replay-protect ongoing `DHMF` pressure feedback on control protocol 254. It can run a periodic reporter loop from `DhmpBoundedReceiveDispatcher` snapshots and a receive loop that applies authenticated feedback to `DhmpAdaptiveRateController`. See [authenticated congestion feedback](CONGESTION_FEEDBACK.md).
 

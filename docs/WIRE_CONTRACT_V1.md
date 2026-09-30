@@ -131,7 +131,7 @@ A send buffer remains valid until the direct-IP backend has finished using local
 
 Base V1 remains an unprotected headerless data contract.
 
-The reference implementation now includes an explicit experimental [PSK security profile](SECURITY_PSK_V1.md). That profile wraps the V1 plaintext in a separate authenticated-encryption envelope and removes it before normal V1 packet processing. The security overhead is not presented as hidden V1 framing.
+The reference implementation now includes an explicit experimental [PSK profile with security setup V2](SECURITY_PSK_V2.md). That profile wraps the V1 plaintext in a separate authenticated-encryption envelope and removes it before normal V1 packet processing. The security overhead is not presented as hidden V1 framing.
 
 The current PSK profile has not completed an independent production security review and does not provide forward secrecy.
 

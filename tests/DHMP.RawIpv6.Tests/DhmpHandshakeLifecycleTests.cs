@@ -205,9 +205,9 @@ public sealed class DhmpHandshakeLifecycleTests
         {
             channel.OnSend = packet =>
             {
-                Assert.True(DhmpSecurityControlCodec.TryDecode(packet.Span, key, out var offer));
-                byte[] invalid = Security(new DhmpSecurityControlMessage(DhmpSecurityControlType.Accept,
-                    offer.Suite, offer.SessionId, offer.KeyId, offer.CorrelationId), key);
+                Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var offer));
+                byte[] invalid = Security(new DhmpSecuritySetupMessage(DhmpSecuritySetupType.Challenge,
+                    offer.InitiatorNonce, Guid.NewGuid(), offer.KeyId, offer.CorrelationId), key);
                 invalid[^1] ^= 1;
                 channel.Enqueue(invalid);
             };
@@ -298,9 +298,9 @@ public sealed class DhmpHandshakeLifecycleTests
         var channel = new PacketChannel();
         channel.OnSend = packet =>
         {
-            Assert.True(DhmpSecurityControlCodec.TryDecode(packet.Span, key, out var offer));
-            channel.Enqueue(Security(new DhmpSecurityControlMessage(DhmpSecurityControlType.Accept,
-                offer.Suite, wrongSession ? Guid.NewGuid() : offer.SessionId,
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var offer));
+            channel.Enqueue(Security(new DhmpSecuritySetupMessage(DhmpSecuritySetupType.Challenge,
+                wrongSession ? Guid.NewGuid() : offer.InitiatorNonce, Guid.NewGuid(),
                 offer.KeyId, wrongSession ? offer.CorrelationId : offer.CorrelationId + 1), key));
         };
 
@@ -343,6 +343,231 @@ public sealed class DhmpHandshakeLifecycleTests
         }
     }
 
+    [Fact]
+    public async Task CapturedOfferAndConfirm_CannotRecreateSessionInNewResponderInstances()
+    {
+        using var key = Key();
+        var captured = await CaptureExchange(key);
+        Assert.True(DhmpSecuritySetupCodec.TryDecode(captured.Challenge, key, out var oldChallenge));
+        Guid? previousChallenge = null;
+
+        for (int restart = 0; restart < 2; restart++)
+        {
+            var channel = new PacketChannel();
+            channel.Enqueue(captured.Offer);
+            channel.OnSend = packet =>
+            {
+                Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var fresh));
+                Assert.Equal(DhmpSecuritySetupType.Challenge, fresh.Type);
+                Assert.NotEqual(oldChallenge.ResponderNonce, fresh.ResponderNonce);
+                Assert.NotEqual(previousChallenge, fresh.ResponderNonce);
+                previousChallenge = fresh.ResponderNonce;
+                channel.Enqueue(captured.Confirm);
+            };
+            await Assert.ThrowsAsync<DhmpSecurityException>(() =>
+                DhmpRawIpv6SecurityHandshake.RespondCoreAsync(Options(), key,
+                    () => channel, new ManualClock(), TestContext.Current.CancellationToken));
+            Assert.Single(channel.Sent); // No ACCEPT and no activated responder session.
+            Assert.Equal(1, channel.DisposeCount);
+        }
+    }
+
+    [Fact]
+    public async Task CapturedOfferAlone_OnlyIssuesFreshChallengeAndExpires()
+    {
+        using var key = Key();
+        var channel = new PacketChannel();
+        channel.Enqueue(Security(Offer(), key));
+        var clock = new ManualClock();
+        Task<DhmpPskChaCha20Poly1305Session> run = DhmpRawIpv6SecurityHandshake.RespondCoreAsync(
+            Options(), key, () => channel, clock, TestContext.Current.CancellationToken);
+        Assert.False(run.IsCompleted);
+        Assert.Single(channel.Sent);
+        clock.Advance(TimeSpan.FromSeconds(10));
+        await Assert.ThrowsAsync<TimeoutException>(() => run);
+        Assert.Single(channel.Sent);
+        Assert.Equal(1, channel.DisposeCount);
+    }
+
+    [Fact]
+    public async Task SameOfferWithFreshLiveConfirmation_UsesDifferentKeysAndRejectsOldData()
+    {
+        using var key = Key();
+        var captured = await CaptureExchange(key);
+        var channel = new PacketChannel();
+        channel.Enqueue(captured.Offer);
+        channel.OnSend = packet =>
+        {
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var message));
+            if (message.Type == DhmpSecuritySetupType.Challenge)
+                channel.Enqueue(Security(message.WithType(DhmpSecuritySetupType.Confirm), key));
+        };
+        using var freshResponder = await DhmpRawIpv6SecurityHandshake.RespondCoreAsync(
+            Options(), key, () => channel, new ManualClock(), TestContext.Current.CancellationToken);
+        Assert.NotEqual(captured.SessionId, freshResponder.SessionId);
+        Assert.False(freshResponder.TryDecode(captured.Data, new byte[3], out _));
+        using var freshInitiator = new DhmpPskChaCha20Poly1305Session(
+            key, freshResponder.SessionId, DhmpSecurityRole.Initiator);
+        byte[] newData = new byte[captured.Data.Length];
+        freshInitiator.Protect(new byte[] { 1, 2, 3 }, newData);
+        Assert.False(captured.Data.AsSpan().SequenceEqual(newData));
+        Assert.True(freshResponder.TryDecode(newData, new byte[3], out int bytes));
+        Assert.Equal(3, bytes);
+        Assert.Equal(2, channel.Sent.Count);
+    }
+
+    [Theory]
+    [InlineData(DhmpSecuritySetupType.Challenge)]
+    [InlineData(DhmpSecuritySetupType.Accept)]
+    public async Task ReflectedResponse_IsNotInitiatorConfirmation(DhmpSecuritySetupType reflectedType)
+    {
+        using var key = Key();
+        var channel = new PacketChannel();
+        channel.Enqueue(Security(Offer(), key));
+        channel.OnSend = packet =>
+        {
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var challenge));
+            channel.Enqueue(Security(challenge.WithType(reflectedType), key));
+        };
+        await Assert.ThrowsAsync<DhmpSecurityException>(() => DhmpRawIpv6SecurityHandshake.RespondCoreAsync(
+            Options(), key, () => channel, new ManualClock(), TestContext.Current.CancellationToken));
+        Assert.Single(channel.Sent);
+    }
+
+    [Fact]
+    public async Task CapturedFinalAccept_DoesNotCompleteNewInitiatorAttempt()
+    {
+        using var key = Key();
+        var captured = await CaptureExchange(key);
+        var channel = new PacketChannel();
+        channel.OnSend = packet =>
+        {
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var message));
+            if (message.Type == DhmpSecuritySetupType.Offer)
+                channel.Enqueue(Security(new DhmpSecuritySetupMessage(DhmpSecuritySetupType.Challenge,
+                    message.InitiatorNonce, Guid.NewGuid(), message.KeyId, message.CorrelationId), key));
+            else channel.Enqueue(captured.Accept);
+        };
+        await Assert.ThrowsAsync<DhmpSecurityException>(() => DhmpRawIpv6SecurityHandshake.InitiateCoreAsync(
+            Options(), key, () => channel, new ManualClock(), TestContext.Current.CancellationToken));
+        Assert.Equal(2, channel.Sent.Count);
+        Assert.Equal(1, channel.DisposeCount);
+    }
+
+    [Fact]
+    public async Task LostFinalAccept_DoesNotReturnInitiatorSession()
+    {
+        using var key = Key();
+        var channel = new PacketChannel();
+        channel.OnSend = packet =>
+        {
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var message));
+            if (message.Type == DhmpSecuritySetupType.Offer)
+                channel.Enqueue(Security(new DhmpSecuritySetupMessage(DhmpSecuritySetupType.Challenge,
+                    message.InitiatorNonce, Guid.NewGuid(), message.KeyId, message.CorrelationId), key));
+        };
+        var clock = new ManualClock();
+        Task<DhmpPskChaCha20Poly1305Session> run = DhmpRawIpv6SecurityHandshake.InitiateCoreAsync(
+            Options(), key, () => channel, clock, TestContext.Current.CancellationToken);
+        Assert.Equal(2, channel.Sent.Count);
+        Assert.False(run.IsCompleted);
+        clock.Advance(TimeSpan.FromSeconds(10));
+        await Assert.ThrowsAsync<TimeoutException>(() => run);
+        Assert.Equal(1, channel.DisposeCount);
+    }
+
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public async Task LastSendBlocked_StillHonorsDeadlineOrCancellation(int kind, bool cancel)
+    {
+        using var key = Key();
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        var channel = new PacketChannel { BlockSend = true, BlockOnSendNumber = 2 };
+        if (kind == 3) channel.Enqueue(Security(Offer(), key));
+        channel.OnSend = packet =>
+        {
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var message));
+            channel.Enqueue(Security(kind == 2
+                ? new DhmpSecuritySetupMessage(DhmpSecuritySetupType.Challenge, message.InitiatorNonce,
+                    Guid.NewGuid(), message.KeyId, message.CorrelationId)
+                : message.WithType(DhmpSecuritySetupType.Confirm), key));
+        };
+        var clock = new ManualClock();
+        Task<object> run = Start(kind, channel, clock, key, cancellation.Token);
+        await channel.SecondSending.Task.WaitAsync(Guard, TestContext.Current.CancellationToken);
+        if (cancel)
+        {
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run);
+        }
+        else
+        {
+            clock.Advance(TimeSpan.FromSeconds(10));
+            await Assert.ThrowsAsync<TimeoutException>(() => run);
+        }
+        Assert.Equal(2, channel.Sent.Count);
+        Assert.Equal(1, channel.DisposeCount);
+    }
+
+    private sealed record CapturedExchange(byte[] Offer, byte[] Challenge, byte[] Confirm,
+        byte[] Accept, Guid SessionId, byte[] Data);
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task LegacyV1Control_DoesNotDowngradeRawHandshake(int kind)
+    {
+        using var key = Key();
+        byte[] legacy = new byte[DhmpSecurityControlCodec.PacketSize];
+        DhmpSecurityControlCodec.Encode(new DhmpSecurityControlMessage(DhmpSecurityControlType.Offer,
+            DhmpSecuritySuite.PskChaCha20Poly1305HkdfSha256, Guid.NewGuid(), 7, 42), key, legacy);
+        var channel = new PacketChannel();
+        channel.Enqueue(legacy);
+        await Assert.ThrowsAsync<DhmpSecurityException>(() => Start(
+            kind, channel, new ManualClock(), key, TestContext.Current.CancellationToken));
+        Assert.Equal(kind == 2 ? 1 : 0, channel.Sent.Count);
+        Assert.Equal(1, channel.DisposeCount);
+    }
+
+    [Theory]
+    [InlineData(DhmpSecuritySetupType.Accept)]
+    [InlineData(DhmpSecuritySetupType.Confirm)]
+    public async Task PrematureAuthenticatedAcceptOrConfirm_DoesNotReplaceChallenge(DhmpSecuritySetupType type)
+    {
+        using var key = Key();
+        var channel = new PacketChannel();
+        channel.OnSend = packet =>
+        {
+            Assert.True(DhmpSecuritySetupCodec.TryDecode(packet.Span, key, out var offer));
+            channel.Enqueue(Security(new DhmpSecuritySetupMessage(type, offer.InitiatorNonce,
+                Guid.NewGuid(), offer.KeyId, offer.CorrelationId), key));
+        };
+        await Assert.ThrowsAsync<DhmpSecurityException>(() => DhmpRawIpv6SecurityHandshake.InitiateCoreAsync(
+            Options(), key, () => channel, new ManualClock(), TestContext.Current.CancellationToken));
+        Assert.Single(channel.Sent);
+        Assert.Equal(1, channel.DisposeCount);
+    }
+
+    private static async Task<CapturedExchange> CaptureExchange(DhmpPreSharedKey key)
+    {
+        var initiatorChannel = new PacketChannel();
+        var responderChannel = new PacketChannel();
+        initiatorChannel.OnSend = packet => responderChannel.Enqueue(packet.ToArray());
+        responderChannel.OnSend = packet => initiatorChannel.Enqueue(packet.ToArray());
+        Task<DhmpPskChaCha20Poly1305Session> response = DhmpRawIpv6SecurityHandshake.RespondCoreAsync(
+            Options(), key, () => responderChannel, new ManualClock(), TestContext.Current.CancellationToken);
+        using var initiator = await DhmpRawIpv6SecurityHandshake.InitiateCoreAsync(
+            Options(), key, () => initiatorChannel, new ManualClock(), TestContext.Current.CancellationToken);
+        using var responder = await response.WaitAsync(Guard, TestContext.Current.CancellationToken);
+        byte[] data = new byte[3 + DhmpPskChaCha20Poly1305Session.Overhead];
+        initiator.Protect(new byte[] { 1, 2, 3 }, data);
+        return new CapturedExchange(initiatorChannel.Sent[0], responderChannel.Sent[0],
+            initiatorChannel.Sent[1], responderChannel.Sent[1], initiator.SessionId, data);
+    }
+
     private static async Task<object> Start(int kind, PacketChannel channel, ManualClock clock,
         DhmpPreSharedKey key, CancellationToken token)
         => kind switch
@@ -357,18 +582,18 @@ public sealed class DhmpHandshakeLifecycleTests
         => new(IPAddress.IPv6Loopback, IPAddress.IPv6Loopback, 128, handshakeTimeout: timeout);
     private static DhmpPreSharedKey Key() => new(7, new byte[32]);
     private static DhmpPeerProfile Profile() => new(Wire, 128, Schema);
-    private static DhmpSecurityControlMessage Offer()
-        => new(DhmpSecurityControlType.Offer, DhmpSecuritySuite.PskChaCha20Poly1305HkdfSha256, Guid.NewGuid(), 7, 42);
+    private static DhmpSecuritySetupMessage Offer()
+        => new(DhmpSecuritySetupType.Offer, Guid.NewGuid(), Guid.Empty, 7, 42);
     private static byte[] Control(DhmpControlMessage message)
     {
         byte[] bytes = new byte[DhmpProtocol.ControlPacketSize];
         DhmpControlCodec.Encode(message, bytes);
         return bytes;
     }
-    private static byte[] Security(DhmpSecurityControlMessage message, DhmpPreSharedKey key)
+    private static byte[] Security(DhmpSecuritySetupMessage message, DhmpPreSharedKey key)
     {
-        byte[] bytes = new byte[DhmpSecurityControlCodec.PacketSize];
-        DhmpSecurityControlCodec.Encode(message, key, bytes);
+        byte[] bytes = new byte[DhmpSecuritySetupCodec.PacketSize];
+        DhmpSecuritySetupCodec.Encode(message, key, bytes);
         return bytes;
     }
 
@@ -378,8 +603,10 @@ public sealed class DhmpHandshakeLifecycleTests
         public readonly List<byte[]> Sent = new();
         public readonly TaskCompletionSource Receiving = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public readonly TaskCompletionSource Sending = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public readonly TaskCompletionSource SecondSending = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Action<ReadOnlyMemory<byte>>? OnSend { get; set; }
         public bool BlockSend { get; init; }
+        public int BlockOnSendNumber { get; init; } = 1;
         public Exception? SendFailure { get; init; }
         public int DisposeCount { get; private set; }
         public void Enqueue(byte[] packet) => Assert.True(_incoming.Writer.TryWrite(packet));
@@ -388,9 +615,10 @@ public sealed class DhmpHandshakeLifecycleTests
             token.ThrowIfCancellationRequested();
             Sent.Add(packet.ToArray());
             Sending.TrySetResult();
+            if (Sent.Count == 2) SecondSending.TrySetResult();
             if (SendFailure is not null)
                 throw SendFailure;
-            if (BlockSend)
+            if (BlockSend && Sent.Count == BlockOnSendNumber)
                 await Task.Delay(System.Threading.Timeout.InfiniteTimeSpan, token);
             OnSend?.Invoke(packet);
         }

@@ -2,6 +2,8 @@
 
 Status: experimental pre-1.0 profile. The cryptographic primitives are standard, but this DHMP composition has not received an independent security review and must not yet be advertised as production-secure.
 
+Historical setup contract: the raw-IPv6 handshake APIs now use [security setup V2](SECURITY_PSK_V2.md). V1 OFFER/ACCEPT setup is replay-vulnerable and must not be used to establish new sessions. The data-protection primitive/envelope described below is reused by V2 with a derived two-party session ID.
+
 Base DHMP V1 remains headerless. This profile adds an explicit lower packet-protection envelope before raw IPv6 transmission and removes it before the normal V1 packet processor sees the payload.
 
 ## Primitive set
