@@ -103,6 +103,14 @@ Control V1 rejection reasons are:
 
 A REJECT terminates that one negotiation attempt.
 
+## Bounded .NET handshake lifetime
+
+`DhmpRawIpv6Options.HandshakeTimeout` defaults to ten seconds and can be configured with the optional `handshakeTimeout` constructor/`FromPathMtu` argument. It must be positive and finite. Both initiator and one-shot responder use one deadline covering the complete control send/receive exchange. Ignoring another correlation ID or a non-HELLO does not reset that deadline.
+
+Expiry raises `TimeoutException`; caller cancellation remains `OperationCanceledException` with the caller's token. A pre-cancelled valid call does not open a raw socket. Channel resources are disposed after success, rejection, malformed input, sender failure, cancellation or timeout. Malformed/truncated input from the configured source fails the attempt; it is not silently treated as a compatible peer.
+
+There is no automatic retransmission. If HELLO or ACCEPT is lost, the attempt times out. A caller may start a new compatibility attempt with a new correlation ID, but must manage the remote endpoint lifecycle: local timeout does not prove the responder failed to accept the previous attempt. These APIs are one-shot exchanges, not an established control-session manager. The compatibility and PSK phases each have their own deadline and are run in sequence for a configured peer.
+
 ## Data-plane transition
 
 After successful negotiation, data uses protocol / Next Header 253 and the normal V1 headerless payload:
@@ -117,8 +125,8 @@ The 32-byte control packet is not repeated on data packets.
 
 Base compatibility Control V1 is unauthenticated.
 
-When the PSK security profile is active, the same experimental control protocol 254 also carries distinct fixed-size authenticated control packet families: 48-byte `DHMS` security setup and 64-byte `DHMF` congestion feedback. Packet magic/length separate these profiles; they are not prepended to data.
+When the PSK security profile is active, the same experimental control protocol 254 also carries distinct authenticated control packet families: 64-byte `DHMS` version 2 security setup and 64-byte `DHMF` congestion feedback. Magic and version separate these profiles; they are not prepended to data. Historical 48-byte security setup V1 is not accepted by the current raw-IPv6 setup APIs.
 
 Do not interpret successful compatibility negotiation as proof that the remote endpoint is trusted.
 
-The separate [PSK security profile V1](SECURITY_PSK_V1.md) adds a distinct 48-byte HMAC-authenticated security-control exchange on the same experimental control binding plus authenticated-encryption/replay handling for protected data. [Authenticated congestion feedback](CONGESTION_FEEDBACK.md) adds a 64-byte session-bound `DHMF` control packet. Base 32-byte Control V1 itself remains only compatibility negotiation.
+The separate [PSK setup V2](SECURITY_PSK_V2.md) uses an authenticated OFFER/CHALLENGE/CONFIRM/ACCEPT exchange on the same experimental control binding plus authenticated-encryption/replay handling for protected data. [Authenticated congestion feedback](CONGESTION_FEEDBACK.md) adds a 64-byte session-bound `DHMF` control packet. Base 32-byte Control V1 itself remains only compatibility negotiation.

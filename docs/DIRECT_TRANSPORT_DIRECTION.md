@@ -1,6 +1,6 @@
 # Authoritative direction: DHMP directly over IP
 
-Decision updated 2026-09-29.
+Decision updated 2026-09-30.
 
 This document, [WIRE_CONTRACT_V1.md](WIRE_CONTRACT_V1.md) and `AGENTS.md` supersede the older compatibility/byte-stream architecture.
 
@@ -52,22 +52,27 @@ Implemented:
 - raw/mock IP research harnesses;
 - fixed 32-byte Control V1 codec and HELLO/ACCEPT/REJECT compatibility negotiation;
 - Linux raw-IPv6 control channel for one configured peer;
+- bounded source-IPv6 multi-peer routing, one session per source address;
+- bounded async ownership with Latest replacement and Sequential saturation rejection;
+- application-owned generation filtering for cross-packet Latest freshness;
+- known-PMTU whole-record budgeting, local/adaptive pacing and authenticated pressure feedback;
+- experimental PSK authentication/protection, secure loss telemetry and RTT probes;
 - architecture checks preventing legacy transport restoration.
 
 Pending:
 
 - production hardening of direct-IPv6 packet I/O;
 - peer discovery beyond an explicitly configured peer;
-- peer authentication and secure negotiation;
-- bounded asynchronous packet-buffer ownership;
-- path-MTU behavior;
-- cross-packet freshness/reordering policy;
-- pacing/congestion behavior;
+- lifecycle/integration validation of existing routing, async ownership and freshness;
+- dynamic PMTU discovery beyond known-PMTU budgeting;
+- complete network congestion control and path/fairness validation;
 - reviewed production security.
 
 Removing the legacy transports is not evidence that these pending pieces already exist.
 
 ## Work order
+
+The current priority is the [stable-base acceptance plan](STABLE_BASE_RELEASE.md): harden and validate existing features before adding new capabilities or tuning performance. The broader direction below remains the longer-term roadmap.
 
 1. Harden the direct-IPv6 data/control backend around the V1 contracts.
 2. Add peer discovery/authentication beyond the implemented configured-peer compatibility handshake.

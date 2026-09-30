@@ -93,7 +93,11 @@ An application-consumer exception propagates from `RunAsync`.
 
 DHMP does not retry failed application work automatically.
 
-Cancellation stops the run loop. Pending owned buffers are released when the dispatcher is disposed.
+Cancellation stops the run loop. A cancelled run can be restarted while the dispatcher remains undisposed; pending batches remain available to that next run.
+
+`Dispose()` is idempotent and safe alongside publishers and a running consumer. It rejects new publications, clears/returns pending buffers and wakes an idle run loop. A consumer already holding a batch may finish; its buffer is cleared/returned only after its callback exits, including on failure. Disposal does not cancel application work or wait for it synchronously. Await the `RunAsync` task to join shutdown, and cancel its caller-supplied token when cooperative interruption of the active consumer is required. A disposed dispatcher cannot restart.
+
+Capacity bounds the number of pending batches, plus one executing batch. It is not an independent byte ceiling: the normal packet-processing boundary must enforce the configured packet size before publishing.
 
 ## Observability
 

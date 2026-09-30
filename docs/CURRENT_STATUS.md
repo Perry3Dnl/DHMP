@@ -1,9 +1,11 @@
 # DHMP current status
 
-Updated 2026-09-29.
+Updated 2026-09-30.
 
 Authoritative direction: [direct DHMP over IP](DIRECT_TRANSPORT_DIRECTION.md).
 Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
+
+Release objective: [finish the existing feature set into a stable base](STABLE_BASE_RELEASE.md) before performance fine-tuning. The acceptance matrix tracks remaining evidence; implementation status alone is not release qualification.
 
 ## Active implementation
 
@@ -22,6 +24,7 @@ Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
 - `DHMP.Security` provides an experimental PSK security profile using authenticated control setup, HKDF-derived directional keys, ChaCha20-Poly1305 packet protection, bounded replay, rolling protected-packet loss telemetry and authenticated RTT probes.
 - `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics. `DhmpCongestionAdvisor` converts snapshot deltas into bounded receiver pressure recommendations.
 - Offline licensing and ASP.NET startup integration remain separate from network transport.
+- Compatibility and PSK one-shot handshakes have a configurable total deadline (ten seconds by default), caller cancellation before socket creation and privilege-free lifecycle/composition tests. PSK setup now uses explicitly versioned [V2 challenge/confirm](SECURITY_PSK_V2.md): fresh responder challenges prevent a captured OFFER/CONFIRM from recreating old keys and resetting counters. No automatic V1 fallback, retransmission or persistent session manager exists. Independent review and operational lifetime gates remain open.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 
 ## V1 data plane
