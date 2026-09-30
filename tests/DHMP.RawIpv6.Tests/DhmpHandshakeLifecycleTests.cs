@@ -70,7 +70,7 @@ public sealed class DhmpHandshakeLifecycleTests
         using var key = Key();
         var channel = new PacketChannel();
         var clock = new ManualClock();
-        Task<object> run = Start(kind, channel, clock, key);
+        Task<object> run = Start(kind, channel, clock, key, TestContext.Current.CancellationToken);
         await channel.Receiving.Task.WaitAsync(Guard, TestContext.Current.CancellationToken);
 
         clock.Advance(TimeSpan.FromSeconds(9));
@@ -119,7 +119,7 @@ public sealed class DhmpHandshakeLifecycleTests
             channel.Enqueue(Security(Offer(), key));
 
         var clock = new ManualClock();
-        Task<object> run = Start(kind, channel, clock, key);
+        Task<object> run = Start(kind, channel, clock, key, TestContext.Current.CancellationToken);
         await channel.Sending.Task.WaitAsync(Guard, TestContext.Current.CancellationToken);
         clock.Advance(TimeSpan.FromSeconds(10));
 
@@ -160,7 +160,7 @@ public sealed class DhmpHandshakeLifecycleTests
         if (kind == 1) channel.Enqueue(Control(DhmpControlMessage.Hello(Profile(), 42)));
         if (kind == 3) channel.Enqueue(Security(Offer(), key));
         var clock = new ManualClock();
-        var error = await Assert.ThrowsAsync<IOException>(() => Start(kind, channel, clock, key));
+        var error = await Assert.ThrowsAsync<IOException>(() => Start(kind, channel, clock, key, TestContext.Current.CancellationToken));
         Assert.Same(failure, error);
         Assert.Single(channel.Sent);
         Assert.Equal(1, channel.DisposeCount);
@@ -212,7 +212,7 @@ public sealed class DhmpHandshakeLifecycleTests
                 channel.Enqueue(invalid);
             };
         }
-        await Assert.ThrowsAsync<DhmpSecurityException>(() => Start(kind, channel, new ManualClock(), key));
+        await Assert.ThrowsAsync<DhmpSecurityException>(() => Start(kind, channel, new ManualClock(), key, TestContext.Current.CancellationToken));
         Assert.Equal(kind == 2 ? 1 : 0, channel.Sent.Count);
         Assert.Equal(1, channel.DisposeCount);
     }
@@ -280,7 +280,7 @@ public sealed class DhmpHandshakeLifecycleTests
         using var key = Key();
         var channel = new PacketChannel();
         channel.Enqueue(new byte[] { 1 });
-        Task<object> run = Start(kind, channel, new ManualClock(), key);
+        Task<object> run = Start(kind, channel, new ManualClock(), key, TestContext.Current.CancellationToken);
 
         if (kind < 2)
             await Assert.ThrowsAsync<DhmpProtocolException>(() => run);
@@ -344,7 +344,7 @@ public sealed class DhmpHandshakeLifecycleTests
     }
 
     private static async Task<object> Start(int kind, PacketChannel channel, ManualClock clock,
-        DhmpPreSharedKey key, CancellationToken token = default)
+        DhmpPreSharedKey key, CancellationToken token)
         => kind switch
         {
             0 => await DhmpRawIpv6Handshake.InitiateCoreAsync(Options(), Wire, Send, Receive, Schema, () => channel, clock, token),
@@ -431,7 +431,7 @@ public sealed class DhmpHandshakeLifecycleTests
             public bool Change(TimeSpan dueTime, TimeSpan period)
             {
                 if (Disposed) return false;
-                Due = dueTime == System.Threading.Timeout.InfiniteTimeSpan
+                Due = dueTime == global::System.Threading.Timeout.InfiniteTimeSpan
                     ? TimeSpan.MaxValue : clock._elapsed + dueTime;
                 return true;
             }
