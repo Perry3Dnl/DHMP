@@ -93,7 +93,7 @@ public sealed class DhmpPeerLifecycleTests
         Task? retired = null;
         var old = Binding(_ =>
         {
-            retired = replace ? router.ReplaceAsync(Binding(_ => { })) : router.RemoveAsync(Peer);
+            retired = replace ? (Task)router.ReplaceAsync(Binding(_ => { })) : router.RemoveAsync(Peer);
             Assert.False(retired.IsCompleted);
         });
         router.Register(old);
