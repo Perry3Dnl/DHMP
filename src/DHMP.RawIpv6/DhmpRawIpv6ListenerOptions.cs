@@ -13,7 +13,8 @@ public sealed class DhmpRawIpv6ListenerOptions
         IPAddress localAddress,
         int maximumPayloadBytes,
         int maximumPeers = 1024,
-        int socketBufferBytes = 4 * 1024 * 1024)
+        int socketBufferBytes = 4 * 1024 * 1024,
+        bool enableExperimentalProtocolNumbers = false)
     {
         ArgumentNullException.ThrowIfNull(localAddress);
 
@@ -40,6 +41,7 @@ public sealed class DhmpRawIpv6ListenerOptions
         MaximumPayloadBytes = maximumPayloadBytes;
         MaximumPeers = maximumPeers;
         SocketBufferBytes = socketBufferBytes;
+        ExperimentalProtocolNumbersEnabled = enableExperimentalProtocolNumbers;
     }
 
     public static DhmpRawIpv6ListenerOptions FromPathMtu(
@@ -47,7 +49,8 @@ public sealed class DhmpRawIpv6ListenerOptions
         int pathMtu,
         int maximumPeers = 1024,
         int socketBufferBytes = 4 * 1024 * 1024,
-        int additionalIpv6HeaderBytes = 0)
+        int additionalIpv6HeaderBytes = 0,
+        bool enableExperimentalProtocolNumbers = false)
     {
         var budget =
             new DhmpIpv6PathBudget(
@@ -58,7 +61,8 @@ public sealed class DhmpRawIpv6ListenerOptions
             localAddress,
             budget.MaximumProtocolPayloadBytes,
             maximumPeers,
-            socketBufferBytes);
+            socketBufferBytes,
+            enableExperimentalProtocolNumbers);
     }
 
     public IPAddress LocalAddress { get; }
@@ -66,6 +70,20 @@ public sealed class DhmpRawIpv6ListenerOptions
     public int MaximumPeers { get; }
     public int SocketBufferBytes { get; }
 
+    /// <summary>
+    /// True only when the caller explicitly opted into the RFC 4727/IANA experimental
+    /// IPv6 Next Header value 253. Production Internet reachability is not implied.
+    /// </summary>
+    public bool ExperimentalProtocolNumbersEnabled { get; }
+
     public byte DataProtocolNumber =>
         DhmpProtocol.ExperimentalIpv6DataNextHeader;
+
+    internal void EnsureExperimentalProtocolNumbersEnabled()
+    {
+        if (!ExperimentalProtocolNumbersEnabled)
+            throw new InvalidOperationException(
+                "DHMP raw IPv6 currently uses experimental Next Header value 253. " +
+                "Set enableExperimentalProtocolNumbers: true only for an explicitly configured experiment.");
+    }
 }
