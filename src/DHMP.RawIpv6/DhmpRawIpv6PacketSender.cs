@@ -146,6 +146,14 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
             baseBudget.MaximumProtocolPayloadBytes);
     }
 
+    void IDhmpPathBudgetTarget.ApplyConfirmedPathBudget(
+        DhmpIpv6PathBudget pathBudget)
+        => ApplyConfirmedPathBudget(
+            pathBudget);
+
+    void IDhmpPathBudgetTarget.FallBackToMinimumPathBudget()
+        => FallBackToMinimumPathBudget();
+
     public async ValueTask SendPacketAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken = default)
