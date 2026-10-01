@@ -15,6 +15,11 @@ public sealed class DhmpApiOptions
     public bool AcceptRequests { get; set; }
     public int PathMtu { get; set; } = 1280;
     public int AdditionalIpv6HeaderBytes { get; set; }
+    /// <summary>
+    /// Explicit opt-in for the current RFC 4727 experimental IPv6 Next Header 253/254 binding.
+    /// This is false by default and is not a production-Internet compatibility guarantee.
+    /// </summary>
+    public bool EnableExperimentalProtocolNumbers { get; set; }
     public int RecordsPerSecond { get; set; } = 1000;
     public int MaximumBodyBytes { get; set; } = 262144;
     public int MaximumMessageBytes { get; set; } = 524288;
@@ -32,6 +37,9 @@ public sealed class DhmpApiOptions
         if (!Uri.TryCreate(ApiOrigin, UriKind.Absolute, out var origin) || origin.Scheme is not ("https" or "http") ||
             origin.AbsolutePath != "/" || origin.Query.Length != 0 || origin.Fragment.Length != 0 || origin.UserInfo.Length != 0)
             throw new InvalidOperationException("DHMP ApiOrigin must be an absolute http/https origin without a path, query or credentials.");
+        if (!EnableExperimentalProtocolNumbers)
+            throw new InvalidOperationException(
+                "DHMP API raw IPv6 currently requires explicit EnableExperimentalProtocolNumbers=true for the RFC 4727 253/254 research binding.");
         if (PathMtu < 1280 || RecordsPerSecond <= 0 || KeyId == 0 ||
             MaximumBodyBytes is < 1 or > 1048576 || MaximumMessageBytes < MaximumBodyBytes || MaximumMessageBytes > 2097152 ||
             MaximumInFlight is < 1 or > 128 || MaximumConcurrentRequests is < 1 or > 32 ||
