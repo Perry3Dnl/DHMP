@@ -1,6 +1,6 @@
 namespace DHMP.Protocol;
 
-/// <summary>Stable protocol identity for the current standalone DHMP work.</summary>
+/// <summary>Pre-1.0 protocol identity for the current standalone DHMP work.</summary>
 public static class DhmpProtocol
 {
     /// <summary>Current pre-1.0 headerless data wire version.</summary>
@@ -11,13 +11,15 @@ public static class DhmpProtocol
 
     /// <summary>
     /// Experimental IPv6 protocol/Next Header used by DHMP V1 data packets.
-    /// IANA reserves 253 for experimentation/testing; this is not a permanent DHMP assignment.
+    /// IANA reserves 253 for explicitly configured experimentation/testing; this is not a permanent
+    /// or standardized DHMP assignment and must not be treated as a production default.
     /// </summary>
     public const byte ExperimentalIpv6DataNextHeader = 253;
 
     /// <summary>
     /// Experimental IPv6 protocol/Next Header used by DHMP control packets.
-    /// IANA reserves 254 for experimentation/testing; this is not a permanent DHMP assignment.
+    /// IANA reserves 254 for explicitly configured experimentation/testing; this is not a permanent
+    /// or standardized DHMP assignment and must not be treated as a production default.
     /// </summary>
     public const byte ExperimentalIpv6ControlNextHeader = 254;
 
