@@ -365,6 +365,7 @@ public sealed class DhmpApiIntegrationTests
             ["DHMP:ApplicationId"] = appId.ToString(), ["DHMP:PublicVerificationKeyBase64"] = Convert.ToBase64String(issuer.PublicKey),
             ["DHMP:Api:LocalAddress"] = "2001:db8::1", ["DHMP:Api:RemoteAddress"] = "2001:db8::2",
             ["DHMP:Api:ApiOrigin"] = "https://api.example/", ["DHMP:Api:PreSharedKeyBase64"] = Settings().PreSharedKeyBase64,
+            ["DHMP:Api:EnableExperimentalProtocolNumbers"] = "true",
             ["DHMP:Api:AcceptRequests"] = accept.ToString(), ["DHMP:Api:RequestTimeout"] = "00:00:05"
         });
         builder.Services.AddSingleton<IServer>(new StubServer());
