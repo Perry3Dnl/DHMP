@@ -17,6 +17,23 @@ The active project has no TCP/UDP compatibility data path. Earlier stream and co
 
 Five repetitions per case on one GitHub-hosted VM: **4 vCPU, AMD EPYC 7763 64-Core Processor, .NET 10**. All units are decimal. These are memory, kernel-loopback and virtual-network measurements; physical two-machine/NIC throughput remains unmeasured.
 
+### High-speed core and mock measurements (GB/s)
+
+These are the fast **in-memory logical offered rates**, measured without encryption, sockets or NICs. All rows below use batch 44: 44 fixed 32-byte records, 1408 offered payload bytes per packet, on the primary AMD-hosted runner.
+
+| In-memory benchmark | Logical offered GB/s, median (min–max) | ns/packet, median |
+| --- | ---: | ---: |
+| Core Latest framing ceiling | 372.534 (346.784–375.469) | 3.780 |
+| Mock IP packet construction | 44.676 (44.324–44.725) | 31.516 |
+| Mock IPv4 framing | 28.442 (28.374–28.696) | 49.504 |
+| Mock IPv6 framing | 31.211 (20.921–31.828) | 45.112 |
+
+![High-speed core and mock measurements](docs/assets/full-suite-high-speed.svg)
+
+The core ceiling validates the batch boundary and observes one int32 from the newest record. The mocks construct records and observe the newest identity; IPv4/IPv6 cases add their respective header work. **They do not inspect or transmit every offered byte**, so these logical rates are not full-payload processing or network bandwidth, and the different workloads are not equivalent speed rankings.
+
+The earlier Intel-hosted mock IP run measured **51.446 GB/s median (44.500–53.468)** at the same batch size. Its [raw results](docs/benchmark-results/2026-10-01/initial-components-kernel.json) and [run](https://github.com/Perry3Dnl/DHMP/actions/runs/36831931127) are retained separately. Different hosted CPUs prevent treating the difference as a protocol regression.
+
 ### Protected one-way versus optional full echo: memory composition
 
 Both cases use 1200-byte records and 1160 useful application bytes. Timing includes real protection/decryption and byte checks, with no sockets. Echo also sends the entire return record and matches its confirmation. Useful bytes are counted once.
