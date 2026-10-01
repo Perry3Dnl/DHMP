@@ -73,6 +73,7 @@ internal sealed class DhmpApiPipeline(IOptions<DhmpApiOptions> options)
         context.Request.QueryString = query < 0 ? QueryString.Empty : new QueryString(request.Target[query..]);
         context.Request.Protocol = "DHMP-API/1";
         context.Features.Get<IHttpRequestFeature>()!.RawTarget = request.Target;
+        context.Features.Set<IHttpRequestBodyDetectionFeature>(new DhmpApiRequestBodyDetectionFeature(request.Body.Length > 0));
         context.Request.Body = body;
         context.Request.ContentLength = request.Body.Length;
         context.RequestAborted = token;
@@ -99,4 +100,9 @@ internal sealed class DhmpApiPipeline(IOptions<DhmpApiOptions> options)
         finally { await responseFeature.CompleteAsync().ConfigureAwait(false); }
         return await DhmpApiEnvelope.SerializeAsync(response, settings.MaximumMessageBytes, token).ConfigureAwait(false);
     }
+}
+
+internal sealed class DhmpApiRequestBodyDetectionFeature(bool canHaveBody) : IHttpRequestBodyDetectionFeature
+{
+    public bool CanHaveBody => canHaveBody;
 }

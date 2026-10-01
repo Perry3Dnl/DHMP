@@ -152,7 +152,7 @@ def main():
         check("GET through real DHMP API path", hello["status"] == 200 and json.loads(hello["bytes"])["process"] == backend.pid)
         payload = json.dumps({"message": "x" * 16000}).encode()
         echo = request("/lab/proxy/api/echo", "POST", payload, {"Content-Type": "application/json"})
-        check("multi-record JSON POST and response", echo["status"] == 200 and json.loads(echo["bytes"])["message"] == "x" * 16000)
+        check("multi-record JSON POST and response", echo["status"] == 200 and json.loads(echo["bytes"])["message"] == "x" * 16000, echo["status"])
         check("authorization denied", request("/lab/proxy/api/lab/private")["status"] == 401)
         check("authorization header preserved", request("/lab/proxy/api/lab/private", headers={"Authorization": "Bearer lab-test"})["status"] == 200)
         check("unknown route remains 404", request("/lab/proxy/api/missing")["status"] == 404)

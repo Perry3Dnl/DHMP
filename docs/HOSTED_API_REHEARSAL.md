@@ -22,3 +22,5 @@ The HTTP driver talks only to each namespace's local website listener. Those cal
 Evidence is uploaded for 14 days: `report.json`, application/capture logs and encrypted `traffic.pcap`. The report always sets `physical_two_host_pass` to false and records the exact commit, kernel, checks, session IDs and packet counts. No fixture configuration files are uploaded.
 
 For a physical gate, repeat the [API test](ASP_NET_API_INTEGRATION.md) on two distinct Linux machines connected through their actual IPv6 network/NICs, with recorded hardware, MTU, privileges and results. A hosted rehearsal pass does not close that release gate.
+
+The first real-socket attempt exposed that casting experimental numbers to the managed `ProtocolType` enum did not open them on .NET/Linux. The backend now opens the explicit native Linux raw descriptor with close-on-exec and transfers ownership through `SafeSocketHandle`; async I/O, binding and cleanup continue through the managed Socket API. The lab exercises this actual construction path rather than substituting a mock or silently skipping protocol creation failures.

@@ -104,6 +104,25 @@ public sealed class DhmpApiIntegrationTests
     }
 
     [Fact]
+    public async Task MinimalApiJsonModelBindingRecognizesApplicationRequestBody()
+    {
+        using var issuer = new TestLicenseIssuer();
+        var pair = new PacketPair();
+        await using var server = BuildApp(issuer, pair.Second, true);
+        await using var frontend = BuildApp(issuer, pair.First, false);
+        server.MapPost("/json", (DhmpApiTestBody body) => Results.Json(body));
+        await server.StartAsync(Token); await frontend.StartAsync(Token);
+        using var client = frontend.Services.GetRequiredService<IHttpClientFactory>().CreateClient();
+        string value = new('x', 16000);
+        using var response = await client.PostAsJsonAsync("https://api.example/json", new DhmpApiTestBody(value), Token);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(value, (await response.Content.ReadFromJsonAsync<DhmpApiTestBody>(Token))!.Value);
+        using var empty = await client.PostAsync("https://api.example/json", new ByteArrayContent([]), Token);
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        await frontend.StopAsync(Token); await server.StopAsync(Token);
+    }
+
+    [Fact]
     public async Task ApplicationExceptionReturnsGeneric500WithoutRetryOrLeakedDetails()
     {
         using var issuer = new TestLicenseIssuer();
