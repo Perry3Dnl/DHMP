@@ -144,9 +144,9 @@ def main():
             run(ns(namespace, "ip", "-6", "addr", "add", address + "/64", "dev", interface, "nodad"))
         capture_log = (output / "capture.log").open("w")
         log_files.append(capture_log)
-        capture = subprocess.Popen(ns(front, "tcpdump", "-U", "-n", "-i", "dapi-a", "-w", str(output / "traffic.pcap"), "ip6"),
+        capture = subprocess.Popen(ns(front, "tcpdump", "--immediate-mode", "-U", "-n", "-i", "dapi-a", "-w", str(output / "traffic.pcap"), "ip6"),
                                    stdout=capture_log, stderr=subprocess.STDOUT, start_new_session=True)
-        wait_until(lambda: (output / "traffic.pcap").exists())
+        wait_until(lambda: capture.poll() is None and "listening on dapi-a" in (output / "capture.log").read_text())
         frontend, backend = start_pair(1)
         hello = request("/lab/proxy/api/hello")
         check("GET through real DHMP API path", hello["status"] == 200 and json.loads(hello["bytes"])["process"] == backend.pid)
