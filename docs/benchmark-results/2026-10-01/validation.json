@@ -1,0 +1,16 @@
+{
+  "url": "https://github.com/Perry3Dnl/DHMP/actions/runs/36832616933",
+  "tests_per_os": 395,
+  "total_executions": 790,
+  "suites": {
+    "Protocol": 74,
+    "Server": 28,
+    "Licensing": 23,
+    "ASP.NET/client integration": 92,
+    "Raw IPv6": 111,
+    "Security": 67
+  },
+  "benchmark_head": "4c1b0c6b9425fcffb83f26248bd6d49c64275661",
+  "benchmark_run": 36832616901,
+  "artifact_digest": "sha256:5a3fd8725f824712b08221fcde53edfcaa2ae13990ff2cacf923e558df6e043a"
+}

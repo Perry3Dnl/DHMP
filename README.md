@@ -8,6 +8,64 @@
 
 The active project has no TCP/UDP compatibility data path. Earlier stream and compatibility implementations remain in git history only.
 
+<!-- BEGIN FULL BENCHMARK RESULTS -->
+## Latest validation and benchmarks — 1 October 2026
+
+**790 test executions passed: 395 cases on Linux and Windows.** The full hosted suite also passed 23 network acceptance checks, including deliberate loss, restart, clean shutdown and the optional full-echo profile.
+
+[Benchmark run](https://github.com/Perry3Dnl/DHMP/actions/runs/36832616901) · [Test run](https://github.com/Perry3Dnl/DHMP/actions/runs/36832616933) · [Full results and contracts](docs/FULL_BENCHMARK_2026_10_01.md) · [Raw measurement JSON](docs/benchmark-results/2026-10-01)
+
+Five repetitions per case on one GitHub-hosted VM: **4 vCPU, AMD EPYC 7763 64-Core Processor, .NET 10**. All units are decimal. These are memory, kernel-loopback and virtual-network measurements; physical two-machine/NIC throughput remains unmeasured.
+
+### Protected one-way versus optional full echo: memory composition
+
+Both cases use 1200-byte records and 1160 useful application bytes. Timing includes real protection/decryption and byte checks, with no sockets. Echo also sends the entire return record and matches its confirmation. Useful bytes are counted once.
+
+| Mode | Useful MB/s, median (min–max) | Time per send/confirmation | Approx. allocated bytes/op |
+| --- | ---: | ---: | ---: |
+| Protected one-way | 262.9 (255.4–263.8) | 4.41 µs | 0 |
+| Protected full echo | 113.4 (96.7–114.3) | 10.23 µs | 3,472 |
+
+![Protected one-way versus full echo in memory](docs/assets/full-suite-memory.svg)
+
+Full echo took **2.32×** the CPU time per operation in this harness. It remains opt-in; neither mode adds automatic retransmission.
+
+### Full echo through actual protected raw IPv6 sockets
+
+These peers run in two namespaces on the **same VM**, not on separate physical machines. Records are encrypted and their returned content is checked. Each sample lasts at least 0.5 seconds after warm-up, with rotated concurrency order. This is measured useful completion throughput, not a physical link capacity.
+
+| Outstanding sends | Useful MB/s, median (min–max) | Median sample p50 RTT | Median sample p95 RTT |
+| ---: | ---: | ---: | ---: |
+| 1 | 12.8 (5.9–13.7) | 0.085 ms | 0.112 ms |
+| 8 | 24.7 (16.3–25.8) | 0.130 ms | 0.283 ms |
+| 32 | 28.9 (20.6–29.8) | 0.239 ms | 0.813 ms |
+
+![Full echo through protected raw IPv6](docs/assets/full-suite-raw-echo.svg)
+
+### Existing ASP.NET API path
+
+The local HTTP driver calls the website, which calls its backend through protected raw DHMP. Measurements include that whole application path. The fixture intentionally caps each API sender at **500 records/s**; the 16 KB POST spans many records and therefore reflects configured pacing, not maximum protocol bandwidth. Five samples of 40 successful requests per route, after warm-up.
+
+| API call | Requests/s, median | Median sample p50 | Median sample p95 |
+| --- | ---: | ---: | ---: |
+| GET | 488.9 | 2.323 ms | 2.538 ms |
+| 16 KB JSON POST + echo response | 13.6 | 73.292 ms | 74.653 ms |
+
+### Unprotected raw kernel loopback: verified delivery
+
+Every delivered record's identity and bytes are checked. Each run offers 200,000 records of 32 bytes, without intentional pacing. Unique received payload and loss are reported separately; duplicate records never inflate throughput. Drain waiting is excluded from the active-rate denominator.
+
+| Records/packet | Unique received MB/s, median (min–max) | Loss %, median (min–max) |
+| ---: | ---: | ---: |
+| 1 | 5.1 (4.7–6.8) | 0.00 (0.00–0.00) |
+| 8 | 43.4 (37.8–44.4) | 0.00 (0.00–0.00) |
+| 44 | 143.1 (141.7–144.3) | 0.00 (0.00–0.00) |
+
+**The primary run had no observed kernel loss. An earlier run on a different hosted CPU lost 17.23% at batch 44 (15.80–19.58%).** Both sets of raw measurements are retained. This shows that unpaced sender/receiver/kernel overload can occur; a loss-free run does not establish reliable delivery. The protected echo and API measurements above are different workloads and cannot be ranked against this kernel test as equivalent modes.
+
+Core, mock IPv4/IPv6, control-codec, generation-filter, security/feedback and key-derivation timings are retained in the [complete report](docs/FULL_BENCHMARK_2026_10_01.md). Large logical offered rates from the historical-contract memory harnesses are not network bandwidth. License, routing, replay, limits, cancellation and lifetime behavior are covered by tests; long-duration soak, physical networks, fairness and independent security review remain open.
+<!-- END FULL BENCHMARK RESULTS -->
+
 ## V1 data-plane rule
 
 DHMP V1 keeps the hot data path deliberately simple:
