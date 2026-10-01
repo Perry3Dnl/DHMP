@@ -67,7 +67,7 @@ This conservative mode avoids pretending that automatic PMTU discovery exists. I
 
 The Linux raw socket also explicitly enables `IPV6_DONTFRAG` (RFC 3542 section 11.2). DHMP therefore does not rely on the kernel inserting an IPv6 Fragment header for an oversized send. An oversized packet should fail or produce PMTU feedback instead of silently becoming multiple IP fragments. This matches the V1 rule that normal operation does not depend on IP fragmentation.
 
-Full DPLPMTUD remains a separate future feature because RFC 8899 requires probe reception feedback, loss handling, reordering/delay robustness and black-hole recovery. The relevant standards references are RFC 8201 (IPv6 PMTUD) and RFC 8899 (DPLPMTUD). A correct implementation needs an acknowledged probe mechanism; it must not be approximated by simply increasing packet sizes until a local send fails.
+Authenticated DPLPMTUD search and explicit re-confirmation are now implemented on the protected control channel; see [DPLPMTUD.md](DPLPMTUD.md). The search confirms the 1280-byte base, probes upward with retries, and never relies on local send failure alone. Automatic periodic maintenance/live sender-policy reconfiguration and validated ICMPv6 PTB acceleration remain separate work.
 
 ## Raw-socket privilege
 
