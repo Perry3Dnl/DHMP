@@ -40,14 +40,16 @@ sealed class LoopbackPacketSender(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        int recordSize = server.WireContract.RecordSize;
+
         server.ProcessPacket(
             payload.Span,
             batch =>
             {
-                for (int offset = 0; offset < batch.Length; offset += RecordSize)
+                for (int offset = 0; offset < batch.Length; offset += recordSize)
                 {
                     ulong value = BinaryPrimitives.ReadUInt64BigEndian(
-                        batch.Slice(offset, RecordSize));
+                        batch.Slice(offset, recordSize));
 
                     Console.WriteLine($"Received record: {value}");
                 }
