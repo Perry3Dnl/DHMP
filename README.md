@@ -16,6 +16,16 @@ DHMP is aimed at fixed-record workloads where both endpoints and the IPv6 deploy
 
 The native backend is **not yet a general-purpose replacement for TCP/UDP**. Do not currently assume browser/mobile support, ordinary managed load-balancer support, traversal through random home/enterprise routers, guaranteed delivery, or operation without Linux raw-socket privileges. Physical two-host/NIC testing, broader reachability, DPLPMTUD, full Internet congestion behavior and independent security review remain release/deployment work.
 
+### Try the core semantics without raw-socket privileges
+
+A small in-process sample demonstrates fixed records, batching, local send policy and server publication without opening a network socket:
+
+```sh
+dotnet run --project samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj
+```
+
+It is intentionally **not** a network benchmark or reachability test. Native raw IPv6 remains a separate experimental deployment path.
+
 <!-- BEGIN FULL BENCHMARK RESULTS -->
 ## Latest validation and benchmarks — 1 October 2026
 
