@@ -32,9 +32,30 @@ public sealed class DhmpRawIpv6OptionsTests
         Assert.NotEqual(
             options.DataProtocolNumber,
             options.ControlProtocolNumber);
+        Assert.False(options.ExperimentalProtocolNumbersEnabled);
         Assert.True(
             options.SocketBufferBytes >=
             options.MaximumPayloadBytes);
+    }
+
+    [Fact]
+    public void ExperimentalProtocolNumbers_RequireExplicitOptIn()
+    {
+        var disabled = new DhmpRawIpv6Options(
+            IPAddress.IPv6Loopback,
+            IPAddress.Parse("2001:db8::2"),
+            1408);
+
+        var enabled = new DhmpRawIpv6Options(
+            IPAddress.IPv6Loopback,
+            IPAddress.Parse("2001:db8::2"),
+            1408,
+            enableExperimentalProtocolNumbers: true);
+
+        Assert.False(disabled.ExperimentalProtocolNumbersEnabled);
+        Assert.True(enabled.ExperimentalProtocolNumbersEnabled);
+        Assert.Equal((byte)253, enabled.DataProtocolNumber);
+        Assert.Equal((byte)254, enabled.ControlProtocolNumber);
     }
 
     [Fact]
