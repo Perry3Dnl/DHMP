@@ -213,8 +213,17 @@ public sealed class DhmpRawIpv6CongestionChannel :
     /// Discover the path MTU and apply the authenticated result to a dynamically managed
     /// raw data sender. The sender is reduced to the IPv6 base budget before probing.
     /// </summary>
-    public async Task<DhmpPathMtuDiscoveryResult> DiscoverAndApplyPathMtuAsync(
+    public Task<DhmpPathMtuDiscoveryResult> DiscoverAndApplyPathMtuAsync(
         DhmpRawIpv6PacketSender sender,
+        DhmpPathMtuDiscoveryOptions options,
+        CancellationToken cancellationToken = default)
+        => DiscoverAndApplyPathMtuCoreAsync(
+            sender,
+            options,
+            cancellationToken);
+
+    internal async Task<DhmpPathMtuDiscoveryResult> DiscoverAndApplyPathMtuCoreAsync(
+        IDhmpPathBudgetTarget sender,
         DhmpPathMtuDiscoveryOptions options,
         CancellationToken cancellationToken = default)
     {
@@ -240,8 +249,19 @@ public sealed class DhmpRawIpv6CongestionChannel :
     /// Re-confirm a selected PLPMTU and update the live raw-data ceiling.
     /// A failed confirmation immediately falls back to the IPv6 base budget.
     /// </summary>
-    public async Task<bool> ConfirmAndApplyPathMtuAsync(
+    public Task<bool> ConfirmAndApplyPathMtuAsync(
         DhmpRawIpv6PacketSender sender,
+        int pathMtu,
+        DhmpPathMtuDiscoveryOptions options,
+        CancellationToken cancellationToken = default)
+        => ConfirmAndApplyPathMtuCoreAsync(
+            sender,
+            pathMtu,
+            options,
+            cancellationToken);
+
+    internal async Task<bool> ConfirmAndApplyPathMtuCoreAsync(
+        IDhmpPathBudgetTarget sender,
         int pathMtu,
         DhmpPathMtuDiscoveryOptions options,
         CancellationToken cancellationToken = default)
@@ -631,7 +651,7 @@ public sealed class DhmpRawIpv6CongestionChannel :
     }
 
     private static void ValidateManagedSender(
-        DhmpRawIpv6PacketSender sender,
+        IDhmpPathBudgetTarget sender,
         DhmpPathMtuDiscoveryOptions options)
     {
         ArgumentNullException.ThrowIfNull(sender);
