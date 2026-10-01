@@ -9,7 +9,7 @@ namespace DHMP.RawIpv6;
 /// The IPv6 kernel API owns the IPv6 header; DHMP supplies payload bytes only.
 /// The native socket is configured not to insert IPv6 Fragment headers.
 /// </summary>
-public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDisposable
+public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPathBudgetTarget, IDisposable
 {
     private readonly Socket _socket;
     private readonly EndPoint _remoteEndPoint;
