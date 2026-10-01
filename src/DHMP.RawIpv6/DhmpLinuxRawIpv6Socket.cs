@@ -5,7 +5,10 @@ using DHMP.Protocol;
 
 namespace DHMP.RawIpv6;
 
-/// <summary>Open an actual Linux raw IPv6 descriptor for the experimental DHMP binding.</summary>
+/// <summary>
+/// Open an actual Linux raw IPv6 descriptor for an explicitly selected experimental DHMP binding.
+/// This low-level API does not imply that 253/254 are permanent DHMP assignments or Internet-routable.
+/// </summary>
 public static class DhmpLinuxRawIpv6Socket
 {
     // Linux native constants, not the managed ProtocolType translation table.
@@ -17,7 +20,8 @@ public static class DhmpLinuxRawIpv6Socket
     {
         if (protocolNumber is not DhmpProtocol.ExperimentalIpv6DataNextHeader and
             not DhmpProtocol.ExperimentalIpv6ControlNextHeader)
-            throw new ArgumentOutOfRangeException(nameof(protocolNumber), "Only the explicit experimental DHMP bindings are supported.");
+            throw new ArgumentOutOfRangeException(nameof(protocolNumber),
+                "Only the explicitly selected experimental DHMP bindings 253/254 are supported.");
         if (!OperatingSystem.IsLinux())
             throw new PlatformNotSupportedException("Native DHMP raw IPv6 sockets are Linux-only.");
 

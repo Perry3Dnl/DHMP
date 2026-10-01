@@ -15,7 +15,8 @@ public sealed class DhmpRawIpv6Options
         IPAddress remoteAddress,
         int maximumPayloadBytes,
         int socketBufferBytes = 4 * 1024 * 1024,
-        TimeSpan? handshakeTimeout = null)
+        TimeSpan? handshakeTimeout = null,
+        bool enableExperimentalProtocolNumbers = false)
     {
         ArgumentNullException.ThrowIfNull(localAddress);
         ArgumentNullException.ThrowIfNull(remoteAddress);
@@ -53,6 +54,7 @@ public sealed class DhmpRawIpv6Options
         MaximumPayloadBytes = maximumPayloadBytes;
         SocketBufferBytes = socketBufferBytes;
         HandshakeTimeout = timeout;
+        ExperimentalProtocolNumbersEnabled = enableExperimentalProtocolNumbers;
     }
 
     public static DhmpRawIpv6Options FromPathMtu(
@@ -61,7 +63,8 @@ public sealed class DhmpRawIpv6Options
         int pathMtu,
         int socketBufferBytes = 4 * 1024 * 1024,
         int additionalIpv6HeaderBytes = 0,
-        TimeSpan? handshakeTimeout = null)
+        TimeSpan? handshakeTimeout = null,
+        bool enableExperimentalProtocolNumbers = false)
     {
         var budget =
             new DhmpIpv6PathBudget(
@@ -73,7 +76,8 @@ public sealed class DhmpRawIpv6Options
             remoteAddress,
             budget.MaximumProtocolPayloadBytes,
             socketBufferBytes,
-            handshakeTimeout);
+            handshakeTimeout,
+            enableExperimentalProtocolNumbers);
     }
 
     public IPAddress LocalAddress { get; }
@@ -83,9 +87,23 @@ public sealed class DhmpRawIpv6Options
     /// <summary>Total deadline for one compatibility or PSK handshake, including send and receive.</summary>
     public TimeSpan HandshakeTimeout { get; }
 
+    /// <summary>
+    /// True only when the caller explicitly opted into the RFC 4727/IANA experimental
+    /// IPv6 Next Header values 253/254. Production Internet reachability is not implied.
+    /// </summary>
+    public bool ExperimentalProtocolNumbersEnabled { get; }
+
     public byte DataProtocolNumber =>
         DhmpProtocol.ExperimentalIpv6DataNextHeader;
 
     public byte ControlProtocolNumber =>
         DhmpProtocol.ExperimentalIpv6ControlNextHeader;
+
+    internal void EnsureExperimentalProtocolNumbersEnabled()
+    {
+        if (!ExperimentalProtocolNumbersEnabled)
+            throw new InvalidOperationException(
+                "DHMP raw IPv6 currently uses experimental Next Header values 253/254. " +
+                "Set enableExperimentalProtocolNumbers: true only for an explicitly configured experiment.");
+    }
 }

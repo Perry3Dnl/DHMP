@@ -24,8 +24,23 @@ public sealed class DhmpApiIntegrationTests
     {
         LocalAddress = "2001:db8::1", RemoteAddress = "2001:db8::2", ApiOrigin = "https://api.example/",
         PreSharedKeyBase64 = Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray()),
+        EnableExperimentalProtocolNumbers = true,
         AcceptRequests = accept, RequestTimeout = TimeSpan.FromSeconds(5)
     };
+
+    [Fact]
+    public void RawApiExperimentalBindingIsDisabledByDefault()
+    {
+        var settings = Settings();
+        settings.EnableExperimentalProtocolNumbers = false;
+
+        var error = Assert.Throws<InvalidOperationException>(() => settings.Validate());
+
+        Assert.Contains(
+            "EnableExperimentalProtocolNumbers=true",
+            error.Message,
+            StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task OneRegistrationRoutesExistingFactoryCallsThroughExistingMinimalApiPipeline()
@@ -350,6 +365,7 @@ public sealed class DhmpApiIntegrationTests
             ["DHMP:ApplicationId"] = appId.ToString(), ["DHMP:PublicVerificationKeyBase64"] = Convert.ToBase64String(issuer.PublicKey),
             ["DHMP:Api:LocalAddress"] = "2001:db8::1", ["DHMP:Api:RemoteAddress"] = "2001:db8::2",
             ["DHMP:Api:ApiOrigin"] = "https://api.example/", ["DHMP:Api:PreSharedKeyBase64"] = Settings().PreSharedKeyBase64,
+            ["DHMP:Api:EnableExperimentalProtocolNumbers"] = "true",
             ["DHMP:Api:AcceptRequests"] = accept.ToString(), ["DHMP:Api:RequestTimeout"] = "00:00:05"
         });
         builder.Services.AddSingleton<IServer>(new StubServer());

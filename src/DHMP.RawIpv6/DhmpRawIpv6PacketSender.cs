@@ -18,6 +18,7 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpPacketSender, IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         EnsureSupportedPlatform();
+        options.EnsureExperimentalProtocolNumbersEnabled();
 
         MaximumPayloadBytes = options.MaximumPayloadBytes;
         _remoteEndPoint = new IPEndPoint(options.RemoteAddress, 0);

@@ -97,7 +97,7 @@ IPv6 packet
 
 There are **zero DHMP header bytes** before the first record, between records or after the last record.
 
-The current raw IPv6 research path uses experimental IPv6 protocol / Next Header `253` for headerless DHMP data and `254` for DHMP control/handshake packets. Neither value is a permanent DHMP assignment.
+The current raw IPv6 **research** path uses IANA experimental IPv6 protocol / Next Header `253` for headerless DHMP data and `254` for DHMP control/handshake packets. Neither value is a permanent or standardized DHMP assignment. RFC 4727 reserves these values for explicitly configured experiments, so the .NET raw backend now requires `enableExperimentalProtocolNumbers: true` before opening them. **Router/firewall/public-Internet reachability is not guaranteed and is a separate validation target from throughput.** See [raw IPv6 deployment and reachability](docs/DEPLOYMENT_REACHABILITY.md).
 
 Before data packets are exchanged, endpoints can run the implemented Control V1 HELLO/ACCEPT/REJECT handshake for an already configured IPv6 peer. It verifies wire version, fixed record size and schema identity, exchanges receive capability and clamps the local send ceiling. Pmax and Latest/Sequential remain local. Peer discovery is still future work; optional PSK possession authentication is provided by the separate experimental security profile.
 
@@ -127,7 +127,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Server packet facade | Processes already-received complete IP payloads |
 | Licensing and ASP.NET host integration | Offline validation at host startup |
 | Raw IPv6 kernel experiment | Experimental loopback harness |
-| `DHMP.RawIpv6` Linux backend | Direct data sender/receiver plus Control V1 handshake for a configured peer |
+| `DHMP.RawIpv6` Linux backend | Experimental direct data/control binding; 253/254 require explicit opt-in and are not permanent DHMP assignments |
 | Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery still pending |
 | Multi-peer server routing | Source IPv6 routing with drained removal/replacement; one registered V1 session per address |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |

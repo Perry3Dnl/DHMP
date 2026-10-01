@@ -11,7 +11,9 @@ For the current raw IPv6 implementation:
 - protocol / Next Header `253`: DHMP headerless data packets;
 - protocol / Next Header `254`: DHMP control packets.
 
-Both values are IANA experimental-use values. They are not permanent DHMP assignments.
+Both values are IANA experimental-use values. They are not permanent DHMP assignments. The .NET raw-IPv6 backend requires the caller to set `enableExperimentalProtocolNumbers: true` before it will open these bindings; this is an explicit experiment opt-in, not a production compatibility switch.
+
+See [Raw IPv6 deployment and reachability](DEPLOYMENT_REACHABILITY.md) for the deployment boundary and reachability test plan.
 
 ## Scope
 

@@ -25,7 +25,9 @@ var wire = new DhmpWireContract(RecordSize);
 var receivePolicy = new DhmpReceivePolicy(DhmpProcessingMode.Sequential, RecordSize);
 var sendPolicy = new DhmpSendPolicy(Rate, RecordSize, DhmpRatePolicy.SmoothPacing);
 var options = DhmpRawIpv6Options.FromPathMtu(IPAddress.Parse(args[1]), IPAddress.Parse(args[2]),
-    1280, handshakeTimeout: TimeSpan.FromSeconds(120));
+    1280,
+    handshakeTimeout: TimeSpan.FromSeconds(120),
+    enableExperimentalProtocolNumbers: true);
 var schema = Guid.Parse("20112765-1a09-4dca-b34a-c88de3ead032");
 using var stop = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Cancel(); };

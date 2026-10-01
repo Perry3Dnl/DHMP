@@ -19,6 +19,7 @@ public sealed class DhmpRawIpv6ControlChannel : IDisposable, IDhmpControlPacketC
     {
         ArgumentNullException.ThrowIfNull(options);
         EnsureSupportedPlatform();
+        options.EnsureExperimentalProtocolNumbersEnabled();
 
         _remoteAddress = options.RemoteAddress;
         _remoteEndPoint =

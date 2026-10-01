@@ -1,3 +1,4 @@
+using System.Net;
 using DHMP.RawIpv6;
 using Xunit;
 
@@ -12,6 +13,25 @@ public sealed class DhmpNativeSocketTests
     [InlineData(255)]
     public void UnrelatedNativeProtocolsAreRejectedBeforeOpeningDescriptors(int protocol)
         => Assert.Throws<ArgumentOutOfRangeException>(() => DhmpLinuxRawIpv6Socket.Open((byte)protocol));
+
+    [Fact]
+    public void RawSenderRejectsImplicitExperimentalBindingBeforeOpeningSocket()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+
+        var options = new DhmpRawIpv6Options(
+            IPAddress.IPv6Loopback,
+            IPAddress.IPv6Loopback,
+            128);
+
+        var error = Assert.Throws<InvalidOperationException>(
+            () => new DhmpRawIpv6PacketSender(options));
+
+        Assert.Contains(
+            "experimental Next Header values 253/254",
+            error.Message,
+            StringComparison.Ordinal);
+    }
 
     [Fact]
     public void NativeBackendRemainsExplicitlyLinuxOnly()
