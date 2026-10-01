@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/DHMP.Protocol/DHMP.Protocol.csproj" />
+    <ProjectReference Include="../../src/DHMP.Client/DHMP.Client.csproj" />
+    <ProjectReference Include="../../src/DHMP.Server/DHMP.Server.csproj" />
+  </ItemGroup>
+</Project>
