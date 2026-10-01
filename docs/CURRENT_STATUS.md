@@ -65,3 +65,7 @@ The current architecture intentionally does not fake these missing layers with a
 ## Real-socket rehearsal
 
 The hosted raw-IPv6 API lab runs actual sockets in two namespaces/veth interfaces on one VM. It is separate from physical two-host evidence. Initial execution found an unsupported managed protocol-enum socket construction; explicit native Linux descriptor creation now avoids that mapping, with managed safe-handle ownership retained. See [hosted rehearsal](HOSTED_API_REHEARSAL.md).
+
+## Optional echo confirmation
+
+[DECO/1](ECHO_CONFIRMATION_PROFILE_V1.md) is an explicit full-record echo application profile with bounded admission, exact byte/session matching, deadlines and joined retirement. It leaves the default client path and V1 framing unchanged. Confirmation means matching bytes were received, not that application work executed. It is separate from DAPI/1 and does not retry or recover lost data. Physical echo throughput and real-network validation remain open.
