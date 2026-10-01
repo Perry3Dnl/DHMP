@@ -24,8 +24,23 @@ public sealed class DhmpApiIntegrationTests
     {
         LocalAddress = "2001:db8::1", RemoteAddress = "2001:db8::2", ApiOrigin = "https://api.example/",
         PreSharedKeyBase64 = Convert.ToBase64String(Enumerable.Range(1, 32).Select(i => (byte)i).ToArray()),
+        EnableExperimentalProtocolNumbers = true,
         AcceptRequests = accept, RequestTimeout = TimeSpan.FromSeconds(5)
     };
+
+    [Fact]
+    public void RawApiExperimentalBindingIsDisabledByDefault()
+    {
+        var settings = Settings();
+        settings.EnableExperimentalProtocolNumbers = false;
+
+        var error = Assert.Throws<InvalidOperationException>(() => settings.Validate());
+
+        Assert.Contains(
+            "EnableExperimentalProtocolNumbers=true",
+            error.Message,
+            StringComparison.Ordinal);
+    }
 
     [Fact]
     public async Task OneRegistrationRoutesExistingFactoryCallsThroughExistingMinimalApiPipeline()
