@@ -21,7 +21,13 @@ public sealed class DhmpRawIpv6CongestionChannel :
         TaskCompletionSource<DhmpPathTelemetry>>
         _pendingProbes = new();
 
+    private readonly ConcurrentDictionary<
+        ulong,
+        TaskCompletionSource<int>>
+        _pendingPathMtuProbes = new();
+
     private long _probeSequence;
+    private long _pathMtuProbeSequence;
 
     public DhmpRawIpv6CongestionChannel(
         DhmpRawIpv6Options options,
@@ -138,6 +144,59 @@ public sealed class DhmpRawIpv6CongestionChannel :
     }
 
     /// <summary>
+    /// Perform one authenticated RFC 8899-style Datagram PLPMTUD search.
+    /// RunAdaptiveReceiveLoopAsync must be active on both peers so requests can be
+    /// acknowledged and responses can complete the local probes.
+    /// </summary>
+    public Task<DhmpPathMtuDiscoveryResult> DiscoverPathMtuAsync(
+        DhmpPathMtuDiscoveryOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return DhmpPathMtuSearch.RunAsync(
+            options,
+            (pathMtu, token) =>
+                ProbePathMtuOnceAsync(
+                    pathMtu,
+                    options.ProbeTimeout,
+                    token),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Re-confirm one previously selected path MTU. This is useful for black-hole
+    /// detection before an application continues using a larger discovered budget.
+    /// </summary>
+    public async Task<bool> ConfirmPathMtuAsync(
+        int pathMtu,
+        DhmpPathMtuDiscoveryOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (pathMtu < DhmpIpv6PathBudget.MinimumIpv6Mtu ||
+            pathMtu > options.MaximumPathMtu)
+            throw new ArgumentOutOfRangeException(nameof(pathMtu));
+
+        for (int attempt = 0;
+             attempt < options.MaximumProbeAttempts;
+             attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (await ProbePathMtuOnceAsync(
+                    pathMtu,
+                    options.ProbeTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false))
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Receive authenticated congestion feedback and path probes on one control socket.
     /// Path loss feedback is applied to the same adaptive controller; RTT is exposed
     /// through the optional observer but is not yet used as an independent throttle signal.
@@ -150,12 +209,7 @@ public sealed class DhmpRawIpv6CongestionChannel :
         ArgumentNullException.ThrowIfNull(controller);
 
         byte[] packet =
-            new byte[
-                Math.Max(
-                    DhmpPskChaCha20Poly1305Session
-                        .CongestionFeedbackPacketSize,
-                    DhmpPskChaCha20Poly1305Session
-                        .PathProbePacketSize)];
+            new byte[ushort.MaxValue];
 
         while (!cancellationToken
             .IsCancellationRequested)
@@ -217,6 +271,30 @@ public sealed class DhmpRawIpv6CongestionChannel :
                 continue;
             }
 
+            if (received >=
+                    DhmpPskChaCha20Poly1305Session
+                        .PathMtuProbeMinimumPacketSize &&
+                _securitySession.TryDecodePathMtuProbe(
+                    packet.AsSpan(0, received),
+                    out var pathMtuProbe))
+            {
+                if (pathMtuProbe.Type ==
+                    DhmpPathMtuProbeType.Request)
+                {
+                    await SendPathMtuProbeResponseAsync(
+                        pathMtuProbe,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                    continue;
+                }
+
+                CompletePathMtuProbe(
+                    pathMtuProbe);
+
+                continue;
+            }
+
             // Other control families may share protocol 254 before/around this
             // ongoing loop. Unknown or unauthenticated payloads do not alter rate state.
         }
@@ -266,6 +344,134 @@ public sealed class DhmpRawIpv6CongestionChannel :
                 .IsCancellationRequested)
         {
         }
+    }
+
+    private async ValueTask<bool> ProbePathMtuOnceAsync(
+        int pathMtu,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        int payloadBytes =
+            checked(
+                pathMtu -
+                DhmpIpv6PathBudget.Ipv6BaseHeaderBytes);
+
+        if (payloadBytes <
+                DhmpPskChaCha20Poly1305Session
+                    .PathMtuProbeMinimumPacketSize ||
+            payloadBytes > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(pathMtu));
+
+        long next =
+            Interlocked.Increment(
+                ref _pathMtuProbeSequence);
+
+        if (next <= 0)
+            throw new InvalidOperationException(
+                "DHMP path-MTU probe sequence exhausted.");
+
+        ulong probeId =
+            checked((ulong)next);
+
+        var request =
+            new DhmpPathMtuProbeMessage(
+                DhmpPathMtuProbeType.Request,
+                probeId,
+                payloadBytes);
+
+        byte[] packet =
+            new byte[payloadBytes];
+
+        _securitySession.EncodePathMtuProbe(
+            request,
+            packet);
+
+        var completion =
+            new TaskCompletionSource<int>(
+                TaskCreationOptions
+                    .RunContinuationsAsynchronously);
+
+        if (!_pendingPathMtuProbes.TryAdd(
+                probeId,
+                completion))
+            throw new InvalidOperationException(
+                "Duplicate DHMP path-MTU probe identifier.");
+
+        try
+        {
+            try
+            {
+                await _channel.SendPacketAsync(
+                    packet,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            }
+            catch (System.Net.Sockets.SocketException error)
+                when (error.SocketErrorCode ==
+                    System.Net.Sockets.SocketError.MessageSize)
+            {
+                return false;
+            }
+
+            try
+            {
+                int acknowledgedBytes =
+                    await completion.Task.WaitAsync(
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                return acknowledgedBytes ==
+                    payloadBytes;
+            }
+            catch (TimeoutException)
+            {
+                return false;
+            }
+        }
+        finally
+        {
+            _pendingPathMtuProbes.TryRemove(
+                probeId,
+                out _);
+        }
+    }
+
+    private async ValueTask SendPathMtuProbeResponseAsync(
+        DhmpPathMtuProbeMessage request,
+        CancellationToken cancellationToken)
+    {
+        var response =
+            new DhmpPathMtuProbeMessage(
+                DhmpPathMtuProbeType.Response,
+                request.ProbeId,
+                request.ProbedPayloadBytes);
+
+        byte[] packet =
+            new byte[
+                DhmpPskChaCha20Poly1305Session
+                    .PathMtuProbeMinimumPacketSize];
+
+        _securitySession.EncodePathMtuProbe(
+            response,
+            packet);
+
+        await _channel.SendPacketAsync(
+            packet,
+            cancellationToken)
+        .ConfigureAwait(false);
+    }
+
+    private void CompletePathMtuProbe(
+        DhmpPathMtuProbeMessage response)
+    {
+        if (!_pendingPathMtuProbes.TryRemove(
+                response.ProbeId,
+                out var completion))
+            return;
+
+        completion.TrySetResult(
+            response.ProbedPayloadBytes);
     }
 
     private async ValueTask SendProbeResponseAsync(
