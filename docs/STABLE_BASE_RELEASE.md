@@ -10,7 +10,7 @@ The first stable base targets the existing .NET 10 implementation and Linux dire
 
 Base V1 remains headerless. Security overhead is confined to the selected PSK profile. Neither mode promises delivery, retransmission or sender ordering across reordered packets.
 
-Discovery, additional operating-system backends, additional sessions per source IPv6 address, dynamic PMTU discovery, new security suites and a licensing website are future feature work. Their absence must be explicit in release documentation. Existing known-PMTU handling and pacing must still fail safely within their stated limits. The present pacing profile is not complete network congestion control; deployment scope must remain explicit until network safety and fairness have been validated.
+Discovery, additional operating-system backends, additional sessions per source IPv6 address, dynamic DPLPMTUD, new security suites and a licensing website are future feature work. Unknown paths must use the conservative IPv6-minimum-MTU mode unless a larger path MTU is explicitly established. Plaintext receive and wildcard raw bindings remain explicit opt-ins, not defaults. Their absence must be explicit in release documentation. Existing known-PMTU handling and pacing must still fail safely within their stated limits. The present pacing profile is not complete network congestion control; deployment scope must remain explicit until network safety and fairness have been validated.
 
 ## Newly authorized application integration
 

@@ -55,7 +55,8 @@ Implemented:
 - bounded source-IPv6 multi-peer routing, one session per source address;
 - bounded async ownership with Latest replacement and Sequential saturation rejection;
 - application-owned generation filtering for cross-packet Latest freshness;
-- known-PMTU whole-record budgeting, local/adaptive pacing and authenticated pressure feedback;
+- known-PMTU whole-record budgeting plus conservative unknown-path 1280-byte mode, local/adaptive pacing and authenticated pressure feedback;
+- explicit raw-deployment safety gates for experimental protocol numbers, plaintext receive and wildcard service ownership;
 - experimental PSK authentication/protection, secure loss telemetry and RTT probes;
 - architecture checks preventing legacy transport restoration.
 
@@ -64,7 +65,7 @@ Pending:
 - production hardening of direct-IPv6 packet I/O;
 - peer discovery beyond an explicitly configured peer;
 - lifecycle/integration validation of existing routing, async ownership and freshness;
-- dynamic PMTU discovery beyond known-PMTU budgeting;
+- dynamic DPLPMTUD beyond conservative unknown-path/known-PMTU budgeting;
 - complete network congestion control and path/fairness validation;
 - reviewed production security.
 

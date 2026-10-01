@@ -124,7 +124,9 @@ public sealed class DhmpPeerLifecycleTests
         var current = Binding(_ => calls++);
         router.Register(current);
         var oversized = new DhmpRawIpv6PeerBinding(Peer,
-            new DhmpServer(new DhmpWireContract(4), new DhmpReceivePolicy(DhmpProcessingMode.Sequential, 128)), _ => { });
+            new DhmpServer(new DhmpWireContract(4), new DhmpReceivePolicy(DhmpProcessingMode.Sequential, 128)),
+            _ => { },
+            allowUnprotectedPayloads: true);
         await Assert.ThrowsAsync<ArgumentException>(() => router.ReplaceAsync(oversized));
         await Assert.ThrowsAsync<ArgumentException>(() => router.ReplaceAsync(current));
         Assert.True(router.TryRoute(Peer, new byte[4], new byte[64]));
@@ -198,7 +200,10 @@ public sealed class DhmpPeerLifecycleTests
 
     private static DhmpRawIpv6PeerBinding Binding(Action<ReadOnlySpan<byte>> publish, IDhmpPacketDecoder? decoder = null)
         => new(Peer, new DhmpServer(new DhmpWireContract(4),
-            new DhmpReceivePolicy(DhmpProcessingMode.Sequential, 64)), publish, decoder);
+            new DhmpReceivePolicy(DhmpProcessingMode.Sequential, 64)),
+            publish,
+            decoder,
+            allowUnprotectedPayloads: decoder is null);
 
     [Fact]
     public async Task ConcurrentProtectedRoutesAndReplacement_StayBoundedAndNeverUseDisposedDecoder()

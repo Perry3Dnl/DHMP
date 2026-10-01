@@ -17,8 +17,12 @@ internal static class RawEcho
         using var json = JsonDocument.Parse(await File.ReadAllTextAsync(configuration));
         var api = json.RootElement.GetProperty("DHMP").GetProperty("Api");
         bool initiator = api.GetProperty("Initiator").GetBoolean();
-        var options = DhmpRawIpv6Options.FromPathMtu(IPAddress.Parse(api.GetProperty("LocalAddress").GetString()!),
-            IPAddress.Parse(api.GetProperty("RemoteAddress").GetString()!), 1280, handshakeTimeout: TimeSpan.FromSeconds(30));
+        var options = DhmpRawIpv6Options.FromPathMtu(
+            IPAddress.Parse(api.GetProperty("LocalAddress").GetString()!),
+            IPAddress.Parse(api.GetProperty("RemoteAddress").GetString()!),
+            1280,
+            handshakeTimeout: TimeSpan.FromSeconds(30),
+            enableExperimentalProtocolNumbers: true);
         byte[] keyBytes = Convert.FromBase64String(api.GetProperty("PreSharedKeyBase64").GetString()!);
         using var key = new DhmpPreSharedKey(1, keyBytes);
         System.Security.Cryptography.CryptographicOperations.ZeroMemory(keyBytes);

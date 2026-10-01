@@ -15,6 +15,9 @@ public static class DhmpLinuxRawIpv6Socket
     private const int AfInet6 = 10;
     private const int SockRaw = 3;
     private const int SockCloseOnExec = 0x80000;
+    private const int IpProtocolIpv6 = 41;
+    // Linux UAPI include/uapi/linux/in6.h; RFC 3542 section 11.2.
+    private const int Ipv6DontFragment = 62;
 
     public static Socket Open(byte protocolNumber)
     {
@@ -29,14 +32,51 @@ public static class DhmpLinuxRawIpv6Socket
         if (descriptor < 0)
         {
             int error = Marshal.GetLastPInvokeError();
-            throw new IOException($"Linux could not open the DHMP raw IPv6 socket (errno {error}).",
-                new Win32Exception(error));
+            var nativeError = new Win32Exception(error);
+
+            if (error is 1 or 13)
+                throw new UnauthorizedAccessException(
+                    "Linux denied the DHMP raw IPv6 socket. The process needs raw-socket permission, normally CAP_NET_RAW (or an equivalently privileged execution context).",
+                    nativeError);
+
+            throw new IOException(
+                $"Linux could not open the DHMP raw IPv6 socket (errno {error}).",
+                nativeError);
         }
         var handle = new SafeSocketHandle((IntPtr)descriptor, ownsHandle: true);
-        try { return new Socket(handle); }
-        catch { handle.Dispose(); throw; }
+        try
+        {
+            int enabled = 1;
+            if (NativeSetSocketOption(
+                    descriptor,
+                    IpProtocolIpv6,
+                    Ipv6DontFragment,
+                    ref enabled,
+                    sizeof(int)) != 0)
+            {
+                int error = Marshal.GetLastPInvokeError();
+                throw new IOException(
+                    $"Linux could not disable IPv6 source fragmentation for the DHMP raw socket (errno {error}).",
+                    new Win32Exception(error));
+            }
+
+            return new Socket(handle);
+        }
+        catch
+        {
+            handle.Dispose();
+            throw;
+        }
     }
 
     [DllImport("libc", EntryPoint = "socket", SetLastError = true)]
     private static extern int NativeSocket(int domain, int type, int protocol);
+
+    [DllImport("libc", EntryPoint = "setsockopt", SetLastError = true)]
+    private static extern int NativeSetSocketOption(
+        int socket,
+        int level,
+        int optionName,
+        ref int optionValue,
+        uint optionLength);
 }

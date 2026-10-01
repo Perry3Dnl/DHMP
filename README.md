@@ -99,6 +99,18 @@ There are **zero DHMP header bytes** before the first record, between records or
 
 The current raw IPv6 **research** path uses IANA experimental IPv6 protocol / Next Header `253` for headerless DHMP data and `254` for DHMP control/handshake packets. Neither value is a permanent or standardized DHMP assignment. RFC 4727 reserves these values for explicitly configured experiments, so the .NET raw backend now requires `enableExperimentalProtocolNumbers: true` before opening them. **Router/firewall/public-Internet reachability is not guaranteed and is a separate validation target from throughput.** See [raw IPv6 deployment and reachability](docs/DEPLOYMENT_REACHABILITY.md).
 
+### Native deployment safety defaults
+
+The native raw-IPv6 backend deliberately fails closed around several assumptions that are easy to miss:
+
+- experimental Next Header `253/254` requires explicit opt-in;
+- plaintext receive without an integrity/authentication decoder requires explicit `allowUnprotectedPayloads: true`;
+- wildcard local address `::` requires explicit `allowWildcardLocalAddress: true`, because DHMP V1 has no port field; prefer one explicit IPv6 address per DHMP service;
+- unknown paths can use `ForUnknownPath(...)`, which budgets from the IPv6 minimum MTU of 1280 bytes rather than assuming 1500;
+- Linux raw-socket permission failures identify the `CAP_NET_RAW` requirement.
+
+These safeguards change API defaults, not the V1 data bytes. See [deployment safety](docs/DEPLOYMENT_SAFETY.md) and [deployment/reachability](docs/DEPLOYMENT_REACHABILITY.md).
+
 Before data packets are exchanged, endpoints can run the implemented Control V1 HELLO/ACCEPT/REJECT handshake for an already configured IPv6 peer. It verifies wire version, fixed record size and schema identity, exchanges receive capability and clamps the local send ceiling. Pmax and Latest/Sequential remain local. Peer discovery is still future work; optional PSK possession authentication is provided by the separate experimental security profile.
 
 ## Active architecture

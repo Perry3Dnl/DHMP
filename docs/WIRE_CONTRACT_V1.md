@@ -90,7 +90,7 @@ Neither policy changes the V1 wire bytes.
 
 The DHMP V1 framing core does not provide application-message fragmentation or reassembly. The separately selected [DAPI/1 application schema](API_APPLICATION_PROFILE_V1.md) may assemble application messages from multiple complete fixed-size records above that core; it does not carry partial DHMP records across packets or add hidden V1 metadata.
 
-The sender must keep a DHMP packet within its effective path budget after lower-layer and future security overhead are accounted for. Normal operation should not depend on IP fragmentation.
+The sender must keep a DHMP packet within its effective path budget after lower-layer and future security overhead are accounted for. Normal operation must not depend on IP fragmentation. The Linux raw backend explicitly requests `IPV6_DONTFRAG` so an oversized send is treated as a path-budget failure rather than silently fragmented by the host.
 
 ## Freshness and ordering
 
@@ -129,7 +129,7 @@ A send buffer remains valid until the direct-IP backend has finished using local
 
 ## Security
 
-Base V1 remains an unprotected headerless data contract.
+Base V1 remains an unprotected headerless data contract. It contains no protocol-owned checksum, authentication tag or session/epoch field. A plaintext deployment that requires corruption detection, authenticity or reconnect epochs must provide those properties in its application schema, or select a protection profile. The .NET raw receiver therefore requires explicit acceptance before it publishes unprotected records.
 
 The reference implementation now includes an explicit experimental [PSK profile with security setup V2](SECURITY_PSK_V2.md). That profile wraps the V1 plaintext in a separate authenticated-encryption envelope and removes it before normal V1 packet processing. The security overhead is not presented as hidden V1 framing.
 

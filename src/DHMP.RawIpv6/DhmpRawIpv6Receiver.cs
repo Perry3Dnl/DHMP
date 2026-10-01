@@ -35,6 +35,11 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         EnsureSupportedPlatform();
         options.EnsureExperimentalProtocolNumbersEnabled();
 
+        if (decoder is null && !options.UnprotectedPayloadsAllowed)
+            throw new InvalidOperationException(
+                "Unprotected DHMP receive is disabled by default because plaintext V1 has no protocol-owned end-to-end integrity/authentication check. " +
+                "Use a packet decoder such as DHMP.Security, or set allowUnprotectedPayloads: true for an explicitly accepted plaintext path.");
+
         if (decoder is not null &&
             decoder.OverheadBytes < 0)
             throw new ArgumentException(

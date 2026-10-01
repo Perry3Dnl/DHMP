@@ -33,6 +33,8 @@ public sealed class DhmpRawIpv6OptionsTests
             options.DataProtocolNumber,
             options.ControlProtocolNumber);
         Assert.False(options.ExperimentalProtocolNumbersEnabled);
+        Assert.False(options.WildcardLocalAddressAllowed);
+        Assert.False(options.UnprotectedPayloadsAllowed);
         Assert.True(
             options.SocketBufferBytes >=
             options.MaximumPayloadBytes);
@@ -59,6 +61,36 @@ public sealed class DhmpRawIpv6OptionsTests
     }
 
     [Fact]
+    public void WildcardAndPlaintextRiskyModesRequireExplicitOptIn()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpRawIpv6Options(
+                IPAddress.IPv6Any,
+                IPAddress.Parse("2001:db8::2"),
+                1240));
+
+        var explicitRisk = new DhmpRawIpv6Options(
+            IPAddress.IPv6Any,
+            IPAddress.Parse("2001:db8::2"),
+            1240,
+            allowWildcardLocalAddress: true,
+            allowUnprotectedPayloads: true);
+
+        Assert.True(explicitRisk.WildcardLocalAddressAllowed);
+        Assert.True(explicitRisk.UnprotectedPayloadsAllowed);
+    }
+
+    [Fact]
+    public void UnknownPathUsesConservativeIpv6MinimumMtu()
+    {
+        var options = DhmpRawIpv6Options.ForUnknownPath(
+            IPAddress.IPv6Loopback,
+            IPAddress.Parse("2001:db8::2"));
+
+        Assert.Equal(1240, options.MaximumPayloadBytes);
+    }
+
+    [Fact]
     public void BlockedPath_Ipv4Addresses_AreRejected()
     {
         Assert.Throws<ArgumentException>(() =>
@@ -72,6 +104,16 @@ public sealed class DhmpRawIpv6OptionsTests
                 IPAddress.IPv6Loopback,
                 IPAddress.Loopback,
                 1408));
+    }
+
+    [Fact]
+    public void UnspecifiedRemotePeerIsRejected()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpRawIpv6Options(
+                IPAddress.IPv6Loopback,
+                IPAddress.IPv6Any,
+                1240));
     }
 
     [Fact]

@@ -16,7 +16,9 @@ public sealed class DhmpRawIpv6Options
         int maximumPayloadBytes,
         int socketBufferBytes = 4 * 1024 * 1024,
         TimeSpan? handshakeTimeout = null,
-        bool enableExperimentalProtocolNumbers = false)
+        bool enableExperimentalProtocolNumbers = false,
+        bool allowWildcardLocalAddress = false,
+        bool allowUnprotectedPayloads = false)
     {
         ArgumentNullException.ThrowIfNull(localAddress);
         ArgumentNullException.ThrowIfNull(remoteAddress);
@@ -35,6 +37,18 @@ public sealed class DhmpRawIpv6Options
             remoteAddress.IsIPv4MappedToIPv6)
             throw new ArgumentException(
                 "DHMP raw IPv6 requires native IPv6 addresses.");
+
+        if (remoteAddress.Equals(IPAddress.IPv6Any))
+            throw new ArgumentException(
+                "A single-peer DHMP binding requires an explicit remote IPv6 address.",
+                nameof(remoteAddress));
+
+        if (localAddress.Equals(IPAddress.IPv6Any) &&
+            !allowWildcardLocalAddress)
+            throw new ArgumentException(
+                "Wildcard local IPv6 binding is disabled by default because DHMP has no port field. " +
+                "Bind an explicit service IPv6 address or set allowWildcardLocalAddress: true when one process intentionally owns all DHMP traffic on this protocol binding.",
+                nameof(localAddress));
 
         if (maximumPayloadBytes <= 0 ||
             maximumPayloadBytes > ushort.MaxValue)
@@ -55,6 +69,8 @@ public sealed class DhmpRawIpv6Options
         SocketBufferBytes = socketBufferBytes;
         HandshakeTimeout = timeout;
         ExperimentalProtocolNumbersEnabled = enableExperimentalProtocolNumbers;
+        WildcardLocalAddressAllowed = allowWildcardLocalAddress;
+        UnprotectedPayloadsAllowed = allowUnprotectedPayloads;
     }
 
     public static DhmpRawIpv6Options FromPathMtu(
@@ -64,7 +80,9 @@ public sealed class DhmpRawIpv6Options
         int socketBufferBytes = 4 * 1024 * 1024,
         int additionalIpv6HeaderBytes = 0,
         TimeSpan? handshakeTimeout = null,
-        bool enableExperimentalProtocolNumbers = false)
+        bool enableExperimentalProtocolNumbers = false,
+        bool allowWildcardLocalAddress = false,
+        bool allowUnprotectedPayloads = false)
     {
         var budget =
             new DhmpIpv6PathBudget(
@@ -77,8 +95,35 @@ public sealed class DhmpRawIpv6Options
             budget.MaximumProtocolPayloadBytes,
             socketBufferBytes,
             handshakeTimeout,
-            enableExperimentalProtocolNumbers);
+            enableExperimentalProtocolNumbers,
+            allowWildcardLocalAddress,
+            allowUnprotectedPayloads);
     }
+
+    /// <summary>
+    /// Conservative option for an IPv6 path whose PMTU has not been established.
+    /// Uses the IPv6 minimum MTU (1280 bytes); callers can move to a larger verified
+    /// path budget later without changing DHMP V1 record framing.
+    /// </summary>
+    public static DhmpRawIpv6Options ForUnknownPath(
+        IPAddress localAddress,
+        IPAddress remoteAddress,
+        int socketBufferBytes = 4 * 1024 * 1024,
+        int additionalIpv6HeaderBytes = 0,
+        TimeSpan? handshakeTimeout = null,
+        bool enableExperimentalProtocolNumbers = false,
+        bool allowWildcardLocalAddress = false,
+        bool allowUnprotectedPayloads = false)
+        => FromPathMtu(
+            localAddress,
+            remoteAddress,
+            DhmpIpv6PathBudget.MinimumIpv6Mtu,
+            socketBufferBytes,
+            additionalIpv6HeaderBytes,
+            handshakeTimeout,
+            enableExperimentalProtocolNumbers,
+            allowWildcardLocalAddress,
+            allowUnprotectedPayloads);
 
     public IPAddress LocalAddress { get; }
     public IPAddress RemoteAddress { get; }
@@ -92,6 +137,18 @@ public sealed class DhmpRawIpv6Options
     /// IPv6 Next Header values 253/254. Production Internet reachability is not implied.
     /// </summary>
     public bool ExperimentalProtocolNumbersEnabled { get; }
+
+    /// <summary>
+    /// True only when this application intentionally owns wildcard raw-DHMP delivery
+    /// for the selected protocol binding. DHMP V1 has no transport port field.
+    /// </summary>
+    public bool WildcardLocalAddressAllowed { get; }
+
+    /// <summary>
+    /// True only when the caller explicitly accepts that plaintext DHMP V1 provides
+    /// no protocol-owned end-to-end integrity/authentication check.
+    /// </summary>
+    public bool UnprotectedPayloadsAllowed { get; }
 
     public byte DataProtocolNumber =>
         DhmpProtocol.ExperimentalIpv6DataNextHeader;
