@@ -24,6 +24,7 @@ public sealed class DhmpRawIpv6MultiPeerReceiver :
     {
         ArgumentNullException.ThrowIfNull(options);
         EnsureSupportedPlatform();
+        options.EnsureExperimentalProtocolNumbersEnabled();
 
         _router =
             new DhmpRawIpv6PeerRouter(
