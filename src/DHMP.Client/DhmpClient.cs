@@ -97,9 +97,15 @@ public sealed class DhmpClient
         get
         {
             int senderMaximum =
-                _sender is IDhmpDynamicPacketSender dynamicSender
-                    ? dynamicSender.CurrentMaximumPayloadBytes
-                    : _sender.MaximumPayloadBytes;
+                _sender.MaximumPayloadBytes;
+
+            if (_sender is IDhmpDynamicPacketSender dynamicSender)
+            {
+                senderMaximum =
+                    Math.Min(
+                        senderMaximum,
+                        dynamicSender.CurrentMaximumPayloadBytes);
+            }
 
             int rawMaximum =
                 Math.Min(
