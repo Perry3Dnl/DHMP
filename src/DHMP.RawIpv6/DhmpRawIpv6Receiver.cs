@@ -33,6 +33,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(server);
         EnsureSupportedPlatform();
+        options.EnsureExperimentalProtocolNumbersEnabled();
 
         if (decoder is not null &&
             decoder.OverheadBytes < 0)
