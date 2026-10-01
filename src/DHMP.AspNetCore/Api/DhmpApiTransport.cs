@@ -25,7 +25,10 @@ internal sealed class DhmpApiTransportFactory : IDhmpApiTransportFactory
     {
         token.ThrowIfCancellationRequested();
         var options = DhmpRawIpv6Options.FromPathMtu(IPAddress.Parse(settings.LocalAddress), IPAddress.Parse(settings.RemoteAddress),
-            settings.PathMtu, additionalIpv6HeaderBytes: settings.AdditionalIpv6HeaderBytes, handshakeTimeout: settings.HandshakeTimeout);
+            settings.PathMtu,
+            additionalIpv6HeaderBytes: settings.AdditionalIpv6HeaderBytes,
+            handshakeTimeout: settings.HandshakeTimeout,
+            enableExperimentalProtocolNumbers: settings.EnableExperimentalProtocolNumbers);
         byte[] bytes = Convert.FromBase64String(settings.PreSharedKeyBase64);
         DhmpPreSharedKey key;
         try { key = new DhmpPreSharedKey(settings.KeyId, bytes); }
