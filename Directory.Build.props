@@ -1,0 +1,30 @@
+<Project>
+  <PropertyGroup>
+    <Authors>DHMP contributors</Authors>
+    <RepositoryUrl>https://github.com/Perry3Dnl/DHMP</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Perry3Dnl/DHMP</PackageProjectUrl>
+    <PackageTags>dhmp;networking;ipv6;protocol;real-time</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Protocol'">DHMP fixed-record wire contract, policies, packet processing, control negotiation, and sender abstractions.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Client'">DHMP per-session client sending facade and optional application-level confirmation helpers.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Server'">DHMP server-side fixed-record processing, publication, freshness, and bounded receive helpers.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.RawIpv6'">Experimental Linux raw-IPv6 backend for DHMP direct-IP data and control traffic.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Security'">Experimental DHMP PSK packet protection, replay defense, security setup, and secure-path telemetry.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Licensing'">Offline DHMP application-license verification primitives.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.AspNetCore'">ASP.NET Core integration, dependency injection, licensing startup gates, and experimental DHMP API transport.</Description>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)README.md"
+          Pack="true"
+          PackagePath=""
+          Visible="false" />
+  </ItemGroup>
+</Project>

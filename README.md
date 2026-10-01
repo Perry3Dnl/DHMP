@@ -8,6 +8,24 @@
 
 The active project has no TCP/UDP compatibility data path. Earlier stream and compatibility implementations remain in git history only.
 
+> **Release status:** DHMP is not published on NuGet yet. The current release-prep workflow only creates temporary local packages for consumer validation; it does not publish packages.
+
+### Where DHMP currently fits
+
+DHMP is aimed at fixed-record workloads where both endpoints and the IPv6 deployment path are deliberately configured. It is a better fit for controlled servers, simulation/telemetry systems, research environments and specialized real-time state paths than for arbitrary consumer Internet connectivity.
+
+The native backend is **not yet a general-purpose replacement for TCP/UDP**. Do not currently assume browser/mobile support, ordinary managed load-balancer support, traversal through random home/enterprise routers, guaranteed delivery, or operation without Linux raw-socket privileges. Physical two-host/NIC testing, broader reachability, DPLPMTUD, full Internet congestion behavior and independent security review remain release/deployment work.
+
+### Try the core semantics without raw-socket privileges
+
+A small in-process sample demonstrates fixed records, batching, local send policy and server publication without opening a network socket:
+
+```sh
+dotnet run --project samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj
+```
+
+It is intentionally **not** a network benchmark or reachability test. Native raw IPv6 remains a separate experimental deployment path.
+
 <!-- BEGIN FULL BENCHMARK RESULTS -->
 ## Latest validation and benchmarks — 1 October 2026
 

@@ -43,6 +43,8 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build direct-IP .NET backend
         run: dotnet build src/DHMP.RawIpv6/DHMP.RawIpv6.csproj --configuration Release
+      - name: Build privilege-free core quickstart
+        run: dotnet build samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj --configuration Release
       - name: Build direct-IP experiments
         shell: bash
         run: |
@@ -50,3 +52,15 @@ jobs:
           for project in benchmarks/*/*.csproj; do
             dotnet build "$project" --configuration Release
           done
+
+
+  package-consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Pack to isolated local feed and build clean consumers
+        run: python3 tools/test_local_packages.py
