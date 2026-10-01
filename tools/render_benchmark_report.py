@@ -52,6 +52,30 @@ figure(['1 outstanding send','8 outstanding sends','32 outstanding sends'],
     [net(f'raw-protected-echo-concurrency-{c}','useful_MBps') for c in (1,8,32)],
     'Protected full echo over actual raw IPv6','Two namespaces on one hosted VM • MTU 1280 • at least 0.5 seconds per repetition', 'full-suite-raw-echo.svg')
 
+# Keep the isolated processor ceiling and mock construction on separate axes/workload panels.
+fig, axes = plt.subplots(1, 2, figsize=(10, 5), gridspec_kw={'width_ratios':[1, 1.8]})
+fig.subplots_adjust(left=.09, right=.97, top=.76, bottom=.24, wspace=.48)
+fig.set_facecolor('#fafbfc')
+fig.suptitle('High-speed in-memory measurements', fontsize=16, fontweight='bold', y=.95)
+fig.text(.09,.855,'44 records/packet • 32 bytes/record • primary AMD-hosted run • separate workload panels',fontsize=10,color='#465364')
+for ax, names, labels, title in [
+    (axes[0], ['direct-ip-core-sanity-batch-44'], ['Core Latest'], 'Processor-only ceiling'),
+    (axes[1], ['mock-ip-ceiling-batch-44','mock-ipv4-framing-batch-44','mock-ipv6-framing-batch-44'], ['Mock IP','Mock IPv4','Mock IPv6'], 'Mock packet construction')]:
+    measures = [metric(name,'offered_GBps') for name in names]
+    medians = [m['median'] for m in measures]
+    ax.set_facecolor('#fafbfc')
+    ax.bar(labels,medians,yerr=[[m['median']-m['min'] for m in measures],[m['max']-m['median'] for m in measures]],capsize=5,color='#2383a8',width=.55)
+    ax.set_ylim(0,max(m['max'] for m in measures)*1.22)
+    ax.set_title(title,fontsize=12,pad=14)
+    ax.set_ylabel('Logical offered GB/s (decimal)')
+    ax.grid(axis='y',alpha=.2);ax.set_axisbelow(True)
+    for spine in ax.spines.values():spine.set_visible(False)
+    for i,m in enumerate(measures):ax.text(i,m['max']+max(medians)*.04,f"{m['median']:.1f}",ha='center',fontweight='bold')
+fig.text(.03,.07,'Median of 5 runs; error bars show min–max. Newest identity observed, not every offered byte.',fontsize=10,color='#465364')
+fig.text(.03,.025,'No encryption, sockets or NICs. These figures are not network bandwidth.',fontsize=10,color='#465364')
+fig.savefig(assets/'full-suite-high-speed.svg',metadata={'Date':None});plt.close(fig)
+initial_mock = next(row['metrics']['offered_GBps'] for row in initial['summary'] if row['name']=='mock-ip-ceiling-batch-44')
+
 cpu = next(line.split(':',1)[1].strip() for line in components['cpu'].splitlines() if line.startswith('Model name:'))
 ratio = metric(memory_names[1],'ns_per_operation')['median']/metric(memory_names[0],'ns_per_operation')['median']
 readme = f'''<!-- BEGIN FULL BENCHMARK RESULTS -->
@@ -62,6 +86,23 @@ readme = f'''<!-- BEGIN FULL BENCHMARK RESULTS -->
 [Benchmark run]({bench_url}) · [Test run]({validation['url']}) · [Full results and contracts](docs/FULL_BENCHMARK_2026_10_01.md) · [Raw measurement JSON](docs/benchmark-results/2026-10-01)
 
 Five repetitions per case on one GitHub-hosted VM: **4 vCPU, {cpu}, .NET 10**. All units are decimal. These are memory, kernel-loopback and virtual-network measurements; physical two-machine/NIC throughput remains unmeasured.
+
+### High-speed core and mock measurements (GB/s)
+
+These are the fast **in-memory logical offered rates**, measured without encryption, sockets or NICs. All rows below use batch 44: 44 fixed 32-byte records, 1408 offered payload bytes per packet, on the primary AMD-hosted runner.
+
+| In-memory benchmark | Logical offered GB/s, median (min–max) | ns/packet, median |
+| --- | ---: | ---: |
+| Core Latest framing ceiling | {interval(metric('direct-ip-core-sanity-batch-44','offered_GBps'))} | {fmt(metric('direct-ip-core-sanity-batch-44','ns_per_operation')['median'])} |
+| Mock IP packet construction | {interval(metric('mock-ip-ceiling-batch-44','offered_GBps'))} | {fmt(metric('mock-ip-ceiling-batch-44','ns_per_operation')['median'])} |
+| Mock IPv4 framing | {interval(metric('mock-ipv4-framing-batch-44','offered_GBps'))} | {fmt(metric('mock-ipv4-framing-batch-44','ns_per_operation')['median'])} |
+| Mock IPv6 framing | {interval(metric('mock-ipv6-framing-batch-44','offered_GBps'))} | {fmt(metric('mock-ipv6-framing-batch-44','ns_per_operation')['median'])} |
+
+![High-speed core and mock measurements](docs/assets/full-suite-high-speed.svg)
+
+The core ceiling validates the batch boundary and observes one int32 from the newest record. The mocks construct records and observe the newest identity; IPv4/IPv6 cases add their respective header work. **They do not inspect or transmit every offered byte**, so these logical rates are not full-payload processing or network bandwidth, and the different workloads are not equivalent speed rankings.
+
+The earlier Intel-hosted mock IP run measured **{fmt(initial_mock['median'])} GB/s median ({fmt(initial_mock['min'])}–{fmt(initial_mock['max'])})** at the same batch size. Its [raw results](docs/benchmark-results/2026-10-01/initial-components-kernel.json) and [run](https://github.com/Perry3Dnl/DHMP/actions/runs/36831931127) are retained separately. Different hosted CPUs prevent treating the difference as a protocol regression.
 
 ### Protected one-way versus optional full echo: memory composition
 
@@ -206,4 +247,4 @@ Run the `Full DHMP benchmark suite` workflow, or build the benchmark projects in
 All current test suites were executed. Performance measurements cover the core, security/control costs, mocks, verified kernel I/O, API path and echo option. Licensing, multi-peer lifecycle, bounded dispatch/overload, cancellation, rate policies, replay and limits have correctness evidence, but this run does not provide a dedicated performance number for every feature combination. Long-duration soak, physical NICs/two hosts, dynamic PMTUD, competing-flow fairness, public internet paths, independent security review and production release readiness remain open.
 '''
 (root/'docs/FULL_BENCHMARK_2026_10_01.md').write_text(report)
-print('Generated README section, detailed report and two SVG figures.')
+print('Generated README section, detailed report and three SVG figures.')
