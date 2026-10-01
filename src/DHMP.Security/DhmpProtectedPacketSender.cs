@@ -45,9 +45,15 @@ public sealed class DhmpProtectedPacketSender : IDhmpDynamicPacketSender, IAsync
         get
         {
             int innerCurrent =
-                _inner is IDhmpDynamicPacketSender dynamicSender
-                    ? dynamicSender.CurrentMaximumPayloadBytes
-                    : _inner.MaximumPayloadBytes;
+                _inner.MaximumPayloadBytes;
+
+            if (_inner is IDhmpDynamicPacketSender dynamicSender)
+            {
+                innerCurrent =
+                    Math.Min(
+                        innerCurrent,
+                        dynamicSender.CurrentMaximumPayloadBytes);
+            }
 
             return Math.Max(
                 0,
