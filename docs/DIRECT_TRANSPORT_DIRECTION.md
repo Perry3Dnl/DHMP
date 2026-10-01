@@ -37,7 +37,7 @@ The current IPv6 experimental profile uses protocol / Next Header `253` for data
 6. The processor publishes borrowed data synchronously unless ownership is explicitly transferred elsewhere.
 7. Application schema/model processing remains outside the payload-opaque protocol core.
 
-No partial-message carry, ACK, retransmission, replay history or implicit reliable queue is introduced.
+The V1 framing core introduces no partial-record carry, ACK, retransmission, replay history or implicit reliable queue. Explicit application profiles such as [DAPI/1](API_APPLICATION_PROFILE_V1.md) can provide bounded application-message assembly/deduplication above complete V1 records without replacing the raw-IP transport or implying delivery guarantees.
 
 ## Implemented versus pending
 

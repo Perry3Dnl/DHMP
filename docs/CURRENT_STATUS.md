@@ -17,13 +17,13 @@ Release objective: [finish the existing feature set into a stable base](STABLE_B
 - `DhmpPacketProcessor` consumes a headerless payload containing complete fixed records only.
 - Sequential publishes the complete received batch.
 - Latest publishes the final record from the received packet. Optional `DhmpLatestGenerationFilter` drops stale/duplicate Latest state across packets using an application-owned 64-bit generation field.
-- No carry storage or cross-packet message reassembly exists.
+- The V1 framing core has no carry storage or cross-packet record reassembly. The explicit DAPI/1 application schema may assemble bounded application messages from complete fixed records above that core.
 - `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
 - `DhmpServer` uses the same wire contract with its own local receive policy.
 - `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: data on experimental protocol 253 and control/handshake on 254. It includes bounded source-IPv6 multi-peer routing plus `DhmpIpv6PathBudget` for known-PMTU payload calculation.
 - `DHMP.Security` provides an experimental PSK security profile using authenticated control setup, HKDF-derived directional keys, ChaCha20-Poly1305 packet protection, bounded replay, rolling protected-packet loss telemetry and authenticated RTT probes.
 - `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics. `DhmpCongestionAdvisor` converts snapshot deltas into bounded receiver pressure recommendations.
-- Offline licensing and ASP.NET startup integration remain separate from network transport.
+- Offline licensing remains separate from peer authentication. The original three-argument ASP.NET registration remains host/license-only. The opt-in one-argument registration now adds the experimental [automatic API application integration](ASP_NET_API_INTEGRATION.md), mapping factory-created client calls and the existing backend pipeline over authenticated raw IPv6.
 - Compatibility and PSK one-shot handshakes have a configurable total deadline (ten seconds by default), caller cancellation before socket creation and privilege-free lifecycle/composition tests. PSK setup now uses explicitly versioned [V2 challenge/confirm](SECURITY_PSK_V2.md): fresh responder challenges prevent a captured OFFER/CONFIRM from recreating old keys and resetting counters. No automatic V1 fallback, retransmission or persistent session manager exists. Independent review and operational lifetime gates remain open.
 - The architecture guard blocks restoration of legacy transport/stream implementation paths.
 - Peer routing has per-registration receive leases, drained `RemoveAsync` and atomic `ReplaceAsync`; retired receive resources remain caller-owned. Single/multi-peer paths share whole-scratch cleanup even on decoder exceptions. See [peer lifecycle](PEER_LIFECYCLE.md); send/control joining and unprotected cross-session freshness remain application/profile concerns.

@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
+using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -83,6 +85,61 @@ public sealed class DhmpApiIntegrationTests
         using var json = JsonDocument.Parse(await allowed.Content.ReadAsByteArrayAsync(Token));
         Assert.Equal(42, json.RootElement.GetProperty("id").GetInt32());
         await frontend.StopAsync(Token); await server.StopAsync(Token);
+    }
+
+    [Fact]
+    public async Task ExistingControllerModelBindingAndResponseSerializationWorkUnchanged()
+    {
+        using var issuer = new TestLicenseIssuer();
+        var pair = new PacketPair();
+        await using var server = BuildApp(issuer, pair.Second, true);
+        await using var frontend = BuildApp(issuer, pair.First, false);
+        server.MapControllers();
+        await server.StartAsync(Token); await frontend.StartAsync(Token);
+        using var client = frontend.Services.GetRequiredService<IHttpClientFactory>().CreateClient();
+        using var response = await client.PostAsJsonAsync("https://api.example/api/dhmp-test", new DhmpApiTestBody("existing-controller"), Token);
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal("existing-controller", (await response.Content.ReadFromJsonAsync<DhmpApiTestBody>(Token))!.Value);
+        await frontend.StopAsync(Token); await server.StopAsync(Token);
+    }
+
+    [Fact]
+    public async Task ApplicationExceptionReturnsGeneric500WithoutRetryOrLeakedDetails()
+    {
+        using var issuer = new TestLicenseIssuer();
+        var pair = new PacketPair();
+        await using var server = BuildApp(issuer, pair.Second, true);
+        await using var frontend = BuildApp(issuer, pair.First, false);
+        int calls = 0;
+        server.MapGet("/failure", (Func<string>)(() => { calls++; throw new InvalidOperationException("private-secret-detail"); }));
+        await server.StartAsync(Token); await frontend.StartAsync(Token);
+        using var client = frontend.Services.GetRequiredService<IHttpClientFactory>().CreateClient();
+        using var response = await client.GetAsync("https://api.example/failure", Token);
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.DoesNotContain("private-secret-detail", await response.Content.ReadAsStringAsync(Token));
+        Assert.Equal(1, calls);
+        await frontend.StopAsync(Token); await server.StopAsync(Token);
+    }
+
+    [Fact]
+    public async Task ShutdownJoinsBlockedBackendBeforeCompletingRetirement()
+    {
+        var settings = Settings();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var exchange = new DhmpApiExchange(settings, async (_, _) =>
+        {
+            entered.TrySetResult();
+            await release.Task.WaitAsync(Token);
+        }, (_, _) => Task.FromResult(new byte[] { 1 }));
+        Task<byte[]> pending = exchange.RequestAsync(new byte[] { 1 }, Token);
+        await entered.Task.WaitAsync(Token);
+        Task retirement = exchange.DisposeAsync().AsTask();
+        Assert.False(retirement.IsCompleted);
+        release.TrySetResult();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await pending);
+        await retirement.WaitAsync(Token);
+        Assert.Equal(0, exchange.PendingCount);
     }
 
     [Fact]
@@ -267,7 +324,7 @@ public sealed class DhmpApiIntegrationTests
 
     private static WebApplication BuildApp(TestLicenseIssuer issuer, PacketTransport transport, bool accept, bool invalidLicense = false)
     {
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Production" });
         Guid appId = Guid.NewGuid();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
@@ -279,6 +336,7 @@ public sealed class DhmpApiIntegrationTests
         builder.Services.AddSingleton<IServer>(new StubServer());
         builder.Services.AddSingleton<IDhmpApiTransportFactory>(new PacketFactory(transport));
         builder.Services.AddScoped<ScopedMarker>();
+        builder.Services.AddControllers().AddApplicationPart(typeof(DhmpApiTestController).Assembly);
         builder.Services.AddDHMP(invalidLicense ? "invalid" : issuer.Issue(appId));
         return builder.Build();
     }
@@ -330,5 +388,17 @@ public sealed class DhmpApiIntegrationTests
     {
         internal DateTimeOffset Now = DateTimeOffset.UnixEpoch;
         public override DateTimeOffset GetUtcNow() => Now;
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+        public override long GetTimestamp() => Now.UtcTicks;
     }
+}
+
+public sealed record DhmpApiTestBody(string Value);
+
+[ApiController]
+[Route("api/dhmp-test")]
+public sealed class DhmpApiTestController : ControllerBase
+{
+    [HttpPost]
+    public ActionResult<DhmpApiTestBody> Post(DhmpApiTestBody body) => StatusCode(202, body);
 }

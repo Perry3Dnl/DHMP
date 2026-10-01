@@ -31,6 +31,7 @@ internal sealed class DhmpApiRuntime(IOptions<DhmpApiOptions> configured, DhmpRu
             transport = await factory.OpenAsync(settings, stoppingToken).ConfigureAwait(false);
             exchange = new DhmpApiExchange(settings, transport.SendAsync, pipeline.DispatchAsync);
             receiving = transport.RunAsync(exchange.Receive, ioStop.Token);
+            state.SetApiReady(true);
             _ready.TrySetResult(exchange);
             logger.LogInformation("DHMP API application profile DAPI/1 ready for configured peer {Peer}", settings.RemoteAddress);
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
@@ -42,6 +43,7 @@ internal sealed class DhmpApiRuntime(IOptions<DhmpApiOptions> configured, DhmpRu
         catch (Exception error) { _ready.TrySetException(error); throw; }
         finally
         {
+            state.SetApiReady(false);
             ioStop.Cancel();
             if (receiving is not null)
             {

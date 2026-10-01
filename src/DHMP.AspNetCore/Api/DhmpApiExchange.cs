@@ -15,7 +15,7 @@ internal sealed class DhmpApiExchange : IDhmpApiExchange, IAsyncDisposable
     {
         internal required byte[] Bytes;
         internal required BitArray Seen;
-        internal required DateTimeOffset Deadline;
+        internal required long Deadline;
         internal int Received;
     }
     private readonly object _gate = new();
@@ -25,7 +25,7 @@ internal sealed class DhmpApiExchange : IDhmpApiExchange, IAsyncDisposable
     private readonly Dictionary<Guid, TaskCompletionSource<byte[]>> _pending = new();
     private readonly Dictionary<(byte, Guid), Assembly> _assemblies = new();
     private readonly DhmpApiRequestWindow _requestIds = new();
-    private readonly Channel<(Guid Id, byte[] Bytes, DateTimeOffset Deadline)> _requests;
+    private readonly Channel<(Guid Id, byte[] Bytes, long Deadline)> _requests;
     private readonly SemaphoreSlim _sendGate = new(1, 1);
     private readonly CancellationTokenSource _stop = new();
     private readonly Task[] _workers;
@@ -41,7 +41,7 @@ internal sealed class DhmpApiExchange : IDhmpApiExchange, IAsyncDisposable
         Func<byte[], CancellationToken, Task<byte[]>> dispatch, TimeProvider? clock = null)
     {
         _options = options; _send = send; _dispatch = dispatch; _clock = clock ?? TimeProvider.System;
-        _requests = Channel.CreateBounded<(Guid, byte[], DateTimeOffset)>(new BoundedChannelOptions(options.MaximumInFlight)
+        _requests = Channel.CreateBounded<(Guid, byte[], long)>(new BoundedChannelOptions(options.MaximumInFlight)
         { FullMode = BoundedChannelFullMode.Wait, SingleWriter = false, SingleReader = false });
         _workers = Enumerable.Range(0, options.MaximumConcurrentRequests).Select(_ => WorkAsync()).ToArray();
     }
@@ -101,7 +101,7 @@ internal sealed class DhmpApiExchange : IDhmpApiExchange, IAsyncDisposable
                     if (!_options.AcceptRequests || !_requestIds.TryAccept(DhmpApiRecord.Sequence(fragment.Id))) return;
                 }
                 assembly = new Assembly { Bytes = new byte[fragment.Total], Seen = new BitArray(fragment.Count),
-                    Deadline = _clock.GetUtcNow() + _options.RequestTimeout };
+                    Deadline = checked(_clock.GetTimestamp() + (long)(_options.RequestTimeout.TotalSeconds * _clock.TimestampFrequency)) };
                 _assemblies.Add(key, assembly);
             }
             if (assembly.Bytes.Length != fragment.Total || assembly.Seen.Length != fragment.Count)
@@ -125,7 +125,7 @@ internal sealed class DhmpApiExchange : IDhmpApiExchange, IAsyncDisposable
     internal void Expire() { lock (_gate) ExpireCore(); }
     private void ExpireCore()
     {
-        var now = _clock.GetUtcNow();
+        var now = _clock.GetTimestamp();
         foreach (var entry in _assemblies.Where(e => e.Value.Deadline <= now).Select(e => e.Key).ToArray())
             _assemblies.Remove(entry);
     }
@@ -151,7 +151,7 @@ internal sealed class DhmpApiExchange : IDhmpApiExchange, IAsyncDisposable
         {
             await foreach (var request in _requests.Reader.ReadAllAsync(_stop.Token).ConfigureAwait(false))
             {
-                TimeSpan remaining = request.Deadline - _clock.GetUtcNow();
+                TimeSpan remaining = _clock.GetElapsedTime(_clock.GetTimestamp(), request.Deadline);
                 if (remaining <= TimeSpan.Zero) continue;
                 using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
                 deadline.CancelAfter(remaining);

@@ -12,6 +12,10 @@ Base V1 remains headerless. Security overhead is confined to the selected PSK pr
 
 Discovery, additional operating-system backends, additional sessions per source IPv6 address, dynamic PMTU discovery, new security suites and a licensing website are future feature work. Their absence must be explicit in release documentation. Existing known-PMTU handling and pacing must still fail safely within their stated limits. The present pacing profile is not complete network congestion control; deployment scope must remain explicit until network safety and fairness have been validated.
 
+## Newly authorized application integration
+
+On 2026-09-30 the developer requested automatic server-to-server .NET API integration. The opt-in [DAPI/1 integration](ASP_NET_API_INTEGRATION.md) is now additional experimental scope. Managed client/server pipeline composition, bounded chunking, deduplication and lifecycle tests are required; actual two-host API traffic, load/degraded behavior, security review and clean package consumption remain open gates. Do not count this new integration as completed stable-base evidence solely from core tests.
+
 ## Feature acceptance matrix
 
 | Existing feature | Required acceptance evidence | Current evidence / open gate |
