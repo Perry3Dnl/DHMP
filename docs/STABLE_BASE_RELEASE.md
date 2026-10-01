@@ -14,7 +14,7 @@ Discovery, additional operating-system backends, additional sessions per source 
 
 ## Newly authorized application integration
 
-On 2026-09-30 the developer requested automatic server-to-server .NET API integration. The opt-in [DAPI/1 integration](ASP_NET_API_INTEGRATION.md) is now additional experimental scope. Managed client/server pipeline composition, bounded chunking, deduplication and lifecycle tests are required; actual two-host API traffic, load/degraded behavior, security review and clean package consumption remain open gates. Do not count this new integration as completed stable-base evidence solely from core tests.
+On 2026-09-30 the developer requested automatic server-to-server .NET API integration. The opt-in [DAPI/1 integration](ASP_NET_API_INTEGRATION.md) is now additional experimental scope. Managed client/server pipeline composition, bounded chunking, deduplication and lifecycle tests are required; physical two-host API traffic, load/degraded behavior, security review and clean package consumption remain open gates. Do not count this new integration as completed stable-base evidence solely from core tests.
 
 ## Feature acceptance matrix
 
@@ -51,3 +51,5 @@ On 2026-09-30 the developer requested automatic server-to-server .NET API integr
 - Packages can be consumed by a clean sample application; package metadata, versioning, public API and license documents agree with the implementation.
 
 If a gate is blocked by hardware, permissions or an external review, record the blocker and retain it as open. Do not substitute a memory benchmark or an estimated release percentage.
+
+The [hosted API rehearsal](HOSTED_API_REHEARSAL.md) supplies real raw-socket/API evidence on virtual interfaces. Its report explicitly cannot satisfy the physical two-host/NIC gate.

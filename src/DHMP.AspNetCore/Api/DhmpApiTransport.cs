@@ -11,6 +11,7 @@ namespace DHMP.AspNetCore;
 // Exact complete-packet boundary allows privilege-free composition tests, without a network fallback.
 internal interface IDhmpApiTransport : IAsyncDisposable
 {
+    Guid SessionId { get; }
     ValueTask SendAsync(ReadOnlyMemory<byte> record, CancellationToken token);
     Task RunAsync(Action<ReadOnlySpan<byte>> publish, CancellationToken token);
 }
@@ -54,6 +55,7 @@ internal sealed class DhmpApiTransportFactory : IDhmpApiTransportFactory
     private sealed class Transport(DhmpClient client, DhmpProtectedPacketSender sender,
         DhmpRawIpv6Receiver receiver, DhmpRawIpv6PacketSender backend, DhmpPskChaCha20Poly1305Session session) : IDhmpApiTransport
     {
+        public Guid SessionId => session.SessionId;
         public ValueTask SendAsync(ReadOnlyMemory<byte> record, CancellationToken token) => client.SendAsync(record, token);
         public Task RunAsync(Action<ReadOnlySpan<byte>> publish, CancellationToken token) => receiver.RunAsync(publish, token);
         public async ValueTask DisposeAsync()

@@ -4,10 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Optimize>true</Optimize>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../../src/DHMP.RawIpv6/DHMP.RawIpv6.csproj" />
+    <Compile Include="../../tests/DHMP.AspNetCore.Tests/TestLicenseIssuer.cs" Link="TestLicenseIssuer.cs" />
   </ItemGroup>
 </Project>
-

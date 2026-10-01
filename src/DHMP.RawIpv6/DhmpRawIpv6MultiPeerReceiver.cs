@@ -38,10 +38,7 @@ public sealed class DhmpRawIpv6MultiPeerReceiver :
             GC.AllocateUninitializedArray<byte>(
                 options.MaximumPayloadBytes);
 
-        _socket = new Socket(
-            AddressFamily.InterNetworkV6,
-            SocketType.Raw,
-            (ProtocolType)options.DataProtocolNumber);
+        _socket = DhmpLinuxRawIpv6Socket.Open(options.DataProtocolNumber);
 
         try
         {
@@ -147,3 +144,4 @@ public sealed class DhmpRawIpv6MultiPeerReceiver :
                 "The first DHMP raw IPv6 multi-peer backend is Linux-only.");
     }
 }
+

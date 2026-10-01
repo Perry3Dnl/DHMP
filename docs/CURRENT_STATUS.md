@@ -61,3 +61,7 @@ Historical versions remain available through git history.
 8. Kernel, NIC and physical two-host validation.
 
 The current architecture intentionally does not fake these missing layers with a fallback transport.
+
+## Real-socket rehearsal
+
+The hosted raw-IPv6 API lab runs actual sockets in two namespaces/veth interfaces on one VM. It is separate from physical two-host evidence. Initial execution found an unsupported managed protocol-enum socket construction; explicit native Linux descriptor creation now avoids that mapping, with managed safe-handle ownership retained. See [hosted rehearsal](HOSTED_API_REHEARSAL.md).

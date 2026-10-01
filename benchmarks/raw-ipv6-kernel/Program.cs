@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using DHMP.Protocol;
+using DHMP.RawIpv6;
 
 const int Msg = 32;
 const int Header = 40;
@@ -20,8 +21,8 @@ var sendPolicy = new DhmpSendPolicy(int.MaxValue, payloadBytes);
 var receivePolicy = new DhmpReceivePolicy(DhmpProcessingMode.Latest, payloadBytes);
 var processor = new DhmpPacketProcessor(wireContract, receivePolicy);
 
-using var rx = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, (ProtocolType)NextHeader);
-using var tx = new Socket(AddressFamily.InterNetworkV6, SocketType.Raw, (ProtocolType)NextHeader);
+using var rx = DhmpLinuxRawIpv6Socket.Open(NextHeader);
+using var tx = DhmpLinuxRawIpv6Socket.Open(NextHeader);
 var ep = new IPEndPoint(IPAddress.IPv6Loopback, 0);
 
 rx.Bind(ep);
@@ -134,3 +135,4 @@ Console.WriteLine(
     $"offered_mps={messages / sec / 1e6:F3} received_mps={received / sec / 1e6:F3} " +
     $"received_GBps={received * Msg / sec / 1e9:F3} " +
     $"ns_received={(received > 0 ? sec * 1e9 / received : 0):F3} guard={guard}");
+
