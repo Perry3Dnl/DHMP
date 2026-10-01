@@ -4,27 +4,84 @@
 
 # DHMP — Direct Headerless Message Protocol
 
-**DHMP is a standalone message protocol being built directly over IP. IPv6 is the current implementation target.**
+**High-speed, fixed-record messaging directly over IPv6 — built for real-time systems where receiving the newest useful state can matter more than recovering every older packet.**
 
-The active project has no TCP/UDP compatibility data path. Earlier stream and compatibility implementations remain in git history only.
+DHMP is a standalone message protocol with an intentionally tiny data path:
 
-> **Release status:** DHMP is not published on NuGet yet. The current release-prep workflow only creates temporary local packages for consumer validation; it does not publish packages.
+```text
+application records
+      ↓
+     DHMP
+      ↓
+     IPv6
+```
 
-### Where DHMP currently fits
+**V1 adds zero DHMP header bytes to normal data packets.** The payload is simply one or more complete fixed-size application records. No per-message framing, no stream reconstruction, no mandatory acknowledgements, and no hidden retransmission queue.
 
-DHMP is aimed at fixed-record workloads where both endpoints and the IPv6 deployment path are deliberately configured. It is a better fit for controlled servers, simulation/telemetry systems, research environments and specialized real-time state paths than for arbitrary consumer Internet connectivity.
+### What DHMP is built to do
 
-The native backend is **not yet a general-purpose replacement for TCP/UDP**. Do not currently assume browser/mobile support, ordinary managed load-balancer support, traversal through random home/enterprise routers, guaranteed delivery, or operation without Linux raw-socket privileges. Physical two-host/NIC testing, broader reachability, DPLPMTUD, full Internet congestion behavior and independent security review remain release/deployment work.
+- **Move fixed-size records with minimal protocol overhead.** One message is one record; one IPv6 packet can carry one or many complete records.
+- **Choose freshness or completeness per workload.** `Latest` publishes only the newest record in a received packet; `Sequential` publishes every complete record in order.
+- **Run directly over IPv6.** The active implementation does not use TCP or UDP as a compatibility transport.
+- **Protect traffic when needed.** The optional PSK profile provides ChaCha20-Poly1305 protection, authenticated setup, replay defense and authenticated control traffic.
+- **Adapt to the path instead of assuming a packet size.** Authenticated DPLPMTUD can discover a usable path MTU, apply it live to the raw sender, subtract security overhead and align the final client ceiling to complete records.
+- **Stay bounded under pressure.** Local pacing, receiver pressure feedback, bounded receive queues and explicit overload behavior are built into the current implementation.
+- **Keep reliability optional.** Applications can use no confirmation, application-owned lightweight confirmation, or full-record echo without changing the V1 data framing.
+- **Support real server compositions.** The repository includes source-IPv6 multi-peer routing, experimental ASP.NET server-to-server integration, lifecycle handling, licensing gates and raw-socket test infrastructure.
+
+### Why DHMP exists
+
+Most mainstream transports are designed to solve broad, general-purpose networking problems. DHMP deliberately specializes.
+
+For workloads such as real-time state replication, simulation, telemetry and tightly controlled server-to-server messaging, an older update may already be worthless by the time it is retransmitted. DHMP allows those systems to keep the transport primitive small and move delivery guarantees, generations, confirmation and application semantics into explicit opt-in policy.
+
+That makes this a valid DHMP workload:
+
+```text
+state #840   ── lost
+state #841   ── delayed
+state #842   ── arrives
+
+Latest → publish #842
+```
+
+The protocol does **not** silently turn that into a reliable ordered byte stream.
+
+### Current capabilities
+
+| Area | Current DHMP implementation |
+| --- | --- |
+| Data plane | Headerless fixed-record V1 |
+| Processing | `Latest` and `Sequential` |
+| Native transport | Experimental Linux raw IPv6 |
+| Security | Optional PSK ChaCha20-Poly1305 profile |
+| Path sizing | Authenticated DPLPMTUD + live sender adaptation |
+| Rate behavior | Hard Pmax, smooth pacing and authenticated receiver pressure feedback |
+| Freshness | Optional application-owned generation filter |
+| Confirmation | None, lightweight application-owned confirmation, or full-record echo |
+| Multi-peer | Bounded source-IPv6 routing |
+| Application integration | Experimental ASP.NET server-to-server profile |
+| Testing | Linux/Windows managed CI, raw IPv6 namespace rehearsal and reproducible benchmark suite |
+
+### Where DHMP fits best today
+
+DHMP currently makes the most sense when you control both endpoints and can deliberately configure the IPv6 path:
+
+**real-time game/server state · simulation · telemetry · distributed state · specialized backend-to-backend links · LAN/datacenter research · high-frequency machine-to-machine messaging**
+
+It is intentionally **not** trying to become TCP with a different name.
+
+> **Development status:** DHMP is still active R&D and is not published on NuGet. The current native backend uses IANA experimental IPv6 Next Header values `253/254`, requires Linux raw-socket privileges, and does not yet claim arbitrary router/ISP/firewall traversal. Physical two-host/NIC validation, broader reachability testing, complete Internet congestion/fairness validation and independent security review remain open. The current package workflow creates temporary local packages for validation only and does not publish them.
 
 ### Try the core semantics without raw-socket privileges
 
-A small in-process sample demonstrates fixed records, batching, local send policy and server publication without opening a network socket:
+The repository includes a tiny in-process sample that demonstrates fixed records, batching, local send policy and server publication without requiring Linux raw-socket capabilities:
 
 ```sh
 dotnet run --project samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj
 ```
 
-It is intentionally **not** a network benchmark or reachability test. Native raw IPv6 remains a separate experimental deployment path.
+That sample demonstrates the protocol semantics only. It is not a network benchmark or a reachability test.
 
 <!-- BEGIN FULL BENCHMARK RESULTS -->
 ## Latest validation and benchmarks — 1 October 2026
