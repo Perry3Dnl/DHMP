@@ -30,6 +30,12 @@ public sealed class DhmpPskChaCha20Poly1305Session :
         PathProbeBodySize +
         PathProbeTagSize;
 
+    public const int PathMtuProbeFixedBodySize = 48;
+    public const int PathMtuProbeTagSize = 16;
+    public const int PathMtuProbeMinimumPacketSize =
+        PathMtuProbeFixedBodySize +
+        PathMtuProbeTagSize;
+
     private readonly ChaCha20Poly1305 _sendCipher;
     private readonly ChaCha20Poly1305 _receiveCipher;
     private readonly uint _sendNoncePrefix;
@@ -43,6 +49,8 @@ public sealed class DhmpPskChaCha20Poly1305Session :
     private readonly DhmpReplayWindow _feedbackReplayWindow = new();
     private readonly DhmpReplayWindow _pathRequestReplayWindow = new();
     private readonly DhmpReplayWindow _pathResponseReplayWindow = new();
+    private readonly DhmpReplayWindow _pathMtuRequestReplayWindow = new();
+    private readonly DhmpReplayWindow _pathMtuResponseReplayWindow = new();
     // Session ownership gates; no lock spans socket awaits or application callbacks.
     private readonly object _sendGate = new();
     private readonly object _receiveGate = new();
@@ -764,6 +772,172 @@ public sealed class DhmpPskChaCha20Poly1305Session :
                 decoded.Type == DhmpPathProbeType.Request
                     ? _pathRequestReplayWindow
                     : _pathResponseReplayWindow;
+
+            if (!replay.TryAccept(decoded.ProbeId))
+                return false;
+
+            message = decoded;
+            return true;
+        }
+        catch (Exception error)
+            when (error is
+                ArgumentException or
+                OverflowException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Encode one authenticated path-MTU probe. Requests are padded to the exact
+    /// raw IPv6 upper-layer payload size being tested; responses remain compact.
+    /// </summary>
+    public int EncodePathMtuProbe(
+        DhmpPathMtuProbeMessage message,
+        Span<byte> destination)
+    {
+        lock (_controlGate)
+            return EncodePathMtuProbeCore(message, destination);
+    }
+
+    private int EncodePathMtuProbeCore(
+        DhmpPathMtuProbeMessage message,
+        Span<byte> destination)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        message.Validate();
+
+        int packetSize =
+            message.Type == DhmpPathMtuProbeType.Request
+                ? message.ProbedPayloadBytes
+                : PathMtuProbeMinimumPacketSize;
+
+        if (destination.Length < packetSize)
+            throw new ArgumentException(
+                $"DHMP path-MTU probe requires {packetSize} bytes.",
+                nameof(destination));
+
+        Span<byte> packet = destination[..packetSize];
+        packet.Clear();
+
+        "DHMT"u8.CopyTo(packet);
+        packet[4] = 1;
+        packet[5] = (byte)message.Type;
+
+        _sessionIdBytes.CopyTo(packet.Slice(8, 16));
+
+        BinaryPrimitives.WriteUInt64BigEndian(
+            packet.Slice(24, 8),
+            message.ProbeId);
+
+        BinaryPrimitives.WriteUInt32BigEndian(
+            packet.Slice(32, 4),
+            checked((uint)message.ProbedPayloadBytes));
+
+        int bodyBytes =
+            packetSize -
+            PathMtuProbeTagSize;
+
+        Span<byte> fullTag = stackalloc byte[32];
+
+        HMACSHA256.HashData(
+            _sendPathKey,
+            packet[..bodyBytes],
+            fullTag);
+
+        fullTag[..PathMtuProbeTagSize]
+            .CopyTo(packet[bodyBytes..]);
+
+        CryptographicOperations.ZeroMemory(fullTag);
+
+        return packetSize;
+    }
+
+    public bool TryDecodePathMtuProbe(
+        ReadOnlySpan<byte> packet,
+        out DhmpPathMtuProbeMessage message)
+    {
+        lock (_controlGate)
+            return TryDecodePathMtuProbeCore(packet, out message);
+    }
+
+    private bool TryDecodePathMtuProbeCore(
+        ReadOnlySpan<byte> packet,
+        out DhmpPathMtuProbeMessage message)
+    {
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _disposed) != 0,
+            this);
+
+        message = default;
+
+        if (packet.Length < PathMtuProbeMinimumPacketSize ||
+            packet.Length > ushort.MaxValue ||
+            !packet[..4].SequenceEqual("DHMT"u8) ||
+            packet[4] != 1 ||
+            !packet.Slice(8, 16).SequenceEqual(_sessionIdBytes))
+            return false;
+
+        var type = (DhmpPathMtuProbeType)packet[5];
+
+        if (type is not DhmpPathMtuProbeType.Request and
+            not DhmpPathMtuProbeType.Response)
+            return false;
+
+        uint declaredPayload =
+            BinaryPrimitives.ReadUInt32BigEndian(
+                packet.Slice(32, 4));
+
+        if (declaredPayload <
+                PathMtuProbeMinimumPacketSize ||
+            declaredPayload > ushort.MaxValue)
+            return false;
+
+        if (type == DhmpPathMtuProbeType.Request &&
+            packet.Length != declaredPayload)
+            return false;
+
+        if (type == DhmpPathMtuProbeType.Response &&
+            packet.Length != PathMtuProbeMinimumPacketSize)
+            return false;
+
+        int bodyBytes =
+            packet.Length -
+            PathMtuProbeTagSize;
+
+        Span<byte> fullTag = stackalloc byte[32];
+
+        HMACSHA256.HashData(
+            _receivePathKey,
+            packet[..bodyBytes],
+            fullTag);
+
+        bool authenticated =
+            CryptographicOperations.FixedTimeEquals(
+                fullTag[..PathMtuProbeTagSize],
+                packet[bodyBytes..]);
+
+        CryptographicOperations.ZeroMemory(fullTag);
+
+        if (!authenticated)
+            return false;
+
+        try
+        {
+            var decoded =
+                new DhmpPathMtuProbeMessage(
+                    type,
+                    BinaryPrimitives.ReadUInt64BigEndian(
+                        packet.Slice(24, 8)),
+                    checked((int)declaredPayload));
+
+            DhmpReplayWindow replay =
+                type == DhmpPathMtuProbeType.Request
+                    ? _pathMtuRequestReplayWindow
+                    : _pathMtuResponseReplayWindow;
 
             if (!replay.TryAccept(decoded.ProbeId))
                 return false;
