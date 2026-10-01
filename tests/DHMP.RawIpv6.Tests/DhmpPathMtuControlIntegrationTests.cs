@@ -9,8 +9,10 @@ namespace DHMP.RawIpv6.Tests;
 public sealed class DhmpPathMtuControlIntegrationTests
 {
     [Fact]
-    public async Task AuthenticatedControlLoop_DiscoversLargestSupportedPathMtu()
+    public async Task AuthenticatedControlLoop_DiscoversAppliesAndFallsBackLivePathBudget()
     {
+        const int additionalIpv6HeaderBytes = 16;
+
         using var key =
             new DhmpPreSharedKey(
                 7,
@@ -33,12 +35,14 @@ public sealed class DhmpPathMtuControlIntegrationTests
 
         var initiatorWire = new MemoryControlChannel
         {
-            MaximumOutboundPathMtu = 1420
+            MaximumOutboundPathMtu = 1420,
+            AdditionalIpv6HeaderBytes = additionalIpv6HeaderBytes
         };
 
         var responderWire = new MemoryControlChannel
         {
-            MaximumOutboundPathMtu = 1500
+            MaximumOutboundPathMtu = 1500,
+            AdditionalIpv6HeaderBytes = additionalIpv6HeaderBytes
         };
 
         initiatorWire.Peer = responderWire;
@@ -77,12 +81,23 @@ public sealed class DhmpPathMtuControlIntegrationTests
         var options =
             new DhmpPathMtuDiscoveryOptions(
                 maximumPathMtu: 1500,
+                additionalIpv6HeaderBytes:
+                    additionalIpv6HeaderBytes,
                 probeTimeout: TimeSpan.FromSeconds(1),
                 maximumProbeAttempts: 2,
                 minimumSearchGainBytes: 1);
 
+        var target =
+            new MemoryPathBudgetTarget(
+                maximumPayloadBytes:
+                    1500 -
+                    DhmpIpv6PathBudget.Ipv6BaseHeaderBytes -
+                    additionalIpv6HeaderBytes,
+                additionalIpv6HeaderBytes);
+
         DhmpPathMtuDiscoveryResult result =
-            await initiator.DiscoverPathMtuAsync(
+            await initiator.DiscoverAndApplyPathMtuCoreAsync(
+                target,
                 options,
                 TestContext.Current.CancellationToken);
 
@@ -94,12 +109,36 @@ public sealed class DhmpPathMtuControlIntegrationTests
         Assert.False(result.ReachedConfiguredMaximum);
         Assert.Equal(1420, result.ConfirmedPathMtu);
 
+        int basePayload =
+            1280 -
+            DhmpIpv6PathBudget.Ipv6BaseHeaderBytes -
+            additionalIpv6HeaderBytes;
+
+        int discoveredPayload =
+            1420 -
+            DhmpIpv6PathBudget.Ipv6BaseHeaderBytes -
+            additionalIpv6HeaderBytes;
+
+        Assert.Equal(
+            discoveredPayload,
+            target.CurrentMaximumPayloadBytes);
+
+        Assert.Equal(
+            new[]
+            {
+                basePayload,
+                discoveredPayload
+            },
+            target.AppliedPayloadLimits);
+
         Assert.Contains(
-            1280 - DhmpIpv6PathBudget.Ipv6BaseHeaderBytes,
+            basePayload,
             initiatorWire.AttemptedPayloadLengths);
 
         Assert.Contains(
-            1500 - DhmpIpv6PathBudget.Ipv6BaseHeaderBytes,
+            1500 -
+                DhmpIpv6PathBudget.Ipv6BaseHeaderBytes -
+                additionalIpv6HeaderBytes,
             initiatorWire.AttemptedPayloadLengths);
 
         Assert.All(
@@ -114,22 +153,104 @@ public sealed class DhmpPathMtuControlIntegrationTests
         initiatorWire.MaximumOutboundPathMtu = 1280;
 
         Assert.False(
-            await initiator.ConfirmPathMtuAsync(
+            await initiator.ConfirmAndApplyPathMtuCoreAsync(
+                target,
                 1420,
                 options,
                 TestContext.Current.CancellationToken));
 
+        Assert.Equal(
+            basePayload,
+            target.CurrentMaximumPayloadBytes);
+
         Assert.True(
-            await initiator.ConfirmPathMtuAsync(
+            await initiator.ConfirmAndApplyPathMtuCoreAsync(
+                target,
                 1280,
                 options,
                 TestContext.Current.CancellationToken));
+
+        Assert.Equal(
+            basePayload,
+            target.CurrentMaximumPayloadBytes);
 
         cancellation.Cancel();
 
         await Task.WhenAll(
             initiatorLoop,
             responderLoop);
+    }
+
+    private sealed class MemoryPathBudgetTarget :
+        IDhmpPathBudgetTarget
+    {
+        private readonly int _additionalIpv6HeaderBytes;
+        private int _currentMaximumPayloadBytes;
+
+        public MemoryPathBudgetTarget(
+            int maximumPayloadBytes,
+            int additionalIpv6HeaderBytes)
+        {
+            MaximumPayloadBytes =
+                maximumPayloadBytes;
+
+            _currentMaximumPayloadBytes =
+                maximumPayloadBytes;
+
+            _additionalIpv6HeaderBytes =
+                additionalIpv6HeaderBytes;
+        }
+
+        public int MaximumPayloadBytes { get; }
+
+        public int CurrentMaximumPayloadBytes =>
+            Volatile.Read(
+                ref _currentMaximumPayloadBytes);
+
+        public bool DynamicPathBudgetEnabled =>
+            true;
+
+        public int DynamicAdditionalIpv6HeaderBytes =>
+            _additionalIpv6HeaderBytes;
+
+        public List<int> AppliedPayloadLimits { get; } =
+            new();
+
+        public void ApplyConfirmedPathBudget(
+            DhmpIpv6PathBudget pathBudget)
+        {
+            Assert.Equal(
+                _additionalIpv6HeaderBytes,
+                pathBudget.AdditionalIpv6HeaderBytes);
+
+            Assert.InRange(
+                pathBudget.MaximumProtocolPayloadBytes,
+                1,
+                MaximumPayloadBytes);
+
+            Volatile.Write(
+                ref _currentMaximumPayloadBytes,
+                pathBudget.MaximumProtocolPayloadBytes);
+
+            AppliedPayloadLimits.Add(
+                pathBudget.MaximumProtocolPayloadBytes);
+        }
+
+        public void FallBackToMinimumPathBudget()
+        {
+            int payload =
+                new DhmpIpv6PathBudget(
+                    DhmpIpv6PathBudget.MinimumIpv6Mtu,
+                    _additionalIpv6HeaderBytes)
+                .MaximumProtocolPayloadBytes;
+
+            Volatile.Write(
+                ref _currentMaximumPayloadBytes,
+                payload);
+
+            AppliedPayloadLimits.Add(
+                payload);
+        }
     }
 
     private sealed class MemoryControlChannel :
@@ -143,6 +264,8 @@ public sealed class DhmpPathMtuControlIntegrationTests
         public int MaximumOutboundPathMtu { get; set; } =
             DhmpIpv6PathBudget.MaximumNonJumboIpv6PacketBytes;
 
+        public int AdditionalIpv6HeaderBytes { get; set; }
+
         public List<int> AttemptedPayloadLengths { get; } =
             new();
 
@@ -155,7 +278,8 @@ public sealed class DhmpPathMtuControlIntegrationTests
             AttemptedPayloadLengths.Add(packet.Length);
 
             if (packet.Length +
-                    DhmpIpv6PathBudget.Ipv6BaseHeaderBytes >
+                    DhmpIpv6PathBudget.Ipv6BaseHeaderBytes +
+                    AdditionalIpv6HeaderBytes >
                 MaximumOutboundPathMtu)
             {
                 throw new SocketException(
