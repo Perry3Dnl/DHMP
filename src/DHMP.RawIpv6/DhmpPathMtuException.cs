@@ -11,15 +11,24 @@ public sealed class DhmpPathMtuException : IOException
         int configuredPayloadCeiling,
         Exception innerException)
         : base(
-            $"Raw IPv6 path rejected a {attemptedPayloadBytes}-byte DHMP network payload as too large. Configured backend ceiling is {configuredPayloadCeiling} bytes.",
+            $"Raw IPv6 path rejected a {attemptedPayloadBytes}-byte DHMP network payload as too large. Current sender payload ceiling is {configuredPayloadCeiling} bytes.",
             innerException)
     {
         AttemptedPayloadBytes =
             attemptedPayloadBytes;
-        ConfiguredPayloadCeiling =
+        PayloadCeilingBytes =
             configuredPayloadCeiling;
     }
 
     public int AttemptedPayloadBytes { get; }
-    public int ConfiguredPayloadCeiling { get; }
+
+    /// <summary>Payload ceiling that was active when the send failed.</summary>
+    public int PayloadCeilingBytes { get; }
+
+    /// <summary>
+    /// Backward-compatible alias retained during pre-1.0 development.
+    /// This value may now represent a live dynamic ceiling rather than the immutable configured maximum.
+    /// </summary>
+    public int ConfiguredPayloadCeiling =>
+        PayloadCeilingBytes;
 }
