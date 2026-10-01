@@ -45,7 +45,7 @@ internal static class DhmpPathMtuSearch
                     options.AdditionalIpv6HeaderBytes),
                 baseConfirmed: false,
                 reachedConfiguredMaximum: false,
-                transmissions);
+                probeTransmissions: transmissions);
         }
 
         if (options.MaximumPathMtu == basePathMtu)
@@ -109,6 +109,6 @@ internal static class DhmpPathMtuSearch
                 confirmedPathMtu,
                 options.AdditionalIpv6HeaderBytes),
             baseConfirmed: true,
-            reachedMaximum,
-            transmissions);
+            reachedConfiguredMaximum: reachedMaximum,
+            probeTransmissions: transmissions);
 }
