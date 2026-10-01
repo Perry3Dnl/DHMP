@@ -88,7 +88,7 @@ Neither policy changes the V1 wire bytes.
 
 ## Fragmentation
 
-DHMP does not provide application-message fragmentation or reassembly.
+The DHMP V1 framing core does not provide application-message fragmentation or reassembly. The separately selected [DAPI/1 application schema](API_APPLICATION_PROFILE_V1.md) may assemble application messages from multiple complete fixed-size records above that core; it does not carry partial DHMP records across packets or add hidden V1 metadata.
 
 The sender must keep a DHMP packet within its effective path budget after lower-layer and future security overhead are accounted for. Normal operation should not depend on IP fragmentation.
 

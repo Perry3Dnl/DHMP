@@ -10,5 +10,7 @@
     <ProjectReference Include="../DHMP.Licensing/DHMP.Licensing.csproj" />
     <ProjectReference Include="../DHMP.Client/DHMP.Client.csproj" />
     <ProjectReference Include="../DHMP.Server/DHMP.Server.csproj" />
+    <ProjectReference Include="../DHMP.RawIpv6/DHMP.RawIpv6.csproj" />
   </ItemGroup>
 </Project>
+

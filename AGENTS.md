@@ -41,7 +41,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 
 - Keep all .NET projects and namespaces under the canonical `DHMP.*` spelling.
 - Never create case-only alternative project paths.
-- License verification happens at startup. ASP.NET integration is host/license integration, not a DHMP data transport.
+- License verification happens at startup. The explicit DAPI/1 ASP.NET application profile may adapt existing HttpClientFactory calls and the ASP.NET pipeline over raw DHMP IPv6. HTTP types are application facades only, never DHMP transports/fallbacks. Keep application-owned correlation/chunking separate from the headerless V1 framing core.
 - Keep `tools/check_architecture.py` in CI.
 - Existing benchmark contracts are historical evidence for their exact scope. Do not relabel memory or loopback results as physical network throughput.
 - Historical compatibility code remains in git history. Do not make it active again merely to reproduce an old result.

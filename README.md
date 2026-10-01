@@ -121,3 +121,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [Conformance](docs/CONFORMANCE.md)
 - [Licensing](docs/LICENSING_DESIGN.md)
 - [Direct-IP implementation plan](docs/TRANSPORT_TUNING_TODO.md)
+
+## Opt-in automatic .NET API integration
+
+`builder.Services.AddDHMP(licenseKey)` can load configured peer/license settings and route factory-created calls for one API origin over authenticated raw DHMP IPv6, reusing the backend ASP.NET pipeline. Existing controllers and client calls can remain unchanged within the supported buffered API profile. This new experimental integration requires both endpoints, deployment configuration and Linux raw-socket privileges; it is not a published/stable NuGet release or a browser transport. See [configuration and example](docs/ASP_NET_API_INTEGRATION.md) and the explicit [DAPI/1 application schema](docs/API_APPLICATION_PROFILE_V1.md).
