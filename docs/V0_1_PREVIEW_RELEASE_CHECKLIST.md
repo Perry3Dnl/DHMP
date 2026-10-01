@@ -33,7 +33,7 @@ This document tracks work required before any public NuGet publication. The repo
 - [ ] Decide whether the first public preview is intentionally .NET 10-only or whether another target is required and actually supportable.
 - [ ] Add a NuGet-compatible package icon (PNG/JPEG) if desired. The repository logo is currently WebP.
 - [ ] Audit every public type/member for naming, XML documentation, lifetime/disposal behavior and preview stability.
-- [ ] Add a minimal external-user quickstart that does not assume knowledge of the repository's benchmark harnesses.
+- [x] Add a minimal external-user quickstart that does not assume knowledge of the repository's benchmark harnesses.
 - [ ] Perform a clean-machine package inspection from the generated local packages.
 - [ ] Decide the preview version/tag and release notes.
 - [ ] Explicitly accept/document which deployment limitations remain open for the preview: physical two-host/NIC validation, router/ISP reachability matrix, DPLPMTUD, complete Internet congestion control and independent security review.
