@@ -46,7 +46,9 @@ Pmax and Sequential/Latest remain local and are intentionally not negotiated.
 
 ## Protocol identification
 
-The current experimental IPv6 profile assigns 253 to DHMP data and 254 to DHMP control. Both are experimental-use protocol numbers, not permanent DHMP assignments. A permanent protocol-number strategy remains a separate standards/deployment concern.
+The current experimental IPv6 profile assigns 253 to DHMP data and 254 to DHMP control. Both are experimental-use protocol numbers, not permanent DHMP assignments. They are never to be described as standardized DHMP values. The .NET raw backend requires explicit experiment opt-in before opening either binding. A permanent protocol-number strategy remains a separate standards/deployment concern, and even a future permanent assignment would not itself guarantee firewall/middlebox traversal.
+
+Deployment reachability is tracked separately in [DEPLOYMENT_REACHABILITY.md](DEPLOYMENT_REACHABILITY.md).
 
 ## Freshness and ordering
 
