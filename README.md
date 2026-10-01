@@ -113,7 +113,7 @@ Latest or Sequential publication -> typed/application boundary.
 - Sequential publishes complete records in receive order.
 - Latest publishes the final record of the received packet.
 - V1 has no protocol-owned cross-packet sequence field. Optional `DhmpLatestGenerationFilter` can use an application-owned 64-bit generation inside the record to drop stale/duplicate Latest state without adding DHMP bytes.
-- DHMP adds no delivery ACK, retransmission, replay history or hidden reliable queue.
+- DHMP adds no protocol-owned delivery ACK, retransmission, replay history or hidden reliable queue. Optional application-owned confirmation tracking can reuse an application's existing ID without adding DHMP wire bytes; full-record echo remains a separate opt-in application profile.
 - Buffer ownership must be explicit across asynchronous boundaries.
 - Pmax is local sender policy. `RejectWindow` preserves the hard fixed-window budget; `SmoothPacing` spaces packet submissions over time. With the PSK profile, authenticated receiver overload feedback and rolling secure-path loss telemetry can adapt SmoothPacing downward and recover gradually. RTT is measured but not yet used as an independent throttle signal; this is still not a complete network congestion-control algorithm.
 
@@ -131,6 +131,8 @@ Latest or Sequential publication -> typed/application boundary.
 | Compatibility/capability negotiation | Implemented HELLO/ACCEPT/REJECT; discovery still pending |
 | Multi-peer server routing | Source IPv6 routing with drained removal/replacement; one registered V1 session per address |
 | Cross-packet Latest freshness | Implemented opt-in application-generation filter; no extra DHMP wire bytes |
+| Application-owned lightweight confirmation | Implemented opt-in tracker; application supplies the ID/confirmation schema, with zero DHMP wire bytes added |
+| Full-record echo confirmation | Implemented opt-in DECO/1 application profile; no retransmission and no DHMP framing change |
 | Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
 | IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
