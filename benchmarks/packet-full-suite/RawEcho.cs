@@ -55,13 +55,13 @@ internal static class RawEcho
                 while (!File.Exists(ready)) await Task.Delay(10, stop.Token);
                 if (await File.ReadAllTextAsync(ready, stop.Token) != session.SessionId.ToString()) throw new InvalidDataException("Session mismatch.");
                 byte[] content = Enumerable.Range(0, 1160).Select(i => (byte)i).ToArray();
-                for (int i = 0; i < 8; i++) await profile.SendAsync(content, stop.Token);
+                for (int i = 0; i < 64; i++) await profile.SendAsync(content, stop.Token);
                 for (int repetition = 1; repetition <= 5; repetition++)
-                foreach (int concurrency in new[] { 1, 8, 32 })
+                foreach (int concurrency in new[] { 1, 8, 32 }.Skip((repetition - 1) % 3).Concat(new[] { 1, 8, 32 }.Take((repetition - 1) % 3)))
                 {
                     var latencies = new List<double>();
                     long start = Stopwatch.GetTimestamp();
-                    for (int group = 0; group < 8; group++)
+                    for (int group = 0; group < 32 || Stopwatch.GetElapsedTime(start).TotalSeconds < 0.5; group++)
                     {
                         var calls = Enumerable.Range(0, concurrency).Select(_ => profile.SendAsync(content, stop.Token)).ToArray();
                         foreach (var receipt in await Task.WhenAll(calls)) latencies.Add(receipt.RoundTripTime.TotalMilliseconds);
@@ -73,7 +73,7 @@ internal static class RawEcho
                         name = $"raw-protected-echo-concurrency-{concurrency}", scope = "single-vm-two-netns-real-raw-ipv6-protected-echo",
                         repetition, concurrency, confirmations = latencies.Count, seconds,
                         useful_MBps = latencies.Count * 1160.0 / seconds / 1e6,
-                        p50_ms = latencies[latencies.Count / 2], p95_ms = latencies[(int)Math.Ceiling(latencies.Count * .95) - 1],
+                        p50_ms = latencies.Count % 2 == 0 ? (latencies[latencies.Count / 2 - 1] + latencies[latencies.Count / 2]) / 2 : latencies[latencies.Count / 2], p95_ms = latencies[(int)Math.Ceiling(latencies.Count * .95) - 1],
                         min_ms = latencies[0], max_ms = latencies[^1], session = session.SessionId,
                         rejected_packets = receiver.RejectedPackets, protection_rejections = receiver.ProtectionRejectedPackets
                     }));

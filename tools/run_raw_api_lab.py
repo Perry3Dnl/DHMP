@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -52,7 +53,7 @@ def probe_benchmark():
             durations.sort()
             rows.append(dict(name=spec["name"], scope="local-http-driver-plus-website-raw-dhmp-backend-roundtrip", repetition=repetition,
                 requests=40, seconds=seconds, requests_per_second=40/seconds,
-                p50_ms=durations[20], p95_ms=durations[37], min_ms=durations[0], max_ms=durations[-1]))
+                p50_ms=statistics.median(durations), p95_ms=durations[37], min_ms=durations[0], max_ms=durations[-1]))
     print(json.dumps(rows))
 
 
@@ -68,6 +69,7 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--benchmark", action="store_true")
     parser.add_argument("--echo-sample")
+    parser.add_argument("--capture-snaplen", type=int, default=0)
     args = parser.parse_args()
     if sys.platform != "linux" or os.geteuid() != 0:
         raise RuntimeError("Run the isolated lab with root/network-namespace privileges.")
@@ -83,7 +85,7 @@ def main():
     a, b = "fd42:253::1", "fd42:253::2"
     report = {"kind": "single-host-network-namespace-rehearsal", "physical_two_host_pass": False,
               "commit": os.environ.get("GITHUB_SHA", "local"), "kernel": run(["uname", "-a"]).strip(),
-              "mtu": 1280, "checks": [], "sessions": [], "passed": False}
+              "mtu": 1280, "capture_snaplen": args.capture_snaplen, "checks": [], "sessions": [], "passed": False}
     processes, log_files = [], []
     capture = None
     private = tempfile.TemporaryDirectory(prefix="dhmp-api-config-")
@@ -174,7 +176,7 @@ def main():
             run(ns(namespace, "ip", "-6", "addr", "add", address + "/64", "dev", interface, "nodad"))
         capture_log = (output / "capture.log").open("w")
         log_files.append(capture_log)
-        capture = subprocess.Popen(ns(front, "tcpdump", "--immediate-mode", "-U", "-n", "-i", "dapi-a", "-w", str(output / "traffic.pcap"), "ip6"),
+        capture = subprocess.Popen(ns(front, "tcpdump", "--immediate-mode", "-s", str(args.capture_snaplen), "-U", "-n", "-i", "dapi-a", "-w", str(output / "traffic.pcap"), "ip6"),
                                    stdout=capture_log, stderr=subprocess.STDOUT, start_new_session=True)
         wait_until(lambda: capture.poll() is None and "listening on dapi-a" in (output / "capture.log").read_text())
         frontend, backend = start_pair(1)

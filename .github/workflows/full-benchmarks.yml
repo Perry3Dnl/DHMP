@@ -36,11 +36,20 @@ jobs:
             --sample benchmarks/raw-ipv6-api-app/bin/Release/net10.0/Dhmp.RawIpv6ApiApp.dll \
             --fixture benchmarks/raw-ipv6-api-fixture/bin/Release/net10.0/Dhmp.RawIpv6ApiFixture.dll \
             --echo-sample benchmarks/packet-full-suite/bin/Release/net10.0/Dhmp.FullSuite.dll \
-            --benchmark --output "$RUNNER_TEMP/full-benchmarks/network"
+            --benchmark --capture-snaplen 128 --output "$RUNNER_TEMP/full-benchmarks/network"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: full-dhmp-benchmarks-${{ github.run_id }}
-          path: ${{ runner.temp }}/full-benchmarks
+          path: |
+            ${{ runner.temp }}/full-benchmarks/**/*.json
+            ${{ runner.temp }}/full-benchmarks/**/*.log
+          retention-days: 30
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-dhmp-packet-trace-${{ github.run_id }}
+          path: ${{ runner.temp }}/full-benchmarks/network/traffic.pcap
           retention-days: 30
           if-no-files-found: warn
