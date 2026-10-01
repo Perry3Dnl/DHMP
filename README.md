@@ -164,7 +164,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Application-owned lightweight confirmation | Implemented opt-in tracker; application supplies the ID/confirmation schema, with zero DHMP wire bytes added |
 | Full-record echo confirmation | Implemented opt-in DECO/1 application profile; no retransmission and no DHMP framing change |
 | Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
-| IPv6 path-MTU budgeting | Implemented known-PMTU budgeting + whole-record/security alignment; dynamic PMTUD still pending |
+| IPv6 path-MTU budgeting | Known-PMTU budgeting + whole-record/security alignment; authenticated DPLPMTUD search/confirmation implemented, automatic live sender reconfiguration still pending |
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
 | PSK secure packet profile | Experimental ChaCha20-Poly1305/HKDF/HMAC profile with V2 challenge/confirm setup; independent review pending |
 | Authenticated receiver backpressure | Implemented experimental pressure feedback + bounded adaptive pacing |
@@ -227,6 +227,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 - [.NET API design](docs/DOTNET10_PACKAGE_DESIGN.md)
 - [Conformance](docs/CONFORMANCE.md)
 - [Licensing](docs/LICENSING_DESIGN.md)
+- [Authenticated Datagram PLPMTUD search](docs/DPLPMTUD.md)
 - [Direct-IP implementation plan](docs/TRANSPORT_TUNING_TODO.md)
 
 ## Opt-in automatic .NET API integration
