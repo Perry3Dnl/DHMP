@@ -14,7 +14,7 @@ namespace DHMP.RawIpv6;
 public sealed class DhmpRawIpv6CongestionChannel :
     IDisposable
 {
-    private readonly DhmpRawIpv6ControlChannel _channel;
+    private readonly IDhmpControlPacketChannel _channel;
     private readonly DhmpPskChaCha20Poly1305Session _securitySession;
     private readonly ConcurrentDictionary<
         ulong,
@@ -42,6 +42,17 @@ public sealed class DhmpRawIpv6CongestionChannel :
         _channel =
             new DhmpRawIpv6ControlChannel(
                 options);
+    }
+
+    internal DhmpRawIpv6CongestionChannel(
+        IDhmpControlPacketChannel channel,
+        DhmpPskChaCha20Poly1305Session securitySession)
+    {
+        ArgumentNullException.ThrowIfNull(channel);
+        ArgumentNullException.ThrowIfNull(securitySession);
+
+        _channel = channel;
+        _securitySession = securitySession;
     }
 
     public async ValueTask SendAsync(
