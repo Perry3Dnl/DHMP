@@ -110,6 +110,21 @@ public sealed class DhmpPathMtuControlIntegrationTests
                         .PathMtuProbeMinimumPacketSize,
                     length));
 
+        // Simulate a route change / black hole after discovery.
+        initiatorWire.MaximumOutboundPathMtu = 1280;
+
+        Assert.False(
+            await initiator.ConfirmPathMtuAsync(
+                1420,
+                options,
+                TestContext.Current.CancellationToken));
+
+        Assert.True(
+            await initiator.ConfirmPathMtuAsync(
+                1280,
+                options,
+                TestContext.Current.CancellationToken));
+
         cancellation.Cancel();
 
         await Task.WhenAll(
@@ -125,7 +140,7 @@ public sealed class DhmpPathMtuControlIntegrationTests
 
         public MemoryControlChannel? Peer { get; set; }
 
-        public int MaximumOutboundPathMtu { get; init; } =
+        public int MaximumOutboundPathMtu { get; set; } =
             DhmpIpv6PathBudget.MaximumNonJumboIpv6PacketBytes;
 
         public List<int> AttemptedPayloadLengths { get; } =
