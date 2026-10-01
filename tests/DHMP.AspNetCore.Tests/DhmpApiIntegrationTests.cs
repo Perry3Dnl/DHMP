@@ -362,6 +362,7 @@ public sealed class DhmpApiIntegrationTests
     }
     private sealed class PacketTransport : IDhmpApiTransport
     {
+        public Guid SessionId { get; } = Guid.NewGuid();
         private readonly Channel<byte[]> _incoming = Channel.CreateUnbounded<byte[]>(); // Test-only paired packet boundary.
         internal PacketTransport Peer { get; set; } = null!;
         internal int Sent, Opened;
