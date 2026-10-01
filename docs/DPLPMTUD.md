@@ -57,17 +57,44 @@ The default probe timeout is 20 seconds. RFC 8899 requires a probe timer of at l
 
 If the base probe cannot be confirmed, the result enters `Error`. The returned 1280-byte budget is then only a conservative fallback; it is explicitly marked unconfirmed.
 
+## Live sender budget
+
+A raw sender can opt into dynamic path management with:
+
+```csharp
+var sender = DhmpRawIpv6PacketSender.ForDynamicPath(
+    options,
+    additionalIpv6HeaderBytes);
+```
+
+Its immutable `MaximumPayloadBytes` remains the hard ceiling configured by `DhmpRawIpv6Options`, while `CurrentMaximumPayloadBytes` starts at the IPv6 minimum-path payload budget.
+
+`DiscoverAndApplyPathMtuAsync(...)` first forces the live sender back to that conservative base, runs the authenticated search, then raises the live ceiling only to the confirmed result.
+
+The live ceiling propagates through `DhmpProtectedPacketSender`, which subtracts the current security envelope dynamically. `DhmpClient` then aligns that live plaintext ceiling down to a whole number of fixed-size records before every send.
+
+This gives the runtime chain:
+
+```text
+confirmed IPv6 path MTU
+  - IPv6 / configured extension-header bytes
+  = raw live DHMP network payload
+  - security envelope
+  = protected plaintext payload
+  -> align down to whole DHMP records
+  = client live batch ceiling
+```
+
+If the limit shrinks between client validation and the actual socket send, the lower layer still rejects the packet. DHMP does not automatically retry it.
+
 ## Re-confirmation and black-hole handling
 
-`ConfirmPathMtuAsync(...)` re-probes a selected PLPMTU using the same authenticated mechanism and retry policy.
+`ConfirmAndApplyPathMtuAsync(...)` re-probes a selected PLPMTU using the same authenticated mechanism and retry policy.
 
-This supplies the confirmation primitive required for black-hole detection. Automatic periodic maintenance and automatic live mutation of an already-running client's send policy are intentionally separate work. A future controller can use this confirmation result to:
+- success keeps/applies the authenticated path budget;
+- failure immediately reduces the live raw sender to the IPv6 minimum-path budget.
 
-- fall back immediately to the base 1280-byte path budget after repeated failure;
-- rebuild/reconfigure the effective send policy;
-- re-enter the upward search after a raise interval.
-
-The current implementation does not silently alter application packet sizing behind the caller's back.
+This supplies the live fallback primitive required for black-hole handling. Automatic periodic maintenance / raise timers remain separate work: DHMP does not yet start a hidden background PMTU maintenance loop on behalf of the application.
 
 ## ICMPv6 Packet Too Big
 
@@ -84,7 +111,6 @@ This prevents blind/spoofed acknowledgments from raising the discovered MTU on t
 ## Still open
 
 - automatic periodic PMTU maintenance / raise timer;
-- live coupling of discovered budget to an active sender/client policy;
 - validated ICMPv6 PTB acceleration;
 - physical-router/path testing;
 - demonstrating behavior across route changes and intentionally induced black holes;

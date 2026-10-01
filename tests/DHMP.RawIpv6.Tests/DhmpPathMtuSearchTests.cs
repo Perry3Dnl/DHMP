@@ -114,6 +114,14 @@ public sealed class DhmpPathMtuSearchTests
             new DhmpPathMtuDiscoveryOptions(
                 maximumPathMtu: 1279));
 
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new DhmpPathMtuDiscoveryOptions(
+                additionalIpv6HeaderBytes:
+                    1280 -
+                    DhmpIpv6PathBudget.Ipv6BaseHeaderBytes -
+                    DHMP.Security.DhmpPskChaCha20Poly1305Session.PathMtuProbeMinimumPacketSize +
+                    1));
+
         var options = new DhmpPathMtuDiscoveryOptions();
 
         Assert.Equal(1500, options.MaximumPathMtu);

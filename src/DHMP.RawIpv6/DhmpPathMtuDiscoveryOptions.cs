@@ -27,8 +27,12 @@ public sealed class DhmpPathMtuDiscoveryOptions
             DhmpIpv6PathBudget.MinimumIpv6Mtu,
             additionalIpv6HeaderBytes);
 
-        if (baseBudget.MaximumProtocolPayloadBytes <= 0)
-            throw new ArgumentOutOfRangeException(nameof(additionalIpv6HeaderBytes));
+        if (baseBudget.MaximumProtocolPayloadBytes <
+            DHMP.Security.DhmpPskChaCha20Poly1305Session
+                .PathMtuProbeMinimumPacketSize)
+            throw new ArgumentOutOfRangeException(
+                nameof(additionalIpv6HeaderBytes),
+                "IPv6 base PLPMTU must leave room for one authenticated DHMP path-MTU probe.");
 
         TimeSpan timeout = probeTimeout ?? DefaultProbeTimeout;
         if (timeout < TimeSpan.FromSeconds(1) ||

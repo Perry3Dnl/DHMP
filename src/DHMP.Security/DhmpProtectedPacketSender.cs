@@ -7,7 +7,7 @@ namespace DHMP.Security;
 /// Wraps any direct-IP packet sender with the explicit DHMP PSK security envelope.
 /// The wrapped sender lifetime is owned by the caller.
 /// </summary>
-public sealed class DhmpProtectedPacketSender : IDhmpPacketSender, IAsyncDisposable
+public sealed class DhmpProtectedPacketSender : IDhmpDynamicPacketSender, IAsyncDisposable
 {
     private readonly object _lifetimeGate = new();
     private readonly TaskCompletionSource _drained =
@@ -39,6 +39,28 @@ public sealed class DhmpProtectedPacketSender : IDhmpPacketSender, IAsyncDisposa
     }
 
     public int MaximumPayloadBytes { get; }
+
+    public int CurrentMaximumPayloadBytes
+    {
+        get
+        {
+            int innerCurrent =
+                _inner.MaximumPayloadBytes;
+
+            if (_inner is IDhmpDynamicPacketSender dynamicSender)
+            {
+                innerCurrent =
+                    Math.Min(
+                        innerCurrent,
+                        dynamicSender.CurrentMaximumPayloadBytes);
+            }
+
+            return Math.Max(
+                0,
+                innerCurrent -
+                DhmpPskChaCha20Poly1305Session.Overhead);
+        }
+    }
 
     public async ValueTask SendPacketAsync(
         ReadOnlyMemory<byte> payload,
@@ -86,10 +108,13 @@ public sealed class DhmpProtectedPacketSender : IDhmpPacketSender, IAsyncDisposa
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        int currentMaximum =
+            CurrentMaximumPayloadBytes;
+
         if (payload.IsEmpty ||
-            payload.Length > MaximumPayloadBytes)
+            payload.Length > currentMaximum)
             throw new DhmpProtocolException(
-                "Plaintext DHMP payload is empty or exceeds the protected sender limit.");
+                $"Plaintext DHMP payload is empty or exceeds the protected sender live limit of {currentMaximum} bytes.");
 
         int protectedLength = checked(
             payload.Length +

@@ -164,7 +164,7 @@ Latest or Sequential publication -> typed/application boundary.
 | Application-owned lightweight confirmation | Implemented opt-in tracker; application supplies the ID/confirmation schema, with zero DHMP wire bytes added |
 | Full-record echo confirmation | Implemented opt-in DECO/1 application profile; no retransmission and no DHMP framing change |
 | Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
-| IPv6 path-MTU budgeting | Known-PMTU budgeting + whole-record/security alignment; authenticated DPLPMTUD search/confirmation implemented, automatic live sender reconfiguration still pending |
+| IPv6 path-MTU budgeting | Known-PMTU budgeting + authenticated DPLPMTUD search/confirmation + live raw/protected/client payload adaptation; periodic maintenance/raise timer still pending |
 | Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
 | PSK secure packet profile | Experimental ChaCha20-Poly1305/HKDF/HMAC profile with V2 challenge/confirm setup; independent review pending |
 | Authenticated receiver backpressure | Implemented experimental pressure feedback + bounded adaptive pacing |

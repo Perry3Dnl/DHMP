@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - 'benchmarks/**'
+      - 'src/DHMP.Client/**'
+      - 'src/DHMP.Protocol/**'
+      - 'src/DHMP.RawIpv6/**'
+      - 'src/DHMP.Security/**'
+      - 'src/DHMP.Server/**'
       - 'tools/run_full_benchmarks.py'
       - 'tools/run_raw_api_lab.py'
       - '.github/workflows/full-benchmarks.yml'
