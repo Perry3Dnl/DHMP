@@ -27,6 +27,7 @@ try
                     LocalAddress = args[frontend ? 1 : 2], RemoteAddress = args[frontend ? 2 : 1],
                     ApiOrigin = "https://api.invalid/", Initiator = frontend, AcceptRequests = !frontend,
                     PreSharedKeyBase64 = Convert.ToBase64String(psk), KeyId = 1, PathMtu = 1280,
+                    EnableExperimentalProtocolNumbers = true,
                     RequestTimeout = "00:00:03", HandshakeTimeout = "00:00:30", RecordsPerSecond = 500,
                     MaximumBodyBytes = 32768, MaximumMessageBytes = 65536, MaximumInFlight = 4, MaximumConcurrentRequests = 2
                 }
