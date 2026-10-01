@@ -170,6 +170,7 @@ public sealed class DhmpRawIpv6CongestionChannel :
             (pathMtu, token) =>
                 ProbePathMtuOnceAsync(
                     pathMtu,
+                    options.AdditionalIpv6HeaderBytes,
                     options.ProbeTimeout,
                     token),
             cancellationToken);
@@ -198,6 +199,7 @@ public sealed class DhmpRawIpv6CongestionChannel :
 
             if (await ProbePathMtuOnceAsync(
                     pathMtu,
+                    options.AdditionalIpv6HeaderBytes,
                     options.ProbeTimeout,
                     cancellationToken)
                 .ConfigureAwait(false))
@@ -205,6 +207,66 @@ public sealed class DhmpRawIpv6CongestionChannel :
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Discover the path MTU and apply the authenticated result to a dynamically managed
+    /// raw data sender. The sender is reduced to the IPv6 base budget before probing.
+    /// </summary>
+    public async Task<DhmpPathMtuDiscoveryResult> DiscoverAndApplyPathMtuAsync(
+        DhmpRawIpv6PacketSender sender,
+        DhmpPathMtuDiscoveryOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateManagedSender(sender, options);
+
+        // Unknown-path traffic must never begin at an unconfirmed larger ceiling.
+        sender.FallBackToMinimumPathBudget();
+
+        DhmpPathMtuDiscoveryResult result =
+            await DiscoverPathMtuAsync(
+                options,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (result.BaseConfirmed)
+            sender.ApplyConfirmedPathBudget(
+                result.PathBudget);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Re-confirm a selected PLPMTU and update the live raw-data ceiling.
+    /// A failed confirmation immediately falls back to the IPv6 base budget.
+    /// </summary>
+    public async Task<bool> ConfirmAndApplyPathMtuAsync(
+        DhmpRawIpv6PacketSender sender,
+        int pathMtu,
+        DhmpPathMtuDiscoveryOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateManagedSender(sender, options);
+
+        bool confirmed =
+            await ConfirmPathMtuAsync(
+                pathMtu,
+                options,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!confirmed)
+        {
+            sender.FallBackToMinimumPathBudget();
+            return false;
+        }
+
+        sender.ApplyConfirmedPathBudget(
+            new DhmpIpv6PathBudget(
+                pathMtu,
+                options.AdditionalIpv6HeaderBytes));
+
+        return true;
     }
 
     /// <summary>
@@ -359,13 +421,15 @@ public sealed class DhmpRawIpv6CongestionChannel :
 
     private async ValueTask<bool> ProbePathMtuOnceAsync(
         int pathMtu,
+        int additionalIpv6HeaderBytes,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         int payloadBytes =
             checked(
                 pathMtu -
-                DhmpIpv6PathBudget.Ipv6BaseHeaderBytes);
+                DhmpIpv6PathBudget.Ipv6BaseHeaderBytes -
+                additionalIpv6HeaderBytes);
 
         if (payloadBytes <
                 DhmpPskChaCha20Poly1305Session
@@ -564,6 +628,36 @@ public sealed class DhmpRawIpv6CongestionChannel :
 
         completion.TrySetResult(
             telemetry);
+    }
+
+    private static void ValidateManagedSender(
+        DhmpRawIpv6PacketSender sender,
+        DhmpPathMtuDiscoveryOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(sender);
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (!sender.DynamicPathBudgetEnabled)
+            throw new ArgumentException(
+                "Raw sender must be created with DhmpRawIpv6PacketSender.ForDynamicPath(...).",
+                nameof(sender));
+
+        if (sender.DynamicAdditionalIpv6HeaderBytes !=
+            options.AdditionalIpv6HeaderBytes)
+            throw new ArgumentException(
+                "Sender and DPLPMTUD options use different IPv6 extension-header allowances.",
+                nameof(options));
+
+        var maximumBudget =
+            new DhmpIpv6PathBudget(
+                options.MaximumPathMtu,
+                options.AdditionalIpv6HeaderBytes);
+
+        if (maximumBudget.MaximumProtocolPayloadBytes >
+            sender.MaximumPayloadBytes)
+            throw new ArgumentException(
+                "DPLPMTUD maximum exceeds the raw sender hard payload ceiling.",
+                nameof(options));
     }
 
     public void Dispose()
