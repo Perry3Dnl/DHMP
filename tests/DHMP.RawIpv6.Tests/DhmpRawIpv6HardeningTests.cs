@@ -21,7 +21,8 @@ public sealed class DhmpRawIpv6HardeningTests
             new DhmpRawIpv6PeerBinding(
                 IPAddress.Parse("2001:db8::1"),
                 server,
-                _ => { });
+                _ => { },
+                allowUnprotectedPayloads: true);
 
         var protectedBinding =
             new DhmpRawIpv6PeerBinding(
@@ -39,6 +40,30 @@ public sealed class DhmpRawIpv6HardeningTests
         Assert.Equal(
             88,
             protectedBinding.MaximumNetworkPayloadBytes);
+    }
+
+    [Fact]
+    public void PlainPeerBindingRequiresExplicitIntegrityAcceptance()
+    {
+        var server = new DhmpServer(
+            new DhmpWireContract(4),
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Sequential,
+                64));
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new DhmpRawIpv6PeerBinding(
+                IPAddress.Parse("2001:db8::1"),
+                server,
+                _ => { }));
+
+        var explicitPlain = new DhmpRawIpv6PeerBinding(
+            IPAddress.Parse("2001:db8::1"),
+            server,
+            _ => { },
+            allowUnprotectedPayloads: true);
+
+        Assert.True(explicitPlain.UnprotectedPayloadsAllowed);
     }
 
     [Fact]
@@ -419,7 +444,8 @@ public sealed class DhmpRawIpv6HardeningTests
                 new DhmpReceivePolicy(
                     DhmpProcessingMode.Sequential,
                     64)),
-            _ => { });
+            _ => { },
+            allowUnprotectedPayloads: true);
 
     private sealed class FixedDecoder :
         IDhmpPacketDecoder

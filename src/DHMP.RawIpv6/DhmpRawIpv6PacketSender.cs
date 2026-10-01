@@ -7,6 +7,7 @@ namespace DHMP.RawIpv6;
 /// <summary>
 /// Linux raw-IPv6 implementation of the DHMP packet-sender boundary.
 /// The IPv6 kernel API owns the IPv6 header; DHMP supplies payload bytes only.
+/// The native socket is configured not to insert IPv6 Fragment headers.
 /// </summary>
 public sealed class DhmpRawIpv6PacketSender : IDhmpPacketSender, IDisposable
 {

@@ -16,7 +16,8 @@ public sealed class DhmpRawIpv6PeerBinding
         IPAddress remoteAddress,
         DhmpServer server,
         Action<ReadOnlySpan<byte>> publishBatch,
-        IDhmpPacketDecoder? decoder = null)
+        IDhmpPacketDecoder? decoder = null,
+        bool allowUnprotectedPayloads = false)
     {
         ArgumentNullException.ThrowIfNull(remoteAddress);
         ArgumentNullException.ThrowIfNull(server);
@@ -24,10 +25,15 @@ public sealed class DhmpRawIpv6PeerBinding
 
         if (remoteAddress.AddressFamily !=
             AddressFamily.InterNetworkV6 ||
-            remoteAddress.IsIPv4MappedToIPv6)
+            remoteAddress.IsIPv4MappedToIPv6 ||
+            remoteAddress.Equals(IPAddress.IPv6Any))
             throw new ArgumentException(
-                "DHMP peer binding requires a native IPv6 address.",
+                "DHMP peer binding requires an explicit native IPv6 address.",
                 nameof(remoteAddress));
+
+        if (decoder is null && !allowUnprotectedPayloads)
+            throw new InvalidOperationException(
+                "Unprotected DHMP peer binding is disabled by default because plaintext V1 has no protocol-owned end-to-end integrity/authentication check.");
 
         if (decoder is not null &&
             decoder.OverheadBytes < 0)
@@ -47,12 +53,14 @@ public sealed class DhmpRawIpv6PeerBinding
         Server = server;
         PublishBatch = publishBatch;
         Decoder = decoder;
+        UnprotectedPayloadsAllowed = allowUnprotectedPayloads;
     }
 
     public IPAddress RemoteAddress { get; }
     public DhmpServer Server { get; }
     public Action<ReadOnlySpan<byte>> PublishBatch { get; }
     public IDhmpPacketDecoder? Decoder { get; }
+    public bool UnprotectedPayloadsAllowed { get; }
 
     public int MaximumNetworkPayloadBytes =>
         checked(

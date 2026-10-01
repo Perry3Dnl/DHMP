@@ -31,7 +31,8 @@ public sealed class DhmpRawIpv6PeerRouterTests
                     new DhmpReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         32)),
-                span => receivedA = span.ToArray()));
+                span => receivedA = span.ToArray(),
+                allowUnprotectedPayloads: true));
 
         router.Register(
             new DhmpRawIpv6PeerBinding(
@@ -41,7 +42,8 @@ public sealed class DhmpRawIpv6PeerRouterTests
                     new DhmpReceivePolicy(
                         DhmpProcessingMode.Latest,
                         32)),
-                span => receivedB = span.ToArray()));
+                span => receivedB = span.ToArray(),
+                allowUnprotectedPayloads: true));
 
         Assert.True(
             router.TryRoute(
@@ -120,7 +122,8 @@ public sealed class DhmpRawIpv6PeerRouterTests
                     new DhmpReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         64)),
-                _ => callbacks++));
+                _ => callbacks++,
+                allowUnprotectedPayloads: true));
 
         Assert.False(
             router.TryRoute(
@@ -151,7 +154,8 @@ public sealed class DhmpRawIpv6PeerRouterTests
                     new DhmpReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         64)),
-                _ => callbacks++));
+                _ => callbacks++,
+                allowUnprotectedPayloads: true));
 
         Assert.False(
             router.TryRoute(
@@ -288,7 +292,7 @@ public sealed class DhmpRawIpv6PeerRouterTests
     {
         var options =
             new DhmpRawIpv6ListenerOptions(
-                IPAddress.IPv6Any,
+                IPAddress.Parse("2001:db8::100"),
                 maximumPayloadBytes: 1408,
                 maximumPeers: 256);
 
@@ -305,9 +309,21 @@ public sealed class DhmpRawIpv6PeerRouterTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new DhmpRawIpv6ListenerOptions(
-                IPAddress.IPv6Any,
+                IPAddress.IPv6Loopback,
                 1408,
                 maximumPeers: 0));
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpRawIpv6ListenerOptions(
+                IPAddress.IPv6Any,
+                1408));
+
+        var wildcard = new DhmpRawIpv6ListenerOptions(
+            IPAddress.IPv6Any,
+            1408,
+            allowWildcardLocalAddress: true);
+
+        Assert.True(wildcard.WildcardLocalAddressAllowed);
     }
 
     private static DhmpRawIpv6PeerBinding Binding(
@@ -319,7 +335,8 @@ public sealed class DhmpRawIpv6PeerRouterTests
                 new DhmpReceivePolicy(
                     DhmpProcessingMode.Sequential,
                     64)),
-            _ => { });
+            _ => { },
+            allowUnprotectedPayloads: true);
 
     private sealed class PrefixDecoder :
         IDhmpPacketDecoder

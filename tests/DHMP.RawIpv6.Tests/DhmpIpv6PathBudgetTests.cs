@@ -111,7 +111,7 @@ public sealed class DhmpIpv6PathBudgetTests
 
         var listener =
             DhmpRawIpv6ListenerOptions.FromPathMtu(
-                IPAddress.IPv6Any,
+                IPAddress.Parse("2001:db8::100"),
                 1280,
                 maximumPeers: 8);
 
@@ -126,6 +126,20 @@ public sealed class DhmpIpv6PathBudgetTests
         Assert.Equal(
             8,
             listener.MaximumPeers);
+    }
+
+    [Fact]
+    public void UnknownPathFactoriesStayAtIpv6MinimumUntilPathIsVerified()
+    {
+        var peer = DhmpRawIpv6Options.ForUnknownPath(
+            IPAddress.IPv6Loopback,
+            IPAddress.Parse("2001:db8::2"));
+
+        var listener = DhmpRawIpv6ListenerOptions.ForUnknownPath(
+            IPAddress.Parse("2001:db8::100"));
+
+        Assert.Equal(1240, peer.MaximumPayloadBytes);
+        Assert.Equal(1240, listener.MaximumPayloadBytes);
     }
 
     [Fact]
