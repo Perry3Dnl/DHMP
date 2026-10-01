@@ -88,6 +88,31 @@ public sealed class DhmpClient
             .CurrentMessagesPerSecond ??
         _sendPolicy.Pmax;
 
+    /// <summary>
+    /// Current whole-record payload ceiling after combining local policy with any
+    /// live sender/path limit.
+    /// </summary>
+    public int CurrentMaximumPayloadBytes
+    {
+        get
+        {
+            int senderMaximum =
+                _sender is IDhmpDynamicPacketSender dynamicSender
+                    ? dynamicSender.CurrentMaximumPayloadBytes
+                    : _sender.MaximumPayloadBytes;
+
+            int rawMaximum =
+                Math.Min(
+                    _sendPolicy.MaximumPayloadBytes,
+                    senderMaximum);
+
+            return
+                rawMaximum /
+                _wireContract.RecordSize *
+                _wireContract.RecordSize;
+        }
+    }
+
     public ValueTask SendAsync(
         ReadOnlyMemory<byte> record,
         CancellationToken cancellationToken = default)
@@ -107,9 +132,17 @@ public sealed class DhmpClient
         cancellationToken
             .ThrowIfCancellationRequested();
 
+        int currentMaximumPayloadBytes =
+            CurrentMaximumPayloadBytes;
+
+        if (currentMaximumPayloadBytes <
+            _wireContract.RecordSize)
+            throw new DhmpProtocolException(
+                "Current DHMP path budget cannot fit one complete record.");
+
         _wireContract.ValidatePacket(
             packet.Length,
-            _sendPolicy.MaximumPayloadBytes);
+            currentMaximumPayloadBytes);
 
         int messages =
             packet.Length /
