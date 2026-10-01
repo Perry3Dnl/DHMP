@@ -41,8 +41,7 @@ public sealed class DhmpPathMtuDiscoveryOptions
             throw new ArgumentOutOfRangeException(nameof(maximumProbeAttempts));
 
         if (minimumSearchGainBytes < 1 ||
-            minimumSearchGainBytes >
-                maximumPathMtu - DhmpIpv6PathBudget.MinimumIpv6Mtu + 1)
+            minimumSearchGainBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(minimumSearchGainBytes));
 
         MaximumPathMtu = maximumPathMtu;
