@@ -1,0 +1,55 @@
+name: Full DHMP benchmark suite
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'benchmarks/**'
+      - 'tools/run_full_benchmarks.py'
+      - 'tools/run_raw_api_lab.py'
+      - '.github/workflows/full-benchmarks.yml'
+permissions:
+  contents: read
+jobs:
+  hosted-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build all measurement harnesses
+        run: |
+          for project in benchmarks/*/*.csproj; do
+            dotnet build "$project" -c Release
+          done
+      - name: Install lab tools
+        run: sudo apt-get update && sudo apt-get install -y tcpdump iproute2
+      - name: Five rotated component, mock and verified kernel runs
+        run: |
+          python3 tools/run_full_benchmarks.py --dotnet "$(command -v dotnet)" --output "$RUNNER_TEMP/full-benchmarks"
+      - name: API and full-echo measurements through actual protected raw sockets
+        run: |
+          sudo env GITHUB_SHA="$GITHUB_SHA" python3 tools/run_raw_api_lab.py \
+            --dotnet "$(command -v dotnet)" \
+            --sample benchmarks/raw-ipv6-api-app/bin/Release/net10.0/Dhmp.RawIpv6ApiApp.dll \
+            --fixture benchmarks/raw-ipv6-api-fixture/bin/Release/net10.0/Dhmp.RawIpv6ApiFixture.dll \
+            --echo-sample benchmarks/packet-full-suite/bin/Release/net10.0/Dhmp.FullSuite.dll \
+            --benchmark --capture-snaplen 128 --output "$RUNNER_TEMP/full-benchmarks/network"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-dhmp-benchmarks-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/full-benchmarks/**/*.json
+            ${{ runner.temp }}/full-benchmarks/**/*.log
+          retention-days: 30
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: full-dhmp-packet-trace-${{ github.run_id }}
+          path: ${{ runner.temp }}/full-benchmarks/network/traffic.pcap
+          retention-days: 30
+          if-no-files-found: warn

@@ -1,5 +1,9 @@
 # Direct-IP benchmark evidence
 
+## Latest full-suite run: 1 October 2026
+
+The [complete benchmark report](FULL_BENCHMARK_2026_10_01.md) and README now publish five-repetition results for core/consumer behavior, control/freshness, packet protection, authenticated feedback, key derivation, one-way/echo composition, all retained mocks, uniquely validated raw kernel records, ordinary API calls and sustained protected raw echo across two namespaces. All 790 test executions passed. Raw JSON and earlier hosted overload evidence are retained under `docs/benchmark-results/2026-10-01`. Physical two-host throughput remains unmeasured.
+
 The active benchmark set is restricted to direct packet research. No historical compatibility comparison chart is used as the current DHMP performance headline.
 
 | Project | Measurement scope |
@@ -73,7 +77,7 @@ Run: https://github.com/Perry3Dnl/DHMP/actions/runs/36539172049
 
 The project built with zero warnings and zero errors, but the GitHub-hosted runner reported `CapEff: 0` and `Socket(AF_INET6, SOCK_RAW, 253)` failed with `Protocol not supported`.
 
-No raw-kernel throughput number is therefore reported from that run. This is an environment limitation, not evidence of a DHMP throughput result either way. The workflow now records unsupported hosted runners as an explicit skip rather than a failed benchmark.
+No raw-kernel throughput number is therefore reported from that run. This historical nonprivileged attempt did not produce a throughput result. Subsequent real-socket work also found and fixed managed protocol-enum mapping through native Linux descriptor creation. The new privileged full-suite kernel measurement fails on missing capability and reports uniquely validated records and loss; it supersedes the earlier skipped experiment for current evidence.
 
 
 ## Prior direct-IP checkpoints
@@ -95,3 +99,4 @@ They were removed from the active tree to prevent an old implementation from bei
 The earlier single-carry A/B reported about 14% lower stream-framing time. That result remains historical and does not transfer to a direct-IP packet processor with no carry.
 
 See [BENCHMARK_FAIRNESS.md](BENCHMARK_FAIRNESS.md) before publishing a result.
+

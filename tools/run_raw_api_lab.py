@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import signal
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -28,6 +29,34 @@ def probe():
         print(json.dumps({"status": response.status, "body": base64.b64encode(response.read()).decode()}))
 
 
+def probe_benchmark():
+    data = json.load(sys.stdin)
+    rows = []
+    for spec in data:
+        body = base64.b64decode(spec["body"]) if spec.get("body") else None
+        def call():
+            request = urllib.request.Request("http://127.0.0.1:5080" + spec["path"], data=body,
+                headers=spec.get("headers", {}), method=spec.get("method", "GET"))
+            with urllib.request.urlopen(request, timeout=10) as response:
+                content = response.read()
+                if response.status != 200: raise AssertionError("Benchmark API failed")
+                parsed = json.loads(content)
+                if spec["name"] == "api-json-post" and parsed["message"] != "x" * 16000:
+                    raise AssertionError("Benchmark JSON mismatch")
+        for _ in range(5): call()
+        for repetition in range(1, 6):
+            durations = []
+            started = time.perf_counter()
+            for _ in range(40):
+                before = time.perf_counter(); call(); durations.append((time.perf_counter() - before) * 1000)
+            seconds = time.perf_counter() - started
+            durations.sort()
+            rows.append(dict(name=spec["name"], scope="local-http-driver-plus-website-raw-dhmp-backend-roundtrip", repetition=repetition,
+                requests=40, seconds=seconds, requests_per_second=40/seconds,
+                p50_ms=statistics.median(durations), p95_ms=durations[37], min_ms=durations[0], max_ms=durations[-1]))
+    print(json.dumps(rows))
+
+
 def run(command, **kwargs):
     return subprocess.run(command, check=True, text=True, capture_output=True, **kwargs).stdout
 
@@ -38,6 +67,9 @@ def main():
     parser.add_argument("--fixture", required=True)
     parser.add_argument("--dotnet", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--benchmark", action="store_true")
+    parser.add_argument("--echo-sample")
+    parser.add_argument("--capture-snaplen", type=int, default=0)
     args = parser.parse_args()
     if sys.platform != "linux" or os.geteuid() != 0:
         raise RuntimeError("Run the isolated lab with root/network-namespace privileges.")
@@ -53,7 +85,7 @@ def main():
     a, b = "fd42:253::1", "fd42:253::2"
     report = {"kind": "single-host-network-namespace-rehearsal", "physical_two_host_pass": False,
               "commit": os.environ.get("GITHUB_SHA", "local"), "kernel": run(["uname", "-a"]).strip(),
-              "mtu": 1280, "checks": [], "sessions": [], "passed": False}
+              "mtu": 1280, "capture_snaplen": args.capture_snaplen, "checks": [], "sessions": [], "passed": False}
     processes, log_files = [], []
     capture = None
     private = tempfile.TemporaryDirectory(prefix="dhmp-api-config-")
@@ -144,7 +176,7 @@ def main():
             run(ns(namespace, "ip", "-6", "addr", "add", address + "/64", "dev", interface, "nodad"))
         capture_log = (output / "capture.log").open("w")
         log_files.append(capture_log)
-        capture = subprocess.Popen(ns(front, "tcpdump", "--immediate-mode", "-U", "-n", "-i", "dapi-a", "-w", str(output / "traffic.pcap"), "ip6"),
+        capture = subprocess.Popen(ns(front, "tcpdump", "--immediate-mode", "-s", str(args.capture_snaplen), "-U", "-n", "-i", "dapi-a", "-w", str(output / "traffic.pcap"), "ip6"),
                                    stdout=capture_log, stderr=subprocess.STDOUT, start_new_session=True)
         wait_until(lambda: capture.poll() is None and "listening on dapi-a" in (output / "capture.log").read_text())
         frontend, backend = start_pair(1)
@@ -158,6 +190,12 @@ def main():
         check("unknown route remains 404", request("/lab/proxy/api/missing")["status"] == 404)
         oversized = request("/lab/proxy/api/echo", "POST", b"x" * 32769, {"Content-Type": "application/json"})
         check("oversized body rejected", oversized["status"] == 413)
+        if args.benchmark:
+            specifications = [{"name": "api-get", "path": "/lab/proxy/api/hello"},
+                {"name": "api-json-post", "path": "/lab/proxy/api/echo", "method": "POST",
+                 "body": base64.b64encode(payload).decode(), "headers": {"Content-Type": "application/json"}}]
+            report["api_benchmarks"] = json.loads(run(ns(front, sys.executable, script, "--probe-benchmark"), input=json.dumps(specifications), timeout=120))
+            check("API benchmark requests all succeeded", len(report["api_benchmarks"]) == 10)
         run(ns(back, "tc", "qdisc", "add", "dev", "dapi-b", "root", "netem", "loss", "100%"))
         try:
             lost = request("/lab/proxy/api/lab/mutate", "POST")
@@ -174,6 +212,23 @@ def main():
         check("API works after fresh restart", request("/lab/proxy/api/hello")["status"] == 200)
         stop(frontend)
         stop(backend)
+        if args.echo_sample:
+            echo_sample = str(Path(args.echo_sample).resolve())
+            def start_echo(namespace, role):
+                log = (output / ("echo-" + role + ".log")).open("w"); log_files.append(log)
+                process = subprocess.Popen(ns(namespace, dotnet, echo_sample, "--raw-echo", str(Path(private.name) / (role + ".json"))),
+                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+                processes.append(process)
+                return process
+            echo_backend = start_echo(back, "backend")
+            wait_until(lambda: any(line.split()[1].upper().endswith(":00FE") for line in run(ns(back, "cat", "/proc/net/raw6")).splitlines()[1:] if len(line.split()) > 3))
+            echo_frontend = start_echo(front, "frontend")
+            check("raw protected echo benchmark completed", echo_frontend.wait(timeout=90) == 0)
+            os.killpg(echo_backend.pid, signal.SIGTERM)
+            check("raw echo backend clean shutdown", echo_backend.wait(timeout=15) == 0)
+            report["echo_benchmarks"] = [json.loads(line.removeprefix("RESULT_JSON "))
+                for line in (output / "echo-frontend.log").read_text().splitlines() if line.startswith("RESULT_JSON ")]
+            check("all raw echo repetitions recorded", len(report["echo_benchmarks"]) == 15)
         os.killpg(capture.pid, signal.SIGINT)
         capture.wait(timeout=10)
         counts = {}
@@ -214,5 +269,7 @@ def main():
 if __name__ == "__main__":
     if sys.argv[1:] == ["--probe"]:
         probe()
+    elif sys.argv[1:] == ["--probe-benchmark"]:
+        probe_benchmark()
     else:
         sys.exit(main())

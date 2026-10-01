@@ -1,0 +1,3872 @@
+{
+  "commit": "257bc3d4841d3a2220f48b6751aa389baabdd89a",
+  "run": "36832616901",
+  "kernel": "Linux-6.17.0-1022-azure-x86_64-with-glibc2.39",
+  "cpu": "Architecture:                            x86_64\nCPU op-mode(s):                          32-bit, 64-bit\nAddress sizes:                           48 bits physical, 48 bits virtual\nByte Order:                              Little Endian\nCPU(s):                                  4\nOn-line CPU(s) list:                     0-3\nVendor ID:                               AuthenticAMD\nModel name:                              AMD EPYC 7763 64-Core Processor\nCPU family:                              25\nModel:                                   1\nThread(s) per core:                      2\nCore(s) per socket:                      2\nSocket(s):                               1\nStepping:                                1\nBogoMIPS:                                4890.85\nFlags:                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall nx mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_good nopl tsc_reliable nonstop_tsc cpuid extd_apicid aperfmperf tsc_known_freq pni pclmulqdq ssse3 fma cx16 pcid sse4_1 sse4_2 movbe popcnt aes xsave avx f16c rdrand hypervisor lahf_lm cmp_legacy svm cr8_legacy abm sse4a misalignsse 3dnowprefetch osvw topoext vmmcall fsgsbase bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb sha_ni xsaveopt xsavec xgetbv1 xsaves user_shstk clzero xsaveerptr rdpru arat npt nrip_save tsc_scale vmcb_clean flushbyasid decodeassists pausefilter pfthreshold v_vmsave_vmload umip vaes vpclmulqdq rdpid fsrm\nVirtualization:                          AMD-V\nHypervisor vendor:                       Microsoft\nVirtualization type:                     full\nL1d cache:                               64 KiB (2 instances)\nL1i cache:                               64 KiB (2 instances)\nL2 cache:                                1 MiB (2 instances)\nL3 cache:                                32 MiB (1 instance)\nNUMA node(s):                            1\nNUMA node0 CPU(s):                       0-3\nVulnerability Gather data sampling:      Not affected\nVulnerability Ghostwrite:                Not affected\nVulnerability Indirect target selection: Not affected\nVulnerability Itlb multihit:             Not affected\nVulnerability L1tf:                      Not affected\nVulnerability Mds:                       Not affected\nVulnerability Meltdown:                  Not affected\nVulnerability Mmio stale data:           Not affected\nVulnerability Old microcode:             Not affected\nVulnerability Reg file data sampling:    Not affected\nVulnerability Retbleed:                  Not affected\nVulnerability Spec rstack overflow:      Vulnerable: Safe RET, no microcode\nVulnerability Spec store bypass:         Vulnerable\nVulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization\nVulnerability Spectre v2:                Mitigation; Retpolines; STIBP disabled; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected\nVulnerability Srbds:                     Not affected\nVulnerability Tsa:                       Vulnerable: No microcode\nVulnerability Tsx async abort:           Not affected\nVulnerability Vmscape:                   Not affected\n",
+  "repetitions": 5,
+  "decimal_units": true,
+  "raw": [
+    {
+      "name": "core-Latest-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 1,
+      "operations": 30688896,
+      "seconds": 0.5000018,
+      "operations_per_second": 61377571.040744245,
+      "ns_per_operation": 16.292596514387487,
+      "offered_GBps": 1.964082273303816,
+      "consumed_GBps": 1.964082273303816,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 1,
+      "operations": 30921088,
+      "seconds": 0.5000014,
+      "operations_per_second": 61842002.842392035,
+      "ns_per_operation": 16.17023954655153,
+      "offered_GBps": 15.831552727652362,
+      "consumed_GBps": 1.9789440909565452,
+      "allocated_bytes_per_operation": 7.761693249603636e-07
+    },
+    {
+      "name": "core-Latest-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 1,
+      "operations": 30652544,
+      "seconds": 0.5000015,
+      "operations_per_second": 61304904.08528774,
+      "ns_per_operation": 16.311908727706253,
+      "offered_GBps": 86.31730495208514,
+      "consumed_GBps": 1.9617569307292078,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 1,
+      "operations": 32105728,
+      "seconds": 0.5000019,
+      "operations_per_second": 64211211.99739441,
+      "ns_per_operation": 15.573604186766921,
+      "offered_GBps": 2.054758783916621,
+      "consumed_GBps": 2.054758783916621,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 1,
+      "operations": 5034880,
+      "seconds": 0.5000026,
+      "operations_per_second": 10069707.637520285,
+      "ns_per_operation": 99.3077491419855,
+      "offered_GBps": 2.577845155205193,
+      "consumed_GBps": 2.577845155205193,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 1,
+      "operations": 1018880,
+      "seconds": 0.5000016,
+      "operations_per_second": 2037753.4791888664,
+      "ns_per_operation": 490.7364949748744,
+      "offered_GBps": 2.8691568986979243,
+      "consumed_GBps": 2.8691568986979243,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "control-codec-roundtrip",
+      "scope": "memory-control-codec",
+      "repetition": 1,
+      "operations": 18058880,
+      "seconds": 0.5000028,
+      "operations_per_second": 36117557.74167665,
+      "ns_per_operation": 27.68736488641599,
+      "offered_GBps": 1.1557618477336529,
+      "consumed_GBps": 1.1557618477336529,
+      "allocated_bytes_per_operation": 0.0006963887018464046
+    },
+    {
+      "name": "latest-generation-filter",
+      "scope": "memory-application-filter",
+      "repetition": 1,
+      "operations": 57846528,
+      "seconds": 0.5000007,
+      "operations_per_second": 115692894.02994837,
+      "ns_per_operation": 8.643573214973246,
+      "offered_GBps": 3.7021726089583478,
+      "consumed_GBps": 3.7021726089583478,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-32",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 1,
+      "operations": 176000,
+      "seconds": 0.5001217,
+      "operations_per_second": 351914.34404865856,
+      "ns_per_operation": 2841.6005681818183,
+      "offered_GBps": 0.011261259009557075,
+      "consumed_GBps": 0.011261259009557075,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1200",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 1,
+      "operations": 115456,
+      "seconds": 0.5002253,
+      "operations_per_second": 230807.997916139,
+      "ns_per_operation": 4332.605494733924,
+      "offered_GBps": 0.27696959749936684,
+      "consumed_GBps": 0.27696959749936684,
+      "allocated_bytes_per_operation": 0.1295038802660754
+    },
+    {
+      "name": "psk-protect-decode-1408",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 1,
+      "operations": 121088,
+      "seconds": 0.5005161,
+      "operations_per_second": 241926.2836899752,
+      "ns_per_operation": 4133.490519291755,
+      "offered_GBps": 0.34063220743548506,
+      "consumed_GBps": 0.34063220743548506,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "authenticated-feedback-roundtrip",
+      "scope": "memory-authenticated-feedback",
+      "repetition": 1,
+      "operations": 144896,
+      "seconds": 0.5000203,
+      "operations_per_second": 289780.23492246214,
+      "ns_per_operation": 3450.890983878092,
+      "offered_GBps": 0.018545935035037577,
+      "consumed_GBps": 0.018545935035037577,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-session-key-derivation",
+      "scope": "memory-hkdf-session-construction-disposal-not-network-handshake",
+      "repetition": 1,
+      "operations": 20352,
+      "seconds": 0.5027671,
+      "operations_per_second": 40479.97571837934,
+      "ns_per_operation": 24703.572130503144,
+      "offered_GBps": 0,
+      "consumed_GBps": 0,
+      "allocated_bytes_per_operation": 928.0715408805031
+    },
+    {
+      "name": "protected-one-way-record-1200",
+      "scope": "memory-composed-client-protect-decode-byte-check",
+      "repetition": 1,
+      "operations": 110208,
+      "seconds": 0.500535,
+      "operations_per_second": 220180.40696454796,
+      "ns_per_operation": 4541.730182926829,
+      "offered_GBps": 0.25540927207887565,
+      "consumed_GBps": 0.25540927207887565,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "protected-full-echo-record-1200",
+      "scope": "memory-composed-two-way-protected-echo",
+      "repetition": 1,
+      "operations": 41728,
+      "seconds": 0.500623,
+      "operations_per_second": 83352.14322953598,
+      "ns_per_operation": 11997.29198619632,
+      "offered_GBps": 0.09668848614626176,
+      "consumed_GBps": 0.09668848614626176,
+      "allocated_bytes_per_operation": 3472
+    },
+    {
+      "name": "core-Latest-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 2,
+      "operations": 30970752,
+      "seconds": 0.5000007,
+      "operations_per_second": 61941417.28201581,
+      "ns_per_operation": 16.144286712831512,
+      "offered_GBps": 15.857002824196046,
+      "consumed_GBps": 1.9821253530245058,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 2,
+      "operations": 30950144,
+      "seconds": 0.5000019,
+      "operations_per_second": 61900052.77979944,
+      "ns_per_operation": 16.15507507816442,
+      "offered_GBps": 87.1552743139576,
+      "consumed_GBps": 1.980801688953582,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 2,
+      "operations": 21719680,
+      "seconds": 0.5000016,
+      "operations_per_second": 43439220.994492814,
+      "ns_per_operation": 23.02067065444795,
+      "offered_GBps": 1.39005507182377,
+      "consumed_GBps": 1.39005507182377,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 2,
+      "operations": 2973056,
+      "seconds": 0.5000095,
+      "operations_per_second": 5945999.026018506,
+      "ns_per_operation": 168.18031681878847,
+      "offered_GBps": 1.5221757506607376,
+      "consumed_GBps": 1.5221757506607376,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 2,
+      "operations": 565376,
+      "seconds": 0.500105,
+      "operations_per_second": 1130514.5919356935,
+      "ns_per_operation": 884.5529346841748,
+      "offered_GBps": 1.5917645454454563,
+      "consumed_GBps": 1.5917645454454563,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "control-codec-roundtrip",
+      "scope": "memory-control-codec",
+      "repetition": 2,
+      "operations": 18864512,
+      "seconds": 0.5000022,
+      "operations_per_second": 37728857.99302483,
+      "ns_per_operation": 26.50491038411171,
+      "offered_GBps": 1.2073234557767947,
+      "consumed_GBps": 1.2073234557767947,
+      "allocated_bytes_per_operation": 1.2722301006249193e-05
+    },
+    {
+      "name": "latest-generation-filter",
+      "scope": "memory-application-filter",
+      "repetition": 2,
+      "operations": 69293824,
+      "seconds": 0.5000005,
+      "operations_per_second": 138587509.4124906,
+      "ns_per_operation": 7.215657487743784,
+      "offered_GBps": 4.434800301199699,
+      "consumed_GBps": 4.434800301199699,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-32",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 2,
+      "operations": 176640,
+      "seconds": 0.500149,
+      "operations_per_second": 353174.75392333086,
+      "ns_per_operation": 2831.45946557971,
+      "offered_GBps": 0.011301592125546588,
+      "consumed_GBps": 0.011301592125546588,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1200",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 2,
+      "operations": 115456,
+      "seconds": 0.5002949,
+      "operations_per_second": 230775.88838103288,
+      "ns_per_operation": 4333.208321784922,
+      "offered_GBps": 0.2769310660572395,
+      "consumed_GBps": 0.2769310660572395,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1408",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 2,
+      "operations": 119808,
+      "seconds": 0.5004925,
+      "operations_per_second": 239380.21049266472,
+      "ns_per_operation": 4177.4547609508545,
+      "offered_GBps": 0.33704733637367196,
+      "consumed_GBps": 0.33704733637367196,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "authenticated-feedback-roundtrip",
+      "scope": "memory-authenticated-feedback",
+      "repetition": 2,
+      "operations": 146688,
+      "seconds": 0.5002222,
+      "operations_per_second": 293245.6816190885,
+      "ns_per_operation": 3410.1098931064566,
+      "offered_GBps": 0.018767723623621665,
+      "consumed_GBps": 0.018767723623621665,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-session-key-derivation",
+      "scope": "memory-hkdf-session-construction-disposal-not-network-handshake",
+      "repetition": 2,
+      "operations": 21760,
+      "seconds": 0.5018068,
+      "operations_per_second": 43363.30237055377,
+      "ns_per_operation": 23060.97426470588,
+      "offered_GBps": 0,
+      "consumed_GBps": 0,
+      "allocated_bytes_per_operation": 928.0801470588235
+    },
+    {
+      "name": "protected-one-way-record-1200",
+      "scope": "memory-composed-client-protect-decode-byte-check",
+      "repetition": 2,
+      "operations": 113408,
+      "seconds": 0.5003682,
+      "operations_per_second": 226649.09560599574,
+      "ns_per_operation": 4412.106729683974,
+      "offered_GBps": 0.2629129509029551,
+      "consumed_GBps": 0.2629129509029551,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "protected-full-echo-record-1200",
+      "scope": "memory-composed-two-way-protected-echo",
+      "repetition": 2,
+      "operations": 48896,
+      "seconds": 0.5000469,
+      "operations_per_second": 97782.82797073635,
+      "ns_per_operation": 10226.744518979056,
+      "offered_GBps": 0.11342808044605418,
+      "consumed_GBps": 0.11342808044605418,
+      "allocated_bytes_per_operation": 3472
+    },
+    {
+      "name": "core-Latest-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 2,
+      "operations": 21366400,
+      "seconds": 0.5000027,
+      "operations_per_second": 42732569.24412608,
+      "ns_per_operation": 23.40135446308222,
+      "offered_GBps": 1.3674422158120345,
+      "consumed_GBps": 1.3674422158120345,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 3,
+      "operations": 21366784,
+      "seconds": 0.500001,
+      "operations_per_second": 42733482.53303493,
+      "ns_per_operation": 23.40085433540209,
+      "offered_GBps": 60.16874340651319,
+      "consumed_GBps": 1.3674714410571176,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 3,
+      "operations": 21876736,
+      "seconds": 0.5000019,
+      "operations_per_second": 43753305.737438194,
+      "ns_per_operation": 22.855415908479216,
+      "offered_GBps": 1.4001057835980222,
+      "consumed_GBps": 1.4001057835980222,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 3,
+      "operations": 2998016,
+      "seconds": 0.5000022,
+      "operations_per_second": 5996005.617575283,
+      "ns_per_operation": 166.77769564938944,
+      "offered_GBps": 1.5349774380992725,
+      "consumed_GBps": 1.5349774380992725,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 3,
+      "operations": 565888,
+      "seconds": 0.5000789,
+      "operations_per_second": 1131597.4339249267,
+      "ns_per_operation": 883.7064931576566,
+      "offered_GBps": 1.5932891869662966,
+      "consumed_GBps": 1.5932891869662966,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "control-codec-roundtrip",
+      "scope": "memory-control-codec",
+      "repetition": 3,
+      "operations": 19043584,
+      "seconds": 0.5000019,
+      "operations_per_second": 38087023.26931158,
+      "ns_per_operation": 26.25566174938499,
+      "offered_GBps": 1.2187847446179705,
+      "consumed_GBps": 1.2187847446179705,
+      "allocated_bytes_per_operation": 1.2602669749559747e-05
+    },
+    {
+      "name": "latest-generation-filter",
+      "scope": "memory-application-filter",
+      "repetition": 3,
+      "operations": 69629056,
+      "seconds": 0.5000002,
+      "operations_per_second": 139258056.2967775,
+      "ns_per_operation": 7.180913094671282,
+      "offered_GBps": 4.4562578014968794,
+      "consumed_GBps": 4.4562578014968794,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-32",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 3,
+      "operations": 177024,
+      "seconds": 0.5002868,
+      "operations_per_second": 353845.03448821756,
+      "ns_per_operation": 2826.095896601591,
+      "offered_GBps": 0.011323041103622962,
+      "consumed_GBps": 0.011323041103622962,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1200",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 3,
+      "operations": 115584,
+      "seconds": 0.5005337,
+      "operations_per_second": 230921.51437555553,
+      "ns_per_operation": 4330.4756713732,
+      "offered_GBps": 0.2771058172506667,
+      "consumed_GBps": 0.2771058172506667,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1408",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 3,
+      "operations": 118912,
+      "seconds": 0.5001069,
+      "operations_per_second": 237773.16409751595,
+      "ns_per_operation": 4205.689081001076,
+      "offered_GBps": 0.33478461504930246,
+      "consumed_GBps": 0.33478461504930246,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "authenticated-feedback-roundtrip",
+      "scope": "memory-authenticated-feedback",
+      "repetition": 3,
+      "operations": 147072,
+      "seconds": 0.5002695,
+      "operations_per_second": 293985.5417929736,
+      "ns_per_operation": 3401.52782310705,
+      "offered_GBps": 0.01881507467475031,
+      "consumed_GBps": 0.01881507467475031,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-session-key-derivation",
+      "scope": "memory-hkdf-session-construction-disposal-not-network-handshake",
+      "repetition": 3,
+      "operations": 21760,
+      "seconds": 0.5000253,
+      "operations_per_second": 43517.79799942123,
+      "ns_per_operation": 22979.10386029412,
+      "offered_GBps": 0,
+      "consumed_GBps": 0,
+      "allocated_bytes_per_operation": 928.0205882352941
+    },
+    {
+      "name": "protected-one-way-record-1200",
+      "scope": "memory-composed-client-protect-decode-byte-check",
+      "repetition": 3,
+      "operations": 113408,
+      "seconds": 0.5005412,
+      "operations_per_second": 226570.7598095821,
+      "ns_per_operation": 4413.632195259594,
+      "offered_GBps": 0.2628220813791152,
+      "consumed_GBps": 0.2628220813791152,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "protected-full-echo-record-1200",
+      "scope": "memory-composed-two-way-protected-echo",
+      "repetition": 3,
+      "operations": 47744,
+      "seconds": 0.5002936,
+      "operations_per_second": 95431.96235170707,
+      "ns_per_operation": 10478.669571045577,
+      "offered_GBps": 0.11070107632798021,
+      "consumed_GBps": 0.11070107632798021,
+      "allocated_bytes_per_operation": 3472
+    },
+    {
+      "name": "core-Latest-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 3,
+      "operations": 21389184,
+      "seconds": 0.5,
+      "operations_per_second": 42778368,
+      "ns_per_operation": 23.376300844389387,
+      "offered_GBps": 1.368907776,
+      "consumed_GBps": 1.368907776,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 3,
+      "operations": 21243904,
+      "seconds": 0.5000018,
+      "operations_per_second": 42487655.044441834,
+      "ns_per_operation": 23.53624832799094,
+      "offered_GBps": 10.876839691377109,
+      "consumed_GBps": 1.3596049614221386,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 4,
+      "operations": 21975680,
+      "seconds": 0.5000017,
+      "operations_per_second": 43951210.565884076,
+      "ns_per_operation": 22.75250185659784,
+      "offered_GBps": 1.4064387381082903,
+      "consumed_GBps": 1.4064387381082903,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 4,
+      "operations": 2986112,
+      "seconds": 0.5000122,
+      "operations_per_second": 5972078.281289936,
+      "ns_per_operation": 167.44589620215183,
+      "offered_GBps": 1.5288520400102237,
+      "consumed_GBps": 1.5288520400102237,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 4,
+      "operations": 1009408,
+      "seconds": 0.5000554,
+      "operations_per_second": 2018592.3399687314,
+      "ns_per_operation": 495.3947264138981,
+      "offered_GBps": 2.842178014675974,
+      "consumed_GBps": 2.842178014675974,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "control-codec-roundtrip",
+      "scope": "memory-control-codec",
+      "repetition": 4,
+      "operations": 19227648,
+      "seconds": 0.5000028,
+      "operations_per_second": 38455080.651548356,
+      "ns_per_operation": 26.004366212653775,
+      "offered_GBps": 1.2305625808495473,
+      "consumed_GBps": 1.2305625808495473,
+      "allocated_bytes_per_operation": 1.248202588272887e-05
+    },
+    {
+      "name": "latest-generation-filter",
+      "scope": "memory-application-filter",
+      "repetition": 4,
+      "operations": 63318016,
+      "seconds": 0.5000008,
+      "operations_per_second": 126635829.38267298,
+      "ns_per_operation": 7.896659301516965,
+      "offered_GBps": 4.052346540245535,
+      "consumed_GBps": 4.052346540245535,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-32",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 4,
+      "operations": 175744,
+      "seconds": 0.5000741,
+      "operations_per_second": 351435.9171970714,
+      "ns_per_operation": 2845.468977603787,
+      "offered_GBps": 0.011245949350306286,
+      "consumed_GBps": 0.011245949350306286,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1200",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 4,
+      "operations": 114560,
+      "seconds": 0.5001322,
+      "operations_per_second": 229059.43668494048,
+      "ns_per_operation": 4365.679120111732,
+      "offered_GBps": 0.2748713240219286,
+      "consumed_GBps": 0.2748713240219286,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1408",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 4,
+      "operations": 121088,
+      "seconds": 0.5003107,
+      "operations_per_second": 242025.60528887348,
+      "ns_per_operation": 4131.794232293869,
+      "offered_GBps": 0.3407720522467339,
+      "consumed_GBps": 0.3407720522467339,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "authenticated-feedback-roundtrip",
+      "scope": "memory-authenticated-feedback",
+      "repetition": 4,
+      "operations": 147200,
+      "seconds": 0.5000292,
+      "operations_per_second": 294382.80804401025,
+      "ns_per_operation": 3396.9374999999995,
+      "offered_GBps": 0.018840499714816657,
+      "consumed_GBps": 0.018840499714816657,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-session-key-derivation",
+      "scope": "memory-hkdf-session-construction-disposal-not-network-handshake",
+      "repetition": 4,
+      "operations": 21888,
+      "seconds": 0.5027356,
+      "operations_per_second": 43537.79601046754,
+      "ns_per_operation": 22968.548976608185,
+      "offered_GBps": 0,
+      "consumed_GBps": 0,
+      "allocated_bytes_per_operation": 928.030701754386
+    },
+    {
+      "name": "protected-one-way-record-1200",
+      "scope": "memory-composed-client-protect-decode-byte-check",
+      "repetition": 4,
+      "operations": 113792,
+      "seconds": 0.5003228,
+      "operations_per_second": 227437.16656526548,
+      "ns_per_operation": 4396.818757030371,
+      "offered_GBps": 0.26382711321570795,
+      "consumed_GBps": 0.26382711321570795,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "protected-full-echo-record-1200",
+      "scope": "memory-composed-two-way-protected-echo",
+      "repetition": 4,
+      "operations": 49024,
+      "seconds": 0.5003176,
+      "operations_per_second": 97985.75944560015,
+      "ns_per_operation": 10205.564621409922,
+      "offered_GBps": 0.11366348095689617,
+      "consumed_GBps": 0.11366348095689617,
+      "allocated_bytes_per_operation": 3472
+    },
+    {
+      "name": "core-Latest-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 4,
+      "operations": 27560960,
+      "seconds": 0.5000001,
+      "operations_per_second": 55121908.97561821,
+      "ns_per_operation": 18.141606823564924,
+      "offered_GBps": 1.763901087219783,
+      "consumed_GBps": 1.763901087219783,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 4,
+      "operations": 27682048,
+      "seconds": 0.5000016,
+      "operations_per_second": 55363918.835459724,
+      "ns_per_operation": 18.06230521672385,
+      "offered_GBps": 14.17316322187769,
+      "consumed_GBps": 1.7716454027347113,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 4,
+      "operations": 27592064,
+      "seconds": 0.5,
+      "operations_per_second": 55184128,
+      "ns_per_operation": 18.121152516897613,
+      "offered_GBps": 77.699252224,
+      "consumed_GBps": 1.765892096,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 5,
+      "operations": 5215104,
+      "seconds": 0.5000017,
+      "operations_per_second": 10430172.537413374,
+      "ns_per_operation": 95.8756910696316,
+      "offered_GBps": 2.6701241695778237,
+      "consumed_GBps": 2.6701241695778237,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 5,
+      "operations": 1008384,
+      "seconds": 0.5000392,
+      "operations_per_second": 2016609.8977840138,
+      "ns_per_operation": 495.8817275958365,
+      "offered_GBps": 2.839386736079891,
+      "consumed_GBps": 2.839386736079891,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "control-codec-roundtrip",
+      "scope": "memory-control-codec",
+      "repetition": 5,
+      "operations": 19250560,
+      "seconds": 0.5000004,
+      "operations_per_second": 38501089.19912864,
+      "ns_per_operation": 25.973291166594635,
+      "offered_GBps": 1.2320348543721165,
+      "consumed_GBps": 1.2320348543721165,
+      "allocated_bytes_per_operation": 1.2467169786229595e-05
+    },
+    {
+      "name": "latest-generation-filter",
+      "scope": "memory-application-filter",
+      "repetition": 5,
+      "operations": 63422080,
+      "seconds": 0.5000004,
+      "operations_per_second": 126844058.52475318,
+      "ns_per_operation": 7.883696025106714,
+      "offered_GBps": 4.059009872792102,
+      "consumed_GBps": 4.059009872792102,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-32",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 5,
+      "operations": 177024,
+      "seconds": 0.5000313,
+      "operations_per_second": 354025.83798254235,
+      "ns_per_operation": 2824.652589479392,
+      "offered_GBps": 0.011328826815441355,
+      "consumed_GBps": 0.011328826815441355,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1200",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 5,
+      "operations": 115584,
+      "seconds": 0.5004305,
+      "operations_per_second": 230969.13557427056,
+      "ns_per_operation": 4329.5828142303435,
+      "offered_GBps": 0.27716296268912466,
+      "consumed_GBps": 0.27716296268912466,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-protect-decode-1408",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "repetition": 5,
+      "operations": 121472,
+      "seconds": 0.500334,
+      "operations_per_second": 242781.82174307565,
+      "ns_per_operation": 4118.924525816648,
+      "offered_GBps": 0.3418368050142505,
+      "consumed_GBps": 0.3418368050142505,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "authenticated-feedback-roundtrip",
+      "scope": "memory-authenticated-feedback",
+      "repetition": 5,
+      "operations": 147200,
+      "seconds": 0.5004183,
+      "operations_per_second": 294153.9108381928,
+      "ns_per_operation": 3399.5808423913045,
+      "offered_GBps": 0.01882585029364434,
+      "consumed_GBps": 0.01882585029364434,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "psk-session-key-derivation",
+      "scope": "memory-hkdf-session-construction-disposal-not-network-handshake",
+      "repetition": 5,
+      "operations": 21888,
+      "seconds": 0.5019106,
+      "operations_per_second": 43609.35991389702,
+      "ns_per_operation": 22930.857090643276,
+      "offered_GBps": 0,
+      "consumed_GBps": 0,
+      "allocated_bytes_per_operation": 928.0204678362574
+    },
+    {
+      "name": "protected-one-way-record-1200",
+      "scope": "memory-composed-client-protect-decode-byte-check",
+      "repetition": 5,
+      "operations": 113792,
+      "seconds": 0.500387,
+      "operations_per_second": 227407.98621866675,
+      "ns_per_operation": 4397.38294431946,
+      "offered_GBps": 0.26379326401365344,
+      "consumed_GBps": 0.26379326401365344,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "protected-full-echo-record-1200",
+      "scope": "memory-composed-two-way-protected-echo",
+      "repetition": 5,
+      "operations": 49280,
+      "seconds": 0.5000697,
+      "operations_per_second": 98546.26265098646,
+      "ns_per_operation": 10147.518262987012,
+      "offered_GBps": 0.1143136646751443,
+      "consumed_GBps": 0.1143136646751443,
+      "allocated_bytes_per_operation": 3472
+    },
+    {
+      "name": "core-Latest-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 5,
+      "operations": 27467904,
+      "seconds": 0.5000004,
+      "operations_per_second": 54935764.051388755,
+      "ns_per_operation": 18.203078036096237,
+      "offered_GBps": 1.75794444964444,
+      "consumed_GBps": 1.75794444964444,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 5,
+      "operations": 27660288,
+      "seconds": 0.5000021,
+      "operations_per_second": 55320343.65455665,
+      "ns_per_operation": 18.07653268107693,
+      "offered_GBps": 14.162007975566501,
+      "consumed_GBps": 1.7702509969458127,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Latest-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 5,
+      "operations": 27566208,
+      "seconds": 0.5000012,
+      "operations_per_second": 55132283.68251916,
+      "ns_per_operation": 18.138192964371452,
+      "offered_GBps": 77.62625542498697,
+      "consumed_GBps": 1.7642330778406132,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "core-Sequential-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "repetition": 5,
+      "operations": 28699904,
+      "seconds": 0.5000011,
+      "operations_per_second": 57399681.72070022,
+      "ns_per_operation": 17.421699389656496,
+      "offered_GBps": 1.8367898150624071,
+      "consumed_GBps": 1.8367898150624071,
+      "allocated_bytes_per_operation": 0
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 6.408,
+      "ns_per_operation": 4.993,
+      "seconds": 0.499341,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 34.149,
+      "ns_per_operation": 3.748,
+      "seconds": 0.093706,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 68.418,
+      "ns_per_operation": 3.742,
+      "seconds": 0.046771,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 137.029,
+      "ns_per_operation": 3.736,
+      "seconds": 0.023353,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 273.224,
+      "ns_per_operation": 3.748,
+      "seconds": 0.011712,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 346.784,
+      "ns_per_operation": 4.06,
+      "seconds": 0.009228,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 14.373,
+      "ns_per_operation": 2.226,
+      "seconds": 0.222646,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 31.6,
+      "ns_per_operation": 4.051,
+      "seconds": 0.101265,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 37.402,
+      "ns_per_operation": 6.845,
+      "seconds": 0.085558,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 40.815,
+      "ns_per_operation": 12.544,
+      "seconds": 0.078402,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 43.686,
+      "ns_per_operation": 23.44,
+      "seconds": 0.07325,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 44.687,
+      "ns_per_operation": 31.508,
+      "seconds": 0.07161,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-128",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 43.179,
+      "ns_per_operation": 94.861,
+      "seconds": 0.07411,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-512",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 45.651,
+      "ns_per_operation": 358.897,
+      "seconds": 0.070097,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 1.224,
+      "ns_per_operation": 26.139,
+      "seconds": 2.613893,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 4.867,
+      "ns_per_operation": 26.299,
+      "seconds": 0.657468,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 9.099,
+      "ns_per_operation": 28.136,
+      "seconds": 0.3517,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 16.314,
+      "ns_per_operation": 31.383,
+      "seconds": 0.196146,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 23.359,
+      "ns_per_operation": 43.838,
+      "seconds": 0.136993,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 28.442,
+      "ns_per_operation": 49.504,
+      "seconds": 0.112509,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 7.801,
+      "ns_per_operation": 4.102,
+      "seconds": 0.410197,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 18.675,
+      "ns_per_operation": 6.854,
+      "seconds": 0.171356,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 23.942,
+      "ns_per_operation": 10.693,
+      "seconds": 0.133658,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 28.167,
+      "ns_per_operation": 18.178,
+      "seconds": 0.11361,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 31.037,
+      "ns_per_operation": 32.993,
+      "seconds": 0.103102,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 1,
+      "offered_GBps": 26.669,
+      "ns_per_operation": 52.796,
+      "seconds": 0.11999,
+      "messages": 100000000
+    },
+    {
+      "name": "kernel-loopback-batch-1",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 1.27632315,
+      "active_seconds": 1.276326344,
+      "offered_GBps": 0.005014404071570746,
+      "consumed_GBps": 0.005014391523050785,
+      "operations_per_second": 156699.73509533703,
+      "ns_per_operation": 6381.63172,
+      "drain_wait_excluded": true,
+      "repetition": 1
+    },
+    {
+      "name": "kernel-loopback-batch-8",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.158643596,
+      "active_seconds": 0.158645124,
+      "offered_GBps": 0.04034200031623086,
+      "consumed_GBps": 0.04034161175984204,
+      "operations_per_second": 1260675.367495064,
+      "ns_per_operation": 793.22562,
+      "drain_wait_excluded": true,
+      "repetition": 1
+    },
+    {
+      "name": "kernel-loopback-batch-44",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.045007678,
+      "active_seconds": 0.045174886,
+      "offered_GBps": 0.14219796009027616,
+      "consumed_GBps": 0.1416716358730822,
+      "operations_per_second": 4427238.621033819,
+      "ns_per_operation": 225.87443,
+      "drain_wait_excluded": true,
+      "repetition": 1
+    },
+    {
+      "name": "mock-ip-ceiling-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 14.427,
+      "ns_per_operation": 2.218,
+      "seconds": 0.22181,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 31.61,
+      "ns_per_operation": 4.049,
+      "seconds": 0.101233,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 37.356,
+      "ns_per_operation": 6.853,
+      "seconds": 0.085662,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 40.746,
+      "ns_per_operation": 12.566,
+      "seconds": 0.078535,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 43.705,
+      "ns_per_operation": 23.43,
+      "seconds": 0.073218,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 44.653,
+      "ns_per_operation": 31.532,
+      "seconds": 0.071664,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-128",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 43.129,
+      "ns_per_operation": 94.97,
+      "seconds": 0.074195,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-512",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 45.827,
+      "ns_per_operation": 357.514,
+      "seconds": 0.069827,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 1.231,
+      "ns_per_operation": 25.998,
+      "seconds": 2.59983,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 4.871,
+      "ns_per_operation": 26.278,
+      "seconds": 0.656961,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 9.111,
+      "ns_per_operation": 28.097,
+      "seconds": 0.351215,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 16.375,
+      "ns_per_operation": 31.266,
+      "seconds": 0.195415,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 23.6,
+      "ns_per_operation": 43.391,
+      "seconds": 0.135596,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 28.696,
+      "ns_per_operation": 49.065,
+      "seconds": 0.111512,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 7.878,
+      "ns_per_operation": 4.062,
+      "seconds": 0.4062,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 18.643,
+      "ns_per_operation": 6.866,
+      "seconds": 0.171642,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 23.899,
+      "ns_per_operation": 10.712,
+      "seconds": 0.133898,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 28.311,
+      "ns_per_operation": 18.085,
+      "seconds": 0.113029,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 29.446,
+      "ns_per_operation": 34.775,
+      "seconds": 0.108673,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 31.814,
+      "ns_per_operation": 44.257,
+      "seconds": 0.100584,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 6.403,
+      "ns_per_operation": 4.997,
+      "seconds": 0.499741,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 34.239,
+      "ns_per_operation": 3.738,
+      "seconds": 0.093462,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 67.556,
+      "ns_per_operation": 3.789,
+      "seconds": 0.047368,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 135.946,
+      "ns_per_operation": 3.766,
+      "seconds": 0.023539,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 273.2,
+      "ns_per_operation": 3.748,
+      "seconds": 0.011713,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 2,
+      "offered_GBps": 372.534,
+      "ns_per_operation": 3.78,
+      "seconds": 0.00859,
+      "messages": 100000000
+    },
+    {
+      "name": "kernel-loopback-batch-8",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.169141273,
+      "active_seconds": 0.169155347,
+      "offered_GBps": 0.03783819221935263,
+      "consumed_GBps": 0.037835044020216514,
+      "operations_per_second": 1182345.1256317662,
+      "ns_per_operation": 845.776735,
+      "drain_wait_excluded": true,
+      "repetition": 2
+    },
+    {
+      "name": "kernel-loopback-batch-44",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.043448842,
+      "active_seconds": 0.044721446,
+      "offered_GBps": 0.14729966796353283,
+      "consumed_GBps": 0.14310807392050784,
+      "operations_per_second": 4472127.31001587,
+      "ns_per_operation": 223.60723,
+      "drain_wait_excluded": true,
+      "repetition": 2
+    },
+    {
+      "name": "kernel-loopback-batch-1",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 1.189656773,
+      "active_seconds": 1.189664197,
+      "offered_GBps": 0.005379702906966091,
+      "consumed_GBps": 0.005379669335379688,
+      "operations_per_second": 168114.66673061525,
+      "ns_per_operation": 5948.320985,
+      "drain_wait_excluded": true,
+      "repetition": 2
+    },
+    {
+      "name": "mock-ipv4-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 1.23,
+      "ns_per_operation": 26.016,
+      "seconds": 2.601586,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 4.863,
+      "ns_per_operation": 26.321,
+      "seconds": 0.658035,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 9.073,
+      "ns_per_operation": 28.214,
+      "seconds": 0.35268,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 15.956,
+      "ns_per_operation": 32.089,
+      "seconds": 0.200557,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 23.232,
+      "ns_per_operation": 44.076,
+      "seconds": 0.137739,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 28.518,
+      "ns_per_operation": 49.372,
+      "seconds": 0.11221,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 7.886,
+      "ns_per_operation": 4.058,
+      "seconds": 0.405768,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 18.652,
+      "ns_per_operation": 6.863,
+      "seconds": 0.171563,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 23.96,
+      "ns_per_operation": 10.684,
+      "seconds": 0.133555,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 28.321,
+      "ns_per_operation": 18.078,
+      "seconds": 0.11299,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 31.027,
+      "ns_per_operation": 33.004,
+      "seconds": 0.103137,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 20.921,
+      "ns_per_operation": 67.301,
+      "seconds": 0.152956,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 6.401,
+      "ns_per_operation": 4.999,
+      "seconds": 0.499892,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 34.225,
+      "ns_per_operation": 3.74,
+      "seconds": 0.093498,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 68.391,
+      "ns_per_operation": 3.743,
+      "seconds": 0.04679,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 136.461,
+      "ns_per_operation": 3.752,
+      "seconds": 0.02345,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 273.379,
+      "ns_per_operation": 3.746,
+      "seconds": 0.011705,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 375.216,
+      "ns_per_operation": 3.753,
+      "seconds": 0.008528,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 14.441,
+      "ns_per_operation": 2.216,
+      "seconds": 0.221591,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 31.632,
+      "ns_per_operation": 4.046,
+      "seconds": 0.101162,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 37.401,
+      "ns_per_operation": 6.845,
+      "seconds": 0.085559,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 40.852,
+      "ns_per_operation": 12.533,
+      "seconds": 0.078332,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 43.748,
+      "ns_per_operation": 23.407,
+      "seconds": 0.073146,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 44.725,
+      "ns_per_operation": 31.482,
+      "seconds": 0.071549,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-128",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 43.102,
+      "ns_per_operation": 95.03,
+      "seconds": 0.074242,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-512",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 3,
+      "offered_GBps": 45.748,
+      "ns_per_operation": 358.137,
+      "seconds": 0.069949,
+      "messages": 100000000
+    },
+    {
+      "name": "kernel-loopback-batch-44",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.04365385,
+      "active_seconds": 0.044342155,
+      "offered_GBps": 0.14660791659842146,
+      "consumed_GBps": 0.1443321823217658,
+      "operations_per_second": 4510380.697555182,
+      "ns_per_operation": 221.710775,
+      "drain_wait_excluded": true,
+      "repetition": 3
+    },
+    {
+      "name": "kernel-loopback-batch-1",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.937462856,
+      "active_seconds": 0.937464902,
+      "offered_GBps": 0.006826937151737135,
+      "consumed_GBps": 0.006826922252071683,
+      "operations_per_second": 213341.3203772401,
+      "ns_per_operation": 4687.32451,
+      "drain_wait_excluded": true,
+      "repetition": 3
+    },
+    {
+      "name": "kernel-loopback-batch-8",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.144188579,
+      "active_seconds": 0.144194555,
+      "offered_GBps": 0.04438631717148693,
+      "consumed_GBps": 0.04438447762469255,
+      "operations_per_second": 1387014.9257716422,
+      "ns_per_operation": 720.972775,
+      "drain_wait_excluded": true,
+      "repetition": 3
+    },
+    {
+      "name": "mock-ipv6-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 7.88,
+      "ns_per_operation": 4.061,
+      "seconds": 0.406115,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 18.677,
+      "ns_per_operation": 6.853,
+      "seconds": 0.171332,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 23.916,
+      "ns_per_operation": 10.704,
+      "seconds": 0.133801,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 28.068,
+      "ns_per_operation": 18.241,
+      "seconds": 0.114009,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 29.577,
+      "ns_per_operation": 34.621,
+      "seconds": 0.108191,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 31.211,
+      "ns_per_operation": 45.112,
+      "seconds": 0.102528,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 6.143,
+      "ns_per_operation": 5.21,
+      "seconds": 0.520957,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 34.209,
+      "ns_per_operation": 3.742,
+      "seconds": 0.093543,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 68.438,
+      "ns_per_operation": 3.741,
+      "seconds": 0.046757,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 136.851,
+      "ns_per_operation": 3.741,
+      "seconds": 0.023383,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 273.343,
+      "ns_per_operation": 3.746,
+      "seconds": 0.011707,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 375.469,
+      "ns_per_operation": 3.75,
+      "seconds": 0.008523,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 14.432,
+      "ns_per_operation": 2.217,
+      "seconds": 0.221724,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 31.613,
+      "ns_per_operation": 4.049,
+      "seconds": 0.101223,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 37.165,
+      "ns_per_operation": 6.888,
+      "seconds": 0.086103,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 41.473,
+      "ns_per_operation": 12.345,
+      "seconds": 0.077159,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 43.755,
+      "ns_per_operation": 23.403,
+      "seconds": 0.073134,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 44.676,
+      "ns_per_operation": 31.516,
+      "seconds": 0.071627,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-128",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 43.052,
+      "ns_per_operation": 95.14,
+      "seconds": 0.074328,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-512",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 45.702,
+      "ns_per_operation": 358.493,
+      "seconds": 0.070018,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 1.231,
+      "ns_per_operation": 26.005,
+      "seconds": 2.600548,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 4.856,
+      "ns_per_operation": 26.362,
+      "seconds": 0.659043,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 8.625,
+      "ns_per_operation": 29.683,
+      "seconds": 0.371033,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 16.381,
+      "ns_per_operation": 31.256,
+      "seconds": 0.195347,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 23.642,
+      "ns_per_operation": 43.313,
+      "seconds": 0.135353,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 4,
+      "offered_GBps": 28.374,
+      "ns_per_operation": 49.623,
+      "seconds": 0.112779,
+      "messages": 100000000
+    },
+    {
+      "name": "kernel-loopback-batch-1",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 1.246077782,
+      "active_seconds": 1.246083936,
+      "offered_GBps": 0.005136115973216189,
+      "consumed_GBps": 0.005136090607623402,
+      "operations_per_second": 160502.8314882313,
+      "ns_per_operation": 6230.41968,
+      "drain_wait_excluded": true,
+      "repetition": 4
+    },
+    {
+      "name": "kernel-loopback-batch-8",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.147515688,
+      "active_seconds": 0.147519435,
+      "offered_GBps": 0.04338521608630534,
+      "consumed_GBps": 0.043384114099948926,
+      "operations_per_second": 1355753.565623404,
+      "ns_per_operation": 737.597175,
+      "drain_wait_excluded": true,
+      "repetition": 4
+    },
+    {
+      "name": "kernel-loopback-batch-44",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.043638433,
+      "active_seconds": 0.044863528,
+      "offered_GBps": 0.14665971163538344,
+      "consumed_GBps": 0.14265485318051668,
+      "operations_per_second": 4457964.161891147,
+      "ns_per_operation": 224.31764,
+      "drain_wait_excluded": true,
+      "repetition": 4
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 6.409,
+      "ns_per_operation": 4.993,
+      "seconds": 0.499276,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 33.951,
+      "ns_per_operation": 3.77,
+      "seconds": 0.094253,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 68.126,
+      "ns_per_operation": 3.758,
+      "seconds": 0.046971,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 136.751,
+      "ns_per_operation": 3.744,
+      "seconds": 0.0234,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 273.156,
+      "ns_per_operation": 3.749,
+      "seconds": 0.011715,
+      "messages": 100000000
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 371.593,
+      "ns_per_operation": 3.789,
+      "seconds": 0.008612,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 14.442,
+      "ns_per_operation": 2.216,
+      "seconds": 0.22157,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 31.621,
+      "ns_per_operation": 4.048,
+      "seconds": 0.101197,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 37.41,
+      "ns_per_operation": 6.843,
+      "seconds": 0.085538,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 41.378,
+      "ns_per_operation": 12.374,
+      "seconds": 0.077336,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 43.848,
+      "ns_per_operation": 23.353,
+      "seconds": 0.072979,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 44.324,
+      "ns_per_operation": 31.766,
+      "seconds": 0.072196,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-128",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 41.794,
+      "ns_per_operation": 98.005,
+      "seconds": 0.076566,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ip-ceiling-batch-512",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 45.726,
+      "ns_per_operation": 358.308,
+      "seconds": 0.069982,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 1.215,
+      "ns_per_operation": 26.344,
+      "seconds": 2.63443,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 4.859,
+      "ns_per_operation": 26.341,
+      "seconds": 0.658525,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 8.99,
+      "ns_per_operation": 28.475,
+      "seconds": 0.355934,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 16.32,
+      "ns_per_operation": 31.372,
+      "seconds": 0.196073,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 24.03,
+      "ns_per_operation": 42.614,
+      "seconds": 0.13317,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv4-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 28.42,
+      "ns_per_operation": 49.543,
+      "seconds": 0.112597,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 7.894,
+      "ns_per_operation": 4.054,
+      "seconds": 0.405379,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 18.668,
+      "ns_per_operation": 6.857,
+      "seconds": 0.171414,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 23.298,
+      "ns_per_operation": 10.988,
+      "seconds": 0.137351,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 28.046,
+      "ns_per_operation": 18.256,
+      "seconds": 0.114099,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 29.323,
+      "ns_per_operation": 34.922,
+      "seconds": 0.10913,
+      "messages": 100000000
+    },
+    {
+      "name": "mock-ipv6-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "repetition": 5,
+      "offered_GBps": 31.828,
+      "ns_per_operation": 44.238,
+      "seconds": 0.100542,
+      "messages": 100000000
+    },
+    {
+      "name": "kernel-loopback-batch-8",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.146027256,
+      "active_seconds": 0.146033272,
+      "offered_GBps": 0.043827434516745284,
+      "consumed_GBps": 0.04382562899775334,
+      "operations_per_second": 1369550.9061797918,
+      "ns_per_operation": 730.16636,
+      "drain_wait_excluded": true,
+      "repetition": 5
+    },
+    {
+      "name": "kernel-loopback-batch-44",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 0.043677438,
+      "active_seconds": 0.044577025,
+      "offered_GBps": 0.1465287409943779,
+      "consumed_GBps": 0.14357171659616136,
+      "operations_per_second": 4486616.143630043,
+      "ns_per_operation": 222.885125,
+      "drain_wait_excluded": true,
+      "repetition": 5
+    },
+    {
+      "name": "kernel-loopback-batch-1",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "offered": 200000,
+      "unique": 200000,
+      "duplicates": 0,
+      "reordered": 0,
+      "invalid": 0,
+      "missing": 0,
+      "loss_pct": 0,
+      "send_seconds": 1.351448124,
+      "active_seconds": 1.351450185,
+      "offered_GBps": 0.004735660870990265,
+      "consumed_GBps": 0.004735653648972641,
+      "operations_per_second": 147989.17653039502,
+      "ns_per_operation": 6757.250925,
+      "drain_wait_excluded": true,
+      "repetition": 5
+    }
+  ],
+  "summary": [
+    {
+      "name": "core-Latest-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "metrics": {
+        "operations": {
+          "median": 27467904,
+          "min": 21366400,
+          "max": 30688896
+        },
+        "seconds": {
+          "median": 0.5000004,
+          "min": 0.5,
+          "max": 0.5000027
+        },
+        "operations_per_second": {
+          "median": 54935764.051388755,
+          "min": 42732569.24412608,
+          "max": 61377571.040744245
+        },
+        "ns_per_operation": {
+          "median": 18.203078036096237,
+          "min": 16.292596514387487,
+          "max": 23.40135446308222
+        },
+        "offered_GBps": {
+          "median": 1.75794444964444,
+          "min": 1.3674422158120345,
+          "max": 1.964082273303816
+        },
+        "consumed_GBps": {
+          "median": 1.75794444964444,
+          "min": 1.3674422158120345,
+          "max": 1.964082273303816
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "core-Latest-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "metrics": {
+        "operations": {
+          "median": 27682048,
+          "min": 21243904,
+          "max": 30970752
+        },
+        "seconds": {
+          "median": 0.5000016,
+          "min": 0.5000007,
+          "max": 0.5000021
+        },
+        "operations_per_second": {
+          "median": 55363918.835459724,
+          "min": 42487655.044441834,
+          "max": 61941417.28201581
+        },
+        "ns_per_operation": {
+          "median": 18.06230521672385,
+          "min": 16.144286712831512,
+          "max": 23.53624832799094
+        },
+        "offered_GBps": {
+          "median": 14.17316322187769,
+          "min": 10.876839691377109,
+          "max": 15.857002824196046
+        },
+        "consumed_GBps": {
+          "median": 1.7716454027347113,
+          "min": 1.3596049614221386,
+          "max": 1.9821253530245058
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 7.761693249603636e-07
+        }
+      }
+    },
+    {
+      "name": "core-Latest-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "metrics": {
+        "operations": {
+          "median": 27592064,
+          "min": 21366784,
+          "max": 30950144
+        },
+        "seconds": {
+          "median": 0.5000012,
+          "min": 0.5,
+          "max": 0.5000019
+        },
+        "operations_per_second": {
+          "median": 55184128,
+          "min": 42733482.53303493,
+          "max": 61900052.77979944
+        },
+        "ns_per_operation": {
+          "median": 18.121152516897613,
+          "min": 16.15507507816442,
+          "max": 23.40085433540209
+        },
+        "offered_GBps": {
+          "median": 77.699252224,
+          "min": 60.16874340651319,
+          "max": 87.1552743139576
+        },
+        "consumed_GBps": {
+          "median": 1.765892096,
+          "min": 1.3674714410571176,
+          "max": 1.980801688953582
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "core-Sequential-batch-1",
+      "scope": "memory-core-plus-consumer",
+      "metrics": {
+        "operations": {
+          "median": 21975680,
+          "min": 21719680,
+          "max": 32105728
+        },
+        "seconds": {
+          "median": 0.5000017,
+          "min": 0.5000011,
+          "max": 0.5000019
+        },
+        "operations_per_second": {
+          "median": 43951210.565884076,
+          "min": 43439220.994492814,
+          "max": 64211211.99739441
+        },
+        "ns_per_operation": {
+          "median": 22.75250185659784,
+          "min": 15.573604186766921,
+          "max": 23.02067065444795
+        },
+        "offered_GBps": {
+          "median": 1.4064387381082903,
+          "min": 1.39005507182377,
+          "max": 2.054758783916621
+        },
+        "consumed_GBps": {
+          "median": 1.4064387381082903,
+          "min": 1.39005507182377,
+          "max": 2.054758783916621
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "core-Sequential-batch-8",
+      "scope": "memory-core-plus-consumer",
+      "metrics": {
+        "operations": {
+          "median": 2998016,
+          "min": 2973056,
+          "max": 5215104
+        },
+        "seconds": {
+          "median": 0.5000026,
+          "min": 0.5000017,
+          "max": 0.5000122
+        },
+        "operations_per_second": {
+          "median": 5996005.617575283,
+          "min": 5945999.026018506,
+          "max": 10430172.537413374
+        },
+        "ns_per_operation": {
+          "median": 166.77769564938944,
+          "min": 95.8756910696316,
+          "max": 168.18031681878847
+        },
+        "offered_GBps": {
+          "median": 1.5349774380992725,
+          "min": 1.5221757506607376,
+          "max": 2.6701241695778237
+        },
+        "consumed_GBps": {
+          "median": 1.5349774380992725,
+          "min": 1.5221757506607376,
+          "max": 2.6701241695778237
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "core-Sequential-batch-44",
+      "scope": "memory-core-plus-consumer",
+      "metrics": {
+        "operations": {
+          "median": 1008384,
+          "min": 565376,
+          "max": 1018880
+        },
+        "seconds": {
+          "median": 0.5000554,
+          "min": 0.5000016,
+          "max": 0.500105
+        },
+        "operations_per_second": {
+          "median": 2016609.8977840138,
+          "min": 1130514.5919356935,
+          "max": 2037753.4791888664
+        },
+        "ns_per_operation": {
+          "median": 495.8817275958365,
+          "min": 490.7364949748744,
+          "max": 884.5529346841748
+        },
+        "offered_GBps": {
+          "median": 2.839386736079891,
+          "min": 1.5917645454454563,
+          "max": 2.8691568986979243
+        },
+        "consumed_GBps": {
+          "median": 2.839386736079891,
+          "min": 1.5917645454454563,
+          "max": 2.8691568986979243
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "control-codec-roundtrip",
+      "scope": "memory-control-codec",
+      "metrics": {
+        "operations": {
+          "median": 19043584,
+          "min": 18058880,
+          "max": 19250560
+        },
+        "seconds": {
+          "median": 0.5000022,
+          "min": 0.5000004,
+          "max": 0.5000028
+        },
+        "operations_per_second": {
+          "median": 38087023.26931158,
+          "min": 36117557.74167665,
+          "max": 38501089.19912864
+        },
+        "ns_per_operation": {
+          "median": 26.25566174938499,
+          "min": 25.973291166594635,
+          "max": 27.68736488641599
+        },
+        "offered_GBps": {
+          "median": 1.2187847446179705,
+          "min": 1.1557618477336529,
+          "max": 1.2320348543721165
+        },
+        "consumed_GBps": {
+          "median": 1.2187847446179705,
+          "min": 1.1557618477336529,
+          "max": 1.2320348543721165
+        },
+        "allocated_bytes_per_operation": {
+          "median": 1.2602669749559747e-05,
+          "min": 1.2467169786229595e-05,
+          "max": 0.0006963887018464046
+        }
+      }
+    },
+    {
+      "name": "latest-generation-filter",
+      "scope": "memory-application-filter",
+      "metrics": {
+        "operations": {
+          "median": 63422080,
+          "min": 57846528,
+          "max": 69629056
+        },
+        "seconds": {
+          "median": 0.5000005,
+          "min": 0.5000002,
+          "max": 0.5000008
+        },
+        "operations_per_second": {
+          "median": 126844058.52475318,
+          "min": 115692894.02994837,
+          "max": 139258056.2967775
+        },
+        "ns_per_operation": {
+          "median": 7.883696025106714,
+          "min": 7.180913094671282,
+          "max": 8.643573214973246
+        },
+        "offered_GBps": {
+          "median": 4.059009872792102,
+          "min": 3.7021726089583478,
+          "max": 4.4562578014968794
+        },
+        "consumed_GBps": {
+          "median": 4.059009872792102,
+          "min": 3.7021726089583478,
+          "max": 4.4562578014968794
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "psk-protect-decode-32",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "metrics": {
+        "operations": {
+          "median": 176640,
+          "min": 175744,
+          "max": 177024
+        },
+        "seconds": {
+          "median": 0.5001217,
+          "min": 0.5000313,
+          "max": 0.5002868
+        },
+        "operations_per_second": {
+          "median": 353174.75392333086,
+          "min": 351435.9171970714,
+          "max": 354025.83798254235
+        },
+        "ns_per_operation": {
+          "median": 2831.45946557971,
+          "min": 2824.652589479392,
+          "max": 2845.468977603787
+        },
+        "offered_GBps": {
+          "median": 0.011301592125546588,
+          "min": 0.011245949350306286,
+          "max": 0.011328826815441355
+        },
+        "consumed_GBps": {
+          "median": 0.011301592125546588,
+          "min": 0.011245949350306286,
+          "max": 0.011328826815441355
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "psk-protect-decode-1200",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "metrics": {
+        "operations": {
+          "median": 115456,
+          "min": 114560,
+          "max": 115584
+        },
+        "seconds": {
+          "median": 0.5002949,
+          "min": 0.5001322,
+          "max": 0.5005337
+        },
+        "operations_per_second": {
+          "median": 230807.997916139,
+          "min": 229059.43668494048,
+          "max": 230969.13557427056
+        },
+        "ns_per_operation": {
+          "median": 4332.605494733924,
+          "min": 4329.5828142303435,
+          "max": 4365.679120111732
+        },
+        "offered_GBps": {
+          "median": 0.27696959749936684,
+          "min": 0.2748713240219286,
+          "max": 0.27716296268912466
+        },
+        "consumed_GBps": {
+          "median": 0.27696959749936684,
+          "min": 0.2748713240219286,
+          "max": 0.27716296268912466
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0.1295038802660754
+        }
+      }
+    },
+    {
+      "name": "psk-protect-decode-1408",
+      "scope": "memory-protect-plus-decode-plus-byte-check",
+      "metrics": {
+        "operations": {
+          "median": 121088,
+          "min": 118912,
+          "max": 121472
+        },
+        "seconds": {
+          "median": 0.500334,
+          "min": 0.5001069,
+          "max": 0.5005161
+        },
+        "operations_per_second": {
+          "median": 241926.2836899752,
+          "min": 237773.16409751595,
+          "max": 242781.82174307565
+        },
+        "ns_per_operation": {
+          "median": 4133.490519291755,
+          "min": 4118.924525816648,
+          "max": 4205.689081001076
+        },
+        "offered_GBps": {
+          "median": 0.34063220743548506,
+          "min": 0.33478461504930246,
+          "max": 0.3418368050142505
+        },
+        "consumed_GBps": {
+          "median": 0.34063220743548506,
+          "min": 0.33478461504930246,
+          "max": 0.3418368050142505
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "authenticated-feedback-roundtrip",
+      "scope": "memory-authenticated-feedback",
+      "metrics": {
+        "operations": {
+          "median": 147072,
+          "min": 144896,
+          "max": 147200
+        },
+        "seconds": {
+          "median": 0.5002222,
+          "min": 0.5000203,
+          "max": 0.5004183
+        },
+        "operations_per_second": {
+          "median": 293985.5417929736,
+          "min": 289780.23492246214,
+          "max": 294382.80804401025
+        },
+        "ns_per_operation": {
+          "median": 3401.52782310705,
+          "min": 3396.9374999999995,
+          "max": 3450.890983878092
+        },
+        "offered_GBps": {
+          "median": 0.01881507467475031,
+          "min": 0.018545935035037577,
+          "max": 0.018840499714816657
+        },
+        "consumed_GBps": {
+          "median": 0.01881507467475031,
+          "min": 0.018545935035037577,
+          "max": 0.018840499714816657
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "psk-session-key-derivation",
+      "scope": "memory-hkdf-session-construction-disposal-not-network-handshake",
+      "metrics": {
+        "operations": {
+          "median": 21760,
+          "min": 20352,
+          "max": 21888
+        },
+        "seconds": {
+          "median": 0.5019106,
+          "min": 0.5000253,
+          "max": 0.5027671
+        },
+        "operations_per_second": {
+          "median": 43517.79799942123,
+          "min": 40479.97571837934,
+          "max": 43609.35991389702
+        },
+        "ns_per_operation": {
+          "median": 22979.10386029412,
+          "min": 22930.857090643276,
+          "max": 24703.572130503144
+        },
+        "offered_GBps": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "consumed_GBps": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "allocated_bytes_per_operation": {
+          "median": 928.030701754386,
+          "min": 928.0204678362574,
+          "max": 928.0801470588235
+        }
+      }
+    },
+    {
+      "name": "protected-one-way-record-1200",
+      "scope": "memory-composed-client-protect-decode-byte-check",
+      "metrics": {
+        "operations": {
+          "median": 113408,
+          "min": 110208,
+          "max": 113792
+        },
+        "seconds": {
+          "median": 0.500387,
+          "min": 0.5003228,
+          "max": 0.5005412
+        },
+        "operations_per_second": {
+          "median": 226649.09560599574,
+          "min": 220180.40696454796,
+          "max": 227437.16656526548
+        },
+        "ns_per_operation": {
+          "median": 4412.106729683974,
+          "min": 4396.818757030371,
+          "max": 4541.730182926829
+        },
+        "offered_GBps": {
+          "median": 0.2629129509029551,
+          "min": 0.25540927207887565,
+          "max": 0.26382711321570795
+        },
+        "consumed_GBps": {
+          "median": 0.2629129509029551,
+          "min": 0.25540927207887565,
+          "max": 0.26382711321570795
+        },
+        "allocated_bytes_per_operation": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        }
+      }
+    },
+    {
+      "name": "protected-full-echo-record-1200",
+      "scope": "memory-composed-two-way-protected-echo",
+      "metrics": {
+        "operations": {
+          "median": 48896,
+          "min": 41728,
+          "max": 49280
+        },
+        "seconds": {
+          "median": 0.5002936,
+          "min": 0.5000469,
+          "max": 0.500623
+        },
+        "operations_per_second": {
+          "median": 97782.82797073635,
+          "min": 83352.14322953598,
+          "max": 98546.26265098646
+        },
+        "ns_per_operation": {
+          "median": 10226.744518979056,
+          "min": 10147.518262987012,
+          "max": 11997.29198619632
+        },
+        "offered_GBps": {
+          "median": 0.11342808044605418,
+          "min": 0.09668848614626176,
+          "max": 0.1143136646751443
+        },
+        "consumed_GBps": {
+          "median": 0.11342808044605418,
+          "min": 0.09668848614626176,
+          "max": 0.1143136646751443
+        },
+        "allocated_bytes_per_operation": {
+          "median": 3472,
+          "min": 3472,
+          "max": 3472
+        }
+      }
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 6.403,
+          "min": 6.143,
+          "max": 6.409
+        },
+        "ns_per_operation": {
+          "median": 4.997,
+          "min": 4.993,
+          "max": 5.21
+        },
+        "seconds": {
+          "median": 0.499741,
+          "min": 0.499276,
+          "max": 0.520957
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 34.209,
+          "min": 33.951,
+          "max": 34.239
+        },
+        "ns_per_operation": {
+          "median": 3.742,
+          "min": 3.738,
+          "max": 3.77
+        },
+        "seconds": {
+          "median": 0.093543,
+          "min": 0.093462,
+          "max": 0.094253
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 68.391,
+          "min": 67.556,
+          "max": 68.438
+        },
+        "ns_per_operation": {
+          "median": 3.743,
+          "min": 3.741,
+          "max": 3.789
+        },
+        "seconds": {
+          "median": 0.04679,
+          "min": 0.046757,
+          "max": 0.047368
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 136.751,
+          "min": 135.946,
+          "max": 137.029
+        },
+        "ns_per_operation": {
+          "median": 3.744,
+          "min": 3.736,
+          "max": 3.766
+        },
+        "seconds": {
+          "median": 0.0234,
+          "min": 0.023353,
+          "max": 0.023539
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 273.224,
+          "min": 273.156,
+          "max": 273.379
+        },
+        "ns_per_operation": {
+          "median": 3.748,
+          "min": 3.746,
+          "max": 3.749
+        },
+        "seconds": {
+          "median": 0.011712,
+          "min": 0.011705,
+          "max": 0.011715
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "direct-ip-core-sanity-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 372.534,
+          "min": 346.784,
+          "max": 375.469
+        },
+        "ns_per_operation": {
+          "median": 3.78,
+          "min": 3.75,
+          "max": 4.06
+        },
+        "seconds": {
+          "median": 0.00859,
+          "min": 0.008523,
+          "max": 0.009228
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 14.432,
+          "min": 14.373,
+          "max": 14.442
+        },
+        "ns_per_operation": {
+          "median": 2.217,
+          "min": 2.216,
+          "max": 2.226
+        },
+        "seconds": {
+          "median": 0.221724,
+          "min": 0.22157,
+          "max": 0.222646
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 31.613,
+          "min": 31.6,
+          "max": 31.632
+        },
+        "ns_per_operation": {
+          "median": 4.049,
+          "min": 4.046,
+          "max": 4.051
+        },
+        "seconds": {
+          "median": 0.101223,
+          "min": 0.101162,
+          "max": 0.101265
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 37.401,
+          "min": 37.165,
+          "max": 37.41
+        },
+        "ns_per_operation": {
+          "median": 6.845,
+          "min": 6.843,
+          "max": 6.888
+        },
+        "seconds": {
+          "median": 0.085559,
+          "min": 0.085538,
+          "max": 0.086103
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 40.852,
+          "min": 40.746,
+          "max": 41.473
+        },
+        "ns_per_operation": {
+          "median": 12.533,
+          "min": 12.345,
+          "max": 12.566
+        },
+        "seconds": {
+          "median": 0.078332,
+          "min": 0.077159,
+          "max": 0.078535
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 43.748,
+          "min": 43.686,
+          "max": 43.848
+        },
+        "ns_per_operation": {
+          "median": 23.407,
+          "min": 23.353,
+          "max": 23.44
+        },
+        "seconds": {
+          "median": 0.073146,
+          "min": 0.072979,
+          "max": 0.07325
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 44.676,
+          "min": 44.324,
+          "max": 44.725
+        },
+        "ns_per_operation": {
+          "median": 31.516,
+          "min": 31.482,
+          "max": 31.766
+        },
+        "seconds": {
+          "median": 0.071627,
+          "min": 0.071549,
+          "max": 0.072196
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-128",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 43.102,
+          "min": 41.794,
+          "max": 43.179
+        },
+        "ns_per_operation": {
+          "median": 95.03,
+          "min": 94.861,
+          "max": 98.005
+        },
+        "seconds": {
+          "median": 0.074242,
+          "min": 0.07411,
+          "max": 0.076566
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ip-ceiling-batch-512",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 45.726,
+          "min": 45.651,
+          "max": 45.827
+        },
+        "ns_per_operation": {
+          "median": 358.308,
+          "min": 357.514,
+          "max": 358.897
+        },
+        "seconds": {
+          "median": 0.069982,
+          "min": 0.069827,
+          "max": 0.070097
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv4-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 1.23,
+          "min": 1.215,
+          "max": 1.231
+        },
+        "ns_per_operation": {
+          "median": 26.016,
+          "min": 25.998,
+          "max": 26.344
+        },
+        "seconds": {
+          "median": 2.601586,
+          "min": 2.59983,
+          "max": 2.63443
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv4-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 4.863,
+          "min": 4.856,
+          "max": 4.871
+        },
+        "ns_per_operation": {
+          "median": 26.321,
+          "min": 26.278,
+          "max": 26.362
+        },
+        "seconds": {
+          "median": 0.658035,
+          "min": 0.656961,
+          "max": 0.659043
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv4-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 9.073,
+          "min": 8.625,
+          "max": 9.111
+        },
+        "ns_per_operation": {
+          "median": 28.214,
+          "min": 28.097,
+          "max": 29.683
+        },
+        "seconds": {
+          "median": 0.35268,
+          "min": 0.351215,
+          "max": 0.371033
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv4-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 16.32,
+          "min": 15.956,
+          "max": 16.381
+        },
+        "ns_per_operation": {
+          "median": 31.372,
+          "min": 31.256,
+          "max": 32.089
+        },
+        "seconds": {
+          "median": 0.196073,
+          "min": 0.195347,
+          "max": 0.200557
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv4-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 23.6,
+          "min": 23.232,
+          "max": 24.03
+        },
+        "ns_per_operation": {
+          "median": 43.391,
+          "min": 42.614,
+          "max": 44.076
+        },
+        "seconds": {
+          "median": 0.135596,
+          "min": 0.13317,
+          "max": 0.137739
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv4-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 28.442,
+          "min": 28.374,
+          "max": 28.696
+        },
+        "ns_per_operation": {
+          "median": 49.504,
+          "min": 49.065,
+          "max": 49.623
+        },
+        "seconds": {
+          "median": 0.112509,
+          "min": 0.111512,
+          "max": 0.112779
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv6-framing-batch-1",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 7.88,
+          "min": 7.801,
+          "max": 7.894
+        },
+        "ns_per_operation": {
+          "median": 4.061,
+          "min": 4.054,
+          "max": 4.102
+        },
+        "seconds": {
+          "median": 0.406115,
+          "min": 0.405379,
+          "max": 0.410197
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv6-framing-batch-4",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 18.668,
+          "min": 18.643,
+          "max": 18.677
+        },
+        "ns_per_operation": {
+          "median": 6.857,
+          "min": 6.853,
+          "max": 6.866
+        },
+        "seconds": {
+          "median": 0.171414,
+          "min": 0.171332,
+          "max": 0.171642
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv6-framing-batch-8",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 23.916,
+          "min": 23.298,
+          "max": 23.96
+        },
+        "ns_per_operation": {
+          "median": 10.704,
+          "min": 10.684,
+          "max": 10.988
+        },
+        "seconds": {
+          "median": 0.133801,
+          "min": 0.133555,
+          "max": 0.137351
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv6-framing-batch-16",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 28.167,
+          "min": 28.046,
+          "max": 28.321
+        },
+        "ns_per_operation": {
+          "median": 18.178,
+          "min": 18.078,
+          "max": 18.256
+        },
+        "seconds": {
+          "median": 0.11361,
+          "min": 0.11299,
+          "max": 0.114099
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv6-framing-batch-32",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 29.577,
+          "min": 29.323,
+          "max": 31.037
+        },
+        "ns_per_operation": {
+          "median": 34.621,
+          "min": 32.993,
+          "max": 34.922
+        },
+        "seconds": {
+          "median": 0.108191,
+          "min": 0.103102,
+          "max": 0.10913
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "mock-ipv6-framing-batch-44",
+      "scope": "historical-contract-memory-logical-offered-only-newest-observation",
+      "metrics": {
+        "offered_GBps": {
+          "median": 31.211,
+          "min": 20.921,
+          "max": 31.828
+        },
+        "ns_per_operation": {
+          "median": 45.112,
+          "min": 44.238,
+          "max": 67.301
+        },
+        "seconds": {
+          "median": 0.102528,
+          "min": 0.100542,
+          "max": 0.152956
+        },
+        "messages": {
+          "median": 100000000,
+          "min": 100000000,
+          "max": 100000000
+        }
+      }
+    },
+    {
+      "name": "kernel-loopback-batch-1",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "metrics": {
+        "offered": {
+          "median": 200000,
+          "min": 200000,
+          "max": 200000
+        },
+        "unique": {
+          "median": 200000,
+          "min": 200000,
+          "max": 200000
+        },
+        "duplicates": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "reordered": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "invalid": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "missing": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "loss_pct": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "send_seconds": {
+          "median": 1.246077782,
+          "min": 0.937462856,
+          "max": 1.351448124
+        },
+        "active_seconds": {
+          "median": 1.246083936,
+          "min": 0.937464902,
+          "max": 1.351450185
+        },
+        "offered_GBps": {
+          "median": 0.005136115973216189,
+          "min": 0.004735660870990265,
+          "max": 0.006826937151737135
+        },
+        "consumed_GBps": {
+          "median": 0.005136090607623402,
+          "min": 0.004735653648972641,
+          "max": 0.006826922252071683
+        },
+        "operations_per_second": {
+          "median": 160502.8314882313,
+          "min": 147989.17653039502,
+          "max": 213341.3203772401
+        },
+        "ns_per_operation": {
+          "median": 6230.41968,
+          "min": 4687.32451,
+          "max": 6757.250925
+        }
+      }
+    },
+    {
+      "name": "kernel-loopback-batch-8",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "metrics": {
+        "offered": {
+          "median": 200000,
+          "min": 200000,
+          "max": 200000
+        },
+        "unique": {
+          "median": 200000,
+          "min": 200000,
+          "max": 200000
+        },
+        "duplicates": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "reordered": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "invalid": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "missing": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "loss_pct": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "send_seconds": {
+          "median": 0.147515688,
+          "min": 0.144188579,
+          "max": 0.169141273
+        },
+        "active_seconds": {
+          "median": 0.147519435,
+          "min": 0.144194555,
+          "max": 0.169155347
+        },
+        "offered_GBps": {
+          "median": 0.04338521608630534,
+          "min": 0.03783819221935263,
+          "max": 0.04438631717148693
+        },
+        "consumed_GBps": {
+          "median": 0.043384114099948926,
+          "min": 0.037835044020216514,
+          "max": 0.04438447762469255
+        },
+        "operations_per_second": {
+          "median": 1355753.565623404,
+          "min": 1182345.1256317662,
+          "max": 1387014.9257716422
+        },
+        "ns_per_operation": {
+          "median": 737.597175,
+          "min": 720.972775,
+          "max": 845.776735
+        }
+      }
+    },
+    {
+      "name": "kernel-loopback-batch-44",
+      "scope": "raw-ipv6-kernel-loopback-unprotected-full-byte-validation",
+      "metrics": {
+        "offered": {
+          "median": 200000,
+          "min": 200000,
+          "max": 200000
+        },
+        "unique": {
+          "median": 200000,
+          "min": 200000,
+          "max": 200000
+        },
+        "duplicates": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "reordered": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "invalid": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "missing": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "loss_pct": {
+          "median": 0,
+          "min": 0,
+          "max": 0
+        },
+        "send_seconds": {
+          "median": 0.04365385,
+          "min": 0.043448842,
+          "max": 0.045007678
+        },
+        "active_seconds": {
+          "median": 0.044721446,
+          "min": 0.044342155,
+          "max": 0.045174886
+        },
+        "offered_GBps": {
+          "median": 0.14660791659842146,
+          "min": 0.14219796009027616,
+          "max": 0.14729966796353283
+        },
+        "consumed_GBps": {
+          "median": 0.14310807392050784,
+          "min": 0.1416716358730822,
+          "max": 0.1443321823217658
+        },
+        "operations_per_second": {
+          "median": 4472127.31001587,
+          "min": 4427238.621033819,
+          "max": 4510380.697555182
+        },
+        "ns_per_operation": {
+          "median": 223.60723,
+          "min": 221.710775,
+          "max": 225.87443
+        }
+      }
+    }
+  ],
+  "physical_two_host_pass": false
+}
