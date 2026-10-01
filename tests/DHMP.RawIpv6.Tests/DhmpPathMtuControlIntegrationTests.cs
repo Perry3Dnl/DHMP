@@ -172,7 +172,7 @@ public sealed class DhmpPathMtuControlIntegrationTests
                 throw new ArgumentException(
                     "Destination is too small.");
 
-            packet.CopyTo(destination);
+            packet.AsMemory().CopyTo(destination);
             return packet.Length;
         }
 
