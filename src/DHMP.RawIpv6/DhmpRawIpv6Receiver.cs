@@ -67,10 +67,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                     server.ReceivePolicy.MaximumPayloadBytes);
         }
 
-        _socket = new Socket(
-            AddressFamily.InterNetworkV6,
-            SocketType.Raw,
-            (ProtocolType)options.DataProtocolNumber);
+        _socket = DhmpLinuxRawIpv6Socket.Open(options.DataProtocolNumber);
 
         try
         {

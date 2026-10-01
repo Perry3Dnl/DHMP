@@ -113,6 +113,7 @@ def main():
         backend = start(back, "backend", iteration)
         # Wait for the actual configured raw control listener before sending a one-shot OFFER.
         def listener_bound():
+            if backend.poll() is not None: raise RuntimeError("Backend exited before its control listener was bound; inspect backend log.")
             raw = run(ns(back, "cat", "/proc/net/raw6"))
             return any(line.split()[1].upper().endswith(":00FE") for line in raw.splitlines()[1:] if len(line.split()) > 3)
         wait_until(listener_bound)

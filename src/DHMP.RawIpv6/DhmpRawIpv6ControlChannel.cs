@@ -26,10 +26,7 @@ public sealed class DhmpRawIpv6ControlChannel : IDisposable, IDhmpControlPacketC
                 options.RemoteAddress,
                 0);
 
-        _socket = new Socket(
-            AddressFamily.InterNetworkV6,
-            SocketType.Raw,
-            (ProtocolType)options.ControlProtocolNumber);
+        _socket = DhmpLinuxRawIpv6Socket.Open(options.ControlProtocolNumber);
 
         try
         {

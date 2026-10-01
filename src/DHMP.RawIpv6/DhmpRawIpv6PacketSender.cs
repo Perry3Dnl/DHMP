@@ -22,10 +22,7 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpPacketSender, IDisposable
         MaximumPayloadBytes = options.MaximumPayloadBytes;
         _remoteEndPoint = new IPEndPoint(options.RemoteAddress, 0);
 
-        _socket = new Socket(
-            AddressFamily.InterNetworkV6,
-            SocketType.Raw,
-            (ProtocolType)options.DataProtocolNumber);
+        _socket = DhmpLinuxRawIpv6Socket.Open(options.DataProtocolNumber);
 
         try
         {
@@ -89,3 +86,4 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpPacketSender, IDisposable
                 "The first DHMP raw IPv6 backend is Linux-only. Other OS backends require separately validated socket semantics.");
     }
 }
+
