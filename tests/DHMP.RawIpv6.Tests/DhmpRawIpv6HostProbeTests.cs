@@ -19,7 +19,6 @@ public sealed class DhmpRawIpv6HostProbeTests
                 protocol =>
                 {
                     openedProtocols.Add(protocol);
-
                     return new MemoryStream();
                 });
 
@@ -38,15 +37,7 @@ public sealed class DhmpRawIpv6HostProbeTests
             "reachability are not tested",
             result.Message,
             StringComparison.Ordinal);
-        private sealed class TrackingDisposable :
-        IDisposable
-    {
-        public bool IsDisposed { get; private set; }
-
-        public void Dispose()
-            => IsDisposed = true;
     }
-}
 
     [Fact]
     public void BlockedFlow_NonLinuxStopsBeforeOpeningSocket()
@@ -182,5 +173,14 @@ public sealed class DhmpRawIpv6HostProbeTests
             "native raw socket failed",
             result.Message,
             StringComparison.Ordinal);
+    }
+
+    private sealed class TrackingDisposable :
+        IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose()
+            => IsDisposed = true;
     }
 }
