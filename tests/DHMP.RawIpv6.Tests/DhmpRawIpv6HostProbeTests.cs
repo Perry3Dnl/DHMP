@@ -16,6 +16,7 @@ public sealed class DhmpRawIpv6HostProbeTests
             DhmpRawIpv6HostProbe.ProbeCore(
                 isLinux: true,
                 ipv6Available: true,
+                experimentalProtocolNumbersEnabled: true,
                 protocol =>
                 {
                     openedProtocols.Add(protocol);
@@ -50,6 +51,7 @@ public sealed class DhmpRawIpv6HostProbeTests
             DhmpRawIpv6HostProbe.ProbeCore(
                 isLinux: false,
                 ipv6Available: true,
+                experimentalProtocolNumbersEnabled: true,
                 _ => throw new InvalidOperationException(
                     "socket must not be opened"));
 
@@ -70,6 +72,7 @@ public sealed class DhmpRawIpv6HostProbeTests
             DhmpRawIpv6HostProbe.ProbeCore(
                 isLinux: true,
                 ipv6Available: false,
+                experimentalProtocolNumbersEnabled: true,
                 _ => throw new InvalidOperationException(
                     "socket must not be opened"));
 
@@ -84,12 +87,34 @@ public sealed class DhmpRawIpv6HostProbeTests
     }
 
     [Fact]
+    public void BlockedFlow_ExperimentalBindingsRequireExplicitOptIn()
+    {
+        DhmpRawIpv6HostProbeResult result =
+            DhmpRawIpv6HostProbe.ProbeCore(
+                isLinux: true,
+                ipv6Available: true,
+                experimentalProtocolNumbersEnabled: false,
+                _ => throw new InvalidOperationException(
+                    "socket must not be opened"));
+
+        Assert.False(result.IsReady);
+        Assert.Equal(
+            DhmpRawIpv6HostProbeStatus.ExperimentalProtocolNumbersNotEnabled,
+            result.Status);
+        Assert.Contains(
+            "enableExperimentalProtocolNumbers: true",
+            result.Message,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CriticalFlow_PermissionFailureBecomesActionableDiagnostic()
     {
         DhmpRawIpv6HostProbeResult result =
             DhmpRawIpv6HostProbe.ProbeCore(
                 isLinux: true,
                 ipv6Available: true,
+                experimentalProtocolNumbersEnabled: true,
                 _ => throw new UnauthorizedAccessException(
                     "CAP_NET_RAW is required."));
 
@@ -110,6 +135,7 @@ public sealed class DhmpRawIpv6HostProbeTests
             DhmpRawIpv6HostProbe.ProbeCore(
                 isLinux: true,
                 ipv6Available: true,
+                experimentalProtocolNumbersEnabled: true,
                 _ => throw new IOException(
                     "native raw socket failed"));
 
