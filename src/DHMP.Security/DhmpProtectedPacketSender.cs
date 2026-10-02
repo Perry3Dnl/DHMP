@@ -17,6 +17,10 @@ public sealed class DhmpProtectedPacketSender : IDhmpDynamicPacketSender, IAsync
     private readonly IDhmpPacketSender _inner;
     private readonly DhmpPskChaCha20Poly1305Session _session;
 
+    /// <summary>
+    /// Wrap a caller-owned packet sender and security session with authenticated packet protection.
+    /// Disposing this wrapper does not dispose either dependency.
+    /// </summary>
     public DhmpProtectedPacketSender(
         IDhmpPacketSender inner,
         DhmpPskChaCha20Poly1305Session session)
@@ -38,8 +42,10 @@ public sealed class DhmpProtectedPacketSender : IDhmpDynamicPacketSender, IAsync
             DhmpPskChaCha20Poly1305Session.Overhead;
     }
 
+    /// <summary>Immutable plaintext payload ceiling after subtracting security-envelope overhead.</summary>
     public int MaximumPayloadBytes { get; }
 
+    /// <summary>Current plaintext payload ceiling after any live path-budget reduction.</summary>
     public int CurrentMaximumPayloadBytes
     {
         get
@@ -62,6 +68,7 @@ public sealed class DhmpProtectedPacketSender : IDhmpDynamicPacketSender, IAsync
         }
     }
 
+    /// <summary>Protect and send one complete DHMP packet payload without retransmission.</summary>
     public async ValueTask SendPacketAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken = default)
