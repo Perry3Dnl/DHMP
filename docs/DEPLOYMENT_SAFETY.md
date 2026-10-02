@@ -75,6 +75,8 @@ The Linux native backend requires raw-socket permission. If the kernel rejects r
 
 Privilege is a deployment property, not a DHMP wire feature. Containers/services should grant the smallest required capability rather than broadly running an application as root.
 
+`DhmpRawIpv6HostProbe.Probe(enableExperimentalProtocolNumbers: true)` can open and immediately close both experimental raw bindings before application startup so Linux/IPv6/permission failures are reported as a local readiness result. Probe success does not establish remote-path reachability.
+
 ## Session replacement and stale plaintext packets
 
 Protected sessions use fresh authenticated session keys/identity and reject packets from an old session after replacement.
@@ -88,7 +90,7 @@ They do not establish:
 - arbitrary consumer-router traversal;
 - cloud load-balancer compatibility;
 - full Internet congestion control;
-- automatic DPLPMTUD;
+- hidden/background automatic DPLPMTUD maintenance or validated ICMPv6 PTB acceleration;
 - a permanent IANA protocol number;
 - Windows raw-socket support;
 - production security review.
