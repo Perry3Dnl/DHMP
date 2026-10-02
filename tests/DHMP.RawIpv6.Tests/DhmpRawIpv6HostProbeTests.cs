@@ -38,7 +38,15 @@ public sealed class DhmpRawIpv6HostProbeTests
             "reachability are not tested",
             result.Message,
             StringComparison.Ordinal);
+        private sealed class TrackingDisposable :
+        IDisposable
+    {
+        public bool IsDisposed { get; private set; }
+
+        public void Dispose()
+            => IsDisposed = true;
     }
+}
 
     [Fact]
     public void BlockedFlow_NonLinuxStopsBeforeOpeningSocket()
@@ -122,6 +130,37 @@ public sealed class DhmpRawIpv6HostProbeTests
             "CAP_NET_RAW",
             result.Message,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CriticalFlow_FirstSocketIsDisposedWhenSecondOpenFails()
+    {
+        var firstSocket =
+            new TrackingDisposable();
+
+        int opens = 0;
+
+        DhmpRawIpv6HostProbeResult result =
+            DhmpRawIpv6HostProbe.ProbeCore(
+                isLinux: true,
+                ipv6Available: true,
+                experimentalProtocolNumbersEnabled: true,
+                _ =>
+                {
+                    opens++;
+
+                    if (opens == 1)
+                        return firstSocket;
+
+                    throw new IOException(
+                        "control socket failed");
+                });
+
+        Assert.False(result.IsReady);
+        Assert.Equal(
+            DhmpRawIpv6HostProbeStatus.SocketOpenFailed,
+            result.Status);
+        Assert.True(firstSocket.IsDisposed);
     }
 
     [Fact]
