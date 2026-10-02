@@ -12,6 +12,11 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 
+    <!-- Public packages ship XML IntelliSense documentation. CS1591 remains suppressed while
+         the preview API audit fills documentation gaps incrementally. -->
+    <GenerateDocumentationFile Condition="'$(MSBuildProjectName)' == 'DHMP.Protocol' or '$(MSBuildProjectName)' == 'DHMP.Client' or '$(MSBuildProjectName)' == 'DHMP.Server' or '$(MSBuildProjectName)' == 'DHMP.RawIpv6' or '$(MSBuildProjectName)' == 'DHMP.Security' or '$(MSBuildProjectName)' == 'DHMP.Licensing' or '$(MSBuildProjectName)' == 'DHMP.AspNetCore'">true</GenerateDocumentationFile>
+    <NoWarn Condition="'$(MSBuildProjectName)' == 'DHMP.Protocol' or '$(MSBuildProjectName)' == 'DHMP.Client' or '$(MSBuildProjectName)' == 'DHMP.Server' or '$(MSBuildProjectName)' == 'DHMP.RawIpv6' or '$(MSBuildProjectName)' == 'DHMP.Security' or '$(MSBuildProjectName)' == 'DHMP.Licensing' or '$(MSBuildProjectName)' == 'DHMP.AspNetCore'">$(NoWarn);1591</NoWarn>
+
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Protocol'">DHMP fixed-record wire contract, policies, packet processing, control negotiation, and sender abstractions.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Client'">DHMP per-session client sending facade and optional application-level confirmation helpers.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Server'">DHMP server-side fixed-record processing, publication, freshness, and bounded receive helpers.</Description>
