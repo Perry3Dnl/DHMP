@@ -66,6 +66,8 @@ There is no `ConnectAsync`, port, hidden socket choice or default compatibility 
 
 `DhmpRawIpv6PacketSender` sends the DHMP V1 payload directly through an IPv6 raw socket. If the kernel reports `SocketError.MessageSize`, the backend surfaces `DhmpPathMtuException` rather than hiding the packet-too-large failure. `DhmpRawIpv6Receiver` remains the simple one-peer receive path.
 
+`DhmpRawIpv6HostProbe` is a local deployment preflight. With explicit experimental-protocol opt-in it checks Linux support, runtime IPv6 availability and whether both 253/254 raw sockets can be opened and closed. It deliberately does not bind a service address or claim router/firewall/ISP reachability.
+
 `DhmpIpv6PathBudget` converts a known IPv6 PMTU into the maximum raw protocol payload after the 40-byte IPv6 base header and optional extension-header bytes. It can then subtract an explicit packet envelope and round down to a whole number of DHMP records. `DhmpRawIpv6Options.FromPathMtu` and `DhmpRawIpv6ListenerOptions.FromPathMtu` expose this calculation. This is budgeting from a known PMTU, not dynamic PMTU discovery.
 
 `DhmpRawIpv6MultiPeerReceiver` adds a bounded server-side receive loop. `DhmpRawIpv6PeerRouter` maps source IPv6 address to a `DhmpRawIpv6PeerBinding`, which owns the per-peer `DhmpServer`, publication callback and optional packet decoder. Registration/removal is outside the packet hot path; receive routing uses source-address lookup. Each V1 source IPv6 address may have only one registered DHMP session because the headerless data plane carries no session ID.
