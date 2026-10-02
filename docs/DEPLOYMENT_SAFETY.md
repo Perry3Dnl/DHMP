@@ -63,7 +63,7 @@ They budget from a 1280-byte IPv6 packet. With no additional IPv6 extension head
 
 A larger `FromPathMtu(...)` value is appropriate only when the deployment has a reason to trust that path budget.
 
-This conservative mode avoids pretending that automatic PMTU discovery exists. It can sacrifice throughput on paths that support larger packets.
+This conservative factory does not itself perform PMTU discovery. It can sacrifice throughput until the protected control path runs authenticated DPLPMTUD and applies a larger confirmed live budget.
 
 The Linux raw socket also explicitly enables `IPV6_DONTFRAG` (RFC 3542 section 11.2). DHMP therefore does not rely on the kernel inserting an IPv6 Fragment header for an oversized send. An oversized packet should fail or produce PMTU feedback instead of silently becoming multiple IP fragments. This matches the V1 rule that normal operation does not depend on IP fragmentation.
 
