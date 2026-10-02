@@ -27,7 +27,7 @@ This document tracks work required before any public NuGet publication. The repo
 - [x] Local raw-IPv6 host readiness probe for Linux/IPv6/experimental-binding permission diagnostics.
 - [x] Linux raw sockets explicitly disable IPv6 source fragmentation.
 - [x] Shared NuGet metadata for repository URL, descriptions, tags, README and symbols.
-- [x] Local package-consumer CI: pack all public projects to an isolated local feed, restore clean consumer projects, and compile them.
+- [x] Local package-consumer CI: pack all public projects to an isolated local feed, inspect `.nupkg`/`.snupkg` payloads and metadata, reject repository-only/key-like leakage, restore clean consumer projects, and compile them.
 
 ## Hard gates before publication
 
@@ -36,7 +36,7 @@ This document tracks work required before any public NuGet publication. The repo
 - [ ] Add a NuGet-compatible package icon (PNG/JPEG) if desired. The repository logo is currently WebP.
 - [ ] Audit every public type/member for naming, XML documentation, lifetime/disposal behavior and preview stability.
 - [x] Add a minimal external-user quickstart that does not assume knowledge of the repository's benchmark harnesses.
-- [ ] Perform a clean-machine package inspection from the generated local packages.
+- [x] Perform clean-runner package inspection from the generated local packages: exact `net10.0` assembly/PDB payloads, package identity/version/readme/repository metadata, and leakage guards are enforced before isolated consumers restore.
 - [ ] Decide the preview version/tag and release notes.
 - [ ] Explicitly accept/document which deployment limitations remain open for the preview: physical two-host/NIC validation, router/ISP reachability matrix, automatic PMTU maintenance/PTB acceleration, complete Internet congestion control and independent security review.
 - [ ] Explicit owner approval to publish.
@@ -51,7 +51,7 @@ The supported preparation command is:
 python3 tools/test_local_packages.py
 ```
 
-It creates temporary `.nupkg` / `.snupkg` files in an isolated local feed, restores two clean consumer projects from that feed, builds them, and deletes the workspace. It does **not** contact NuGet.org to publish anything.
+It creates temporary `.nupkg` / `.snupkg` files in an isolated local feed, inspects their exact library/symbol payloads and metadata, rejects repository-only or key-like file leakage, restores two clean consumer projects from that feed, builds them, and deletes the workspace. CI runs this on a fresh hosted runner. It does **not** contact NuGet.org to publish anything.
 
 ## Planned package IDs
 
