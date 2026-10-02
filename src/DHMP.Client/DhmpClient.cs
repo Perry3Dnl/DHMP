@@ -10,6 +10,8 @@ namespace DHMP.Client;
 /// Send calls must be serialized. Smooth pacing spaces packet submissions according to logical
 /// message count. When an adaptive controller is supplied, authenticated feedback may lower the
 /// pacing rate and no-pressure feedback may recover it gradually. The local Pmax remains authoritative.
+/// The caller owns the supplied sender and adaptive controller; disposing either is never implied by
+/// the lifetime of this facade.
 /// </remarks>
 public sealed class DhmpClient
 {
@@ -20,6 +22,7 @@ public sealed class DhmpClient
     private readonly DhmpPacingSchedule? _pacer;
     private readonly DhmpAdaptiveRateController? _adaptiveRateController;
 
+    /// <summary>Create a client over one explicitly supplied direct-IP sender and local send policy.</summary>
     public DhmpClient(
         IDhmpPacketSender sender,
         DhmpWireContract wireContract,
@@ -73,16 +76,20 @@ public sealed class DhmpClient
         }
     }
 
+    /// <summary>Fixed-record wire contract enforced for every send.</summary>
     public DhmpWireContract WireContract =>
         _wireContract;
 
+    /// <summary>Local outbound pacing, rate and payload policy.</summary>
     public DhmpSendPolicy SendPolicy =>
         _sendPolicy;
 
+    /// <summary>Optional caller-owned adaptive pacing controller.</summary>
     public DhmpAdaptiveRateController?
         AdaptiveRateController =>
             _adaptiveRateController;
 
+    /// <summary>Current effective local message-rate ceiling.</summary>
     public int CurrentMessagesPerSecond =>
         _adaptiveRateController?
             .CurrentMessagesPerSecond ??
@@ -119,6 +126,7 @@ public sealed class DhmpClient
         }
     }
 
+    /// <summary>Send exactly one complete fixed-size record.</summary>
     public ValueTask SendAsync(
         ReadOnlyMemory<byte> record,
         CancellationToken cancellationToken = default)
@@ -131,6 +139,7 @@ public sealed class DhmpClient
             cancellationToken);
     }
 
+    /// <summary>Send one packet payload containing one or more complete fixed-size records.</summary>
     public async ValueTask SendBatchAsync(
         ReadOnlyMemory<byte> packet,
         CancellationToken cancellationToken = default)

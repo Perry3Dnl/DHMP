@@ -155,6 +155,7 @@ def validate_package(package: Path, package_id: str, version: str) -> None:
             raise RuntimeError(f"{package.name} does not contain README.md")
 
         expected_assembly = f"lib/{TARGET_FRAMEWORK}/{package_id}.dll"
+        expected_documentation = f"lib/{TARGET_FRAMEWORK}/{package_id}.xml"
         assembly_entries = sorted(
             name
             for name in names
@@ -164,6 +165,17 @@ def validate_package(package: Path, package_id: str, version: str) -> None:
             raise RuntimeError(
                 f"{package.name}: expected only {expected_assembly!r} as a packaged assembly, "
                 f"found {assembly_entries!r}"
+            )
+
+        documentation_entries = sorted(
+            name
+            for name in names
+            if name.startswith("lib/") and name.lower().endswith(".xml")
+        )
+        if documentation_entries != [expected_documentation]:
+            raise RuntimeError(
+                f"{package.name}: expected XML IntelliSense documentation "
+                f"{expected_documentation!r}, found {documentation_entries!r}"
             )
 
         lib_frameworks = {
@@ -391,8 +403,8 @@ def main() -> int:
             f"version={args.version} packages={len(PACKAGE_IDS)}"
         )
         print(
-            "Package inspection verified target assemblies, symbol payloads, "
-            "metadata and absence of repository-only/key-like files."
+            "Package inspection verified target assemblies, XML IntelliSense documentation, "
+            "symbol payloads, metadata and absence of repository-only/key-like files."
         )
         print("No package was uploaded or published.")
         return 0

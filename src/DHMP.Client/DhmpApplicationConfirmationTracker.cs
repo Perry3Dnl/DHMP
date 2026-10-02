@@ -8,7 +8,10 @@ namespace DHMP.Client;
 /// </summary>
 public sealed class DhmpApplicationConfirmationOptions
 {
+    /// <summary>Maximum number of application confirmation IDs allowed to wait concurrently.</summary>
     public int MaximumInFlight { get; set; } = 32;
+
+    /// <summary>Maximum time to wait for a matching application-owned confirmation.</summary>
     public TimeSpan ConfirmationTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }
 
@@ -46,6 +49,10 @@ public sealed class DhmpApplicationConfirmationTracker : IAsyncDisposable
     private int _active;
     private bool _stopped;
 
+    /// <summary>
+    /// Create a tracker over an exclusively owned client send path. Disposing the tracker retires
+    /// its own pending work but does not dispose the underlying <see cref="DhmpClient"/> or sender.
+    /// </summary>
     public DhmpApplicationConfirmationTracker(
         DhmpClient client,
         DhmpApplicationConfirmationOptions? options = null)
@@ -67,6 +74,7 @@ public sealed class DhmpApplicationConfirmationTracker : IAsyncDisposable
         _timeout = options.ConfirmationTimeout;
     }
 
+    /// <summary>Configured bound on concurrently pending confirmation IDs.</summary>
     public int MaximumInFlight => _maximumInFlight;
 
     /// <summary>
@@ -225,6 +233,10 @@ public sealed class DhmpApplicationConfirmationTracker : IAsyncDisposable
             _drained.TrySetResult();
     }
 
+    /// <summary>
+    /// Stop admitting sends, cancel pending waits and join active tracker operations.
+    /// The underlying client and packet sender remain caller-owned.
+    /// </summary>
     public ValueTask DisposeAsync()
     {
         lock (_sync)
