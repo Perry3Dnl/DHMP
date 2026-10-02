@@ -26,8 +26,9 @@ public enum DhmpRawIpv6HostProbeStatus
     Ready = 0,
     UnsupportedOperatingSystem = 1,
     Ipv6Unavailable = 2,
-    PermissionDenied = 3,
-    SocketOpenFailed = 4
+    ExperimentalProtocolNumbersNotEnabled = 3,
+    PermissionDenied = 4,
+    SocketOpenFailed = 5
 }
 
 /// <summary>
@@ -37,15 +38,18 @@ public enum DhmpRawIpv6HostProbeStatus
 /// </summary>
 public static class DhmpRawIpv6HostProbe
 {
-    public static DhmpRawIpv6HostProbeResult Probe()
+    public static DhmpRawIpv6HostProbeResult Probe(
+        bool enableExperimentalProtocolNumbers = false)
         => ProbeCore(
             OperatingSystem.IsLinux(),
             Socket.OSSupportsIPv6,
+            enableExperimentalProtocolNumbers,
             DhmpLinuxRawIpv6Socket.Open);
 
     internal static DhmpRawIpv6HostProbeResult ProbeCore(
         bool isLinux,
         bool ipv6Available,
+        bool experimentalProtocolNumbersEnabled,
         Func<byte, Socket> openSocket)
     {
         ArgumentNullException.ThrowIfNull(openSocket);
@@ -62,6 +66,14 @@ public static class DhmpRawIpv6HostProbe
             return new DhmpRawIpv6HostProbeResult(
                 DhmpRawIpv6HostProbeStatus.Ipv6Unavailable,
                 "The operating system does not report IPv6 socket support.");
+        }
+
+        if (!experimentalProtocolNumbersEnabled)
+        {
+            return new DhmpRawIpv6HostProbeResult(
+                DhmpRawIpv6HostProbeStatus.ExperimentalProtocolNumbersNotEnabled,
+                "DHMP raw IPv6 currently uses experimental Next Header values 253/254. " +
+                "Set enableExperimentalProtocolNumbers: true only for an explicitly configured experiment.");
         }
 
         try
