@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_VERSION = "0.1.0-preview.local"
+TARGET_FRAMEWORK = "net10.0"
 
 PACK_PROJECTS = [
     ROOT / "src/DHMP.Protocol/DHMP.Protocol.csproj",
@@ -33,6 +34,21 @@ PACKAGE_IDS = [
     "DHMP.RawIpv6",
     "DHMP.AspNetCore",
 ]
+
+FORBIDDEN_PAYLOAD_PREFIXES = (
+    "benchmarks/",
+    "samples/",
+    "tests/",
+    "tools/",
+)
+
+FORBIDDEN_SECRET_SUFFIXES = (
+    ".key",
+    ".pem",
+    ".pfx",
+    ".p12",
+    ".snk",
+)
 
 
 def run(*args: str, cwd: Path | None = None) -> None:
@@ -64,44 +80,177 @@ def write_nuget_config(path: Path, feed: Path) -> None:
     )
 
 
+def nuspec_metadata(
+    archive: zipfile.ZipFile,
+    names: set[str],
+    package_name: str,
+) -> tuple[ET.Element, str]:
+    nuspec_name = next((name for name in names if name.endswith(".nuspec")), None)
+    if nuspec_name is None:
+        raise RuntimeError(f"{package_name} has no .nuspec")
+
+    root = ET.fromstring(archive.read(nuspec_name))
+    ns = ""
+    if root.tag.startswith("{"):
+        ns = root.tag.split("}", 1)[0] + "}"
+
+    metadata = root.find(f"{ns}metadata")
+    if metadata is None:
+        raise RuntimeError(f"{package_name} has no metadata section")
+
+    return metadata, ns
+
+
+def metadata_value(metadata: ET.Element, ns: str, name: str) -> str:
+    node = metadata.find(f"{ns}{name}")
+    return (node.text or "").strip() if node is not None else ""
+
+
+def validate_payload_names(package: Path, names: set[str]) -> None:
+    lower_names = {name.lower() for name in names}
+
+    forbidden_prefix_hits = sorted(
+        name
+        for name in lower_names
+        if name.startswith(FORBIDDEN_PAYLOAD_PREFIXES)
+    )
+    if forbidden_prefix_hits:
+        raise RuntimeError(
+            f"{package.name}: repository-only payload leaked into package: "
+            + ", ".join(forbidden_prefix_hits)
+        )
+
+    secret_hits = sorted(
+        name
+        for name in lower_names
+        if name.endswith(FORBIDDEN_SECRET_SUFFIXES)
+    )
+    if secret_hits:
+        raise RuntimeError(
+            f"{package.name}: key/secret-like payload is not allowed: "
+            + ", ".join(secret_hits)
+        )
+
+    app_runtime_hits = sorted(
+        name
+        for name in lower_names
+        if name.endswith(".runtimeconfig.json") or name.endswith(".deps.json")
+    )
+    if app_runtime_hits:
+        raise RuntimeError(
+            f"{package.name}: application runtime payload leaked into library package: "
+            + ", ".join(app_runtime_hits)
+        )
+
+
 def validate_package(package: Path, package_id: str, version: str) -> None:
     if not package.exists():
         raise RuntimeError(f"Missing package: {package}")
 
     with zipfile.ZipFile(package) as archive:
         names = set(archive.namelist())
+        validate_payload_names(package, names)
+
         if "README.md" not in names:
             raise RuntimeError(f"{package.name} does not contain README.md")
 
-        nuspec_name = next((name for name in names if name.endswith(".nuspec")), None)
-        if nuspec_name is None:
-            raise RuntimeError(f"{package.name} has no .nuspec")
+        expected_assembly = f"lib/{TARGET_FRAMEWORK}/{package_id}.dll"
+        assembly_entries = sorted(
+            name
+            for name in names
+            if name.startswith("lib/") and name.lower().endswith(".dll")
+        )
+        if assembly_entries != [expected_assembly]:
+            raise RuntimeError(
+                f"{package.name}: expected only {expected_assembly!r} as a packaged assembly, "
+                f"found {assembly_entries!r}"
+            )
 
-        root = ET.fromstring(archive.read(nuspec_name))
-        ns = ""
-        if root.tag.startswith("{"):
-            ns = root.tag.split("}", 1)[0] + "}"
+        lib_frameworks = {
+            parts[1]
+            for name in names
+            if name.startswith("lib/")
+            for parts in [name.split("/")]
+            if len(parts) >= 3
+        }
+        if lib_frameworks != {TARGET_FRAMEWORK}:
+            raise RuntimeError(
+                f"{package.name}: unexpected lib target frameworks {sorted(lib_frameworks)!r}"
+            )
 
-        metadata = root.find(f"{ns}metadata")
-        if metadata is None:
-            raise RuntimeError(f"{package.name} has no metadata section")
+        metadata, ns = nuspec_metadata(archive, names, package.name)
 
-        def value(name: str) -> str:
-            node = metadata.find(f"{ns}{name}")
-            return (node.text or "").strip() if node is not None else ""
-
-        if value("id") != package_id:
-            raise RuntimeError(f"{package.name}: unexpected package id {value('id')!r}")
-        if value("version") != version:
-            raise RuntimeError(f"{package.name}: unexpected version {value('version')!r}")
-        if not value("description"):
+        if metadata_value(metadata, ns, "id") != package_id:
+            raise RuntimeError(
+                f"{package.name}: unexpected package id "
+                f"{metadata_value(metadata, ns, 'id')!r}"
+            )
+        if metadata_value(metadata, ns, "version") != version:
+            raise RuntimeError(
+                f"{package.name}: unexpected version "
+                f"{metadata_value(metadata, ns, 'version')!r}"
+            )
+        if not metadata_value(metadata, ns, "description"):
             raise RuntimeError(f"{package.name}: missing description")
-        if value("readme") != "README.md":
-            raise RuntimeError(f"{package.name}: PackageReadmeFile was not emitted")
+        if metadata_value(metadata, ns, "readme") != "README.md":
+            raise RuntimeError(
+                f"{package.name}: PackageReadmeFile was not emitted"
+            )
 
         repository = metadata.find(f"{ns}repository")
-        if repository is None or repository.attrib.get("url") != "https://github.com/Perry3Dnl/DHMP":
+        if (
+            repository is None
+            or repository.attrib.get("url")
+            != "https://github.com/Perry3Dnl/DHMP"
+        ):
             raise RuntimeError(f"{package.name}: missing repository metadata")
+
+    print(
+        "PACKAGE_INSPECTION_PASS "
+        f"package={package.name} bytes={package.stat().st_size} entries={len(names)}"
+    )
+
+
+def validate_symbols_package(
+    package: Path,
+    package_id: str,
+    version: str,
+) -> None:
+    if not package.exists():
+        raise RuntimeError(f"Missing symbols package: {package}")
+
+    with zipfile.ZipFile(package) as archive:
+        names = set(archive.namelist())
+        validate_payload_names(package, names)
+
+        expected_pdb = f"lib/{TARGET_FRAMEWORK}/{package_id}.pdb"
+        pdb_entries = sorted(
+            name
+            for name in names
+            if name.lower().endswith(".pdb")
+        )
+        if pdb_entries != [expected_pdb]:
+            raise RuntimeError(
+                f"{package.name}: expected only {expected_pdb!r} as a symbol payload, "
+                f"found {pdb_entries!r}"
+            )
+
+        metadata, ns = nuspec_metadata(archive, names, package.name)
+        if metadata_value(metadata, ns, "id") != package_id:
+            raise RuntimeError(
+                f"{package.name}: unexpected symbols package id "
+                f"{metadata_value(metadata, ns, 'id')!r}"
+            )
+        if metadata_value(metadata, ns, "version") != version:
+            raise RuntimeError(
+                f"{package.name}: unexpected symbols version "
+                f"{metadata_value(metadata, ns, 'version')!r}"
+            )
+
+    print(
+        "SYMBOL_PACKAGE_INSPECTION_PASS "
+        f"package={package.name} bytes={package.stat().st_size} entries={len(names)}"
+    )
 
 
 def create_core_consumer(root: Path, feed: Path, version: str) -> None:
@@ -191,10 +340,17 @@ def create_aspnet_consumer(root: Path, feed: Path, version: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Pack DHMP to an isolated local feed and compile clean consumer projects. Never publishes packages."
+        description=(
+            "Pack DHMP to an isolated local feed, inspect package payloads, "
+            "and compile clean consumer projects. Never publishes packages."
+        )
     )
     parser.add_argument("--version", default=DEFAULT_VERSION)
-    parser.add_argument("--keep", action="store_true", help="Keep the temporary workspace for inspection.")
+    parser.add_argument(
+        "--keep",
+        action="store_true",
+        help="Keep the temporary workspace for inspection.",
+    )
     args = parser.parse_args()
 
     if shutil.which("dotnet") is None:
@@ -219,12 +375,25 @@ def main() -> int:
 
         for package_id in PACKAGE_IDS:
             package = feed / f"{package_id}.{args.version}.nupkg"
+            symbols_package = feed / f"{package_id}.{args.version}.snupkg"
             validate_package(package, package_id, args.version)
+            validate_symbols_package(
+                symbols_package,
+                package_id,
+                args.version,
+            )
 
         create_core_consumer(workspace, feed, args.version)
         create_aspnet_consumer(workspace, feed, args.version)
 
-        print(f"LOCAL_PACKAGE_CONSUMER_PASS version={args.version} packages={len(PACKAGE_IDS)}")
+        print(
+            "LOCAL_PACKAGE_CONSUMER_PASS "
+            f"version={args.version} packages={len(PACKAGE_IDS)}"
+        )
+        print(
+            "Package inspection verified target assemblies, symbol payloads, "
+            "metadata and absence of repository-only/key-like files."
+        )
         print("No package was uploaded or published.")
         return 0
     finally:
