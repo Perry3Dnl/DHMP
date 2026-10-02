@@ -7,7 +7,7 @@ The protocol direction is now fixed enough to build the missing network path aro
 The first Linux sender/receiver now moves complete headerless DHMP payloads through raw IPv6 sockets. Remaining hardening work:
 
 - validate real two-host peer/path behavior;
-- validate raw-socket permissions and operational diagnostics;
+- use the host-readiness probe for Linux/IPv6/raw-socket diagnostics and validate those permissions on physical deployments;
 - validate path-MTU/error behavior;
 - keep packet buffers alive through asynchronous kernel ownership;
 - make receive/send buffer counts bounded;
@@ -82,14 +82,17 @@ Implemented baseline:
 - 40-byte IPv6 base-header accounting plus optional extension-header budget;
 - security/envelope subtraction and whole-record alignment;
 - `SocketError.MessageSize` surfaced as `DhmpPathMtuException`;
-- opt-in smooth Pmax pacing.
+- opt-in smooth Pmax pacing;
+- authenticated DPLPMTUD search and re-confirmation on the protected control channel;
+- live raw-sender budget starts from the IPv6 minimum and raises only after authenticated confirmation, with immediate fallback to the base budget after failed re-confirmation;
+- protected/client ceilings follow the current live raw budget after envelope subtraction and whole-record alignment.
 
 Still to add:
 
-- dynamic PMTU discovery/ICMPv6 feedback handling;
-- automatic downward/upward path-budget adaptation;
-- authenticated receiver-overload feedback + adaptive pacing is implemented; still add loss/RTT/ECN-aware congestion/fairness behavior suitable for shared networks;
-- real-path validation that fragmentation is avoided.
+- automatic periodic PMTU maintenance / raise timers;
+- validated ICMPv6 Packet Too Big acceleration;
+- loss/RTT/ECN-aware congestion/fairness behavior suitable for shared networks;
+- real-path validation across route changes, induced black holes and physical links that fragmentation remains avoided.
 
 Normal operation should not depend on IP fragmentation.
 
