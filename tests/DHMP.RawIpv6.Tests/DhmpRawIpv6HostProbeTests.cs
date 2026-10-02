@@ -1,4 +1,3 @@
-using System.Net.Sockets;
 using DHMP.Protocol;
 using Xunit;
 
@@ -21,10 +20,7 @@ public sealed class DhmpRawIpv6HostProbeTests
                 {
                     openedProtocols.Add(protocol);
 
-                    return new Socket(
-                        AddressFamily.InterNetwork,
-                        SocketType.Dgram,
-                        ProtocolType.Udp);
+                    return new MemoryStream();
                 });
 
         Assert.True(result.IsReady);
