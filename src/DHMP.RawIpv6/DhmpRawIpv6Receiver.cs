@@ -25,6 +25,10 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
     private long _foreignPeerPackets;
     private long _protectionRejectedPackets;
 
+    /// <summary>
+    /// Open a Linux raw-IPv6 receiver for one configured peer. The receiver owns its socket but does
+    /// not own or dispose the supplied server facade or optional packet decoder.
+    /// </summary>
     public DhmpRawIpv6Receiver(
         DhmpRawIpv6Options options,
         DhmpServer server,
@@ -92,18 +96,26 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         }
     }
 
+    /// <summary>Number of packets successfully decoded, validated and published.</summary>
     public long AcceptedPackets =>
         Interlocked.Read(ref _acceptedPackets);
 
+    /// <summary>Number of malformed, truncated or protocol-invalid packets rejected.</summary>
     public long RejectedPackets =>
         Interlocked.Read(ref _rejectedPackets);
 
+    /// <summary>Number of packets ignored because their source address was not the configured peer.</summary>
     public long ForeignPeerPackets =>
         Interlocked.Read(ref _foreignPeerPackets);
 
+    /// <summary>Number of packets rejected by the configured protection decoder.</summary>
     public long ProtectionRejectedPackets =>
         Interlocked.Read(ref _protectionRejectedPackets);
 
+    /// <summary>
+    /// Run the single receive loop until cancellation. Published spans are borrowed and valid only
+    /// for the synchronous duration of the callback.
+    /// </summary>
     public async Task RunAsync(
         Action<ReadOnlySpan<byte>> publishBatch,
         CancellationToken cancellationToken = default)
@@ -183,6 +195,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         }
     }
 
+    /// <summary>Close the owned raw socket; callers should cancel and join an active receive loop first.</summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
