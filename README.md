@@ -182,7 +182,8 @@ The native raw-IPv6 backend deliberately fails closed around several assumptions
 - plaintext receive without an integrity/authentication decoder requires explicit `allowUnprotectedPayloads: true`;
 - wildcard local address `::` requires explicit `allowWildcardLocalAddress: true`, because DHMP V1 has no port field; prefer one explicit IPv6 address per DHMP service;
 - unknown paths can use `ForUnknownPath(...)`, which budgets from the IPv6 minimum MTU of 1280 bytes rather than assuming 1500;
-- Linux raw-socket permission failures identify the `CAP_NET_RAW` requirement.
+- Linux raw-socket permission failures identify the `CAP_NET_RAW` requirement;
+- `DhmpRawIpv6HostProbe.Probe(enableExperimentalProtocolNumbers: true)` can preflight Linux, IPv6 support and the ability to open both experimental raw-socket bindings before application startup. It opens and closes sockets only; it does **not** prove router/firewall/ISP reachability.
 
 These safeguards change API defaults, not the V1 data bytes. See [deployment safety](docs/DEPLOYMENT_SAFETY.md) and [deployment/reachability](docs/DEPLOYMENT_REACHABILITY.md).
 
