@@ -29,6 +29,23 @@ Without that explicit flag, the raw sender, receiver and control channel refuse 
 
 The opt-in means only: "this application knowingly participates in an explicitly configured DHMP experiment." It does not make 253/254 DHMP-owned numbers and does not imply Internet reachability.
 
+## Local host preflight
+
+Before opening an application sender/receiver, a deployment can check the local machine separately from the network path:
+
+```csharp
+DhmpRawIpv6HostProbeResult probe =
+    DhmpRawIpv6HostProbe.Probe(
+        enableExperimentalProtocolNumbers: true);
+
+if (!probe.IsReady)
+    Console.Error.WriteLine(probe.Message);
+```
+
+The probe checks that the native backend is running on Linux, that the runtime reports IPv6 socket support, and that the process can open and immediately close both experimental raw-IPv6 bindings. Permission failures therefore surface before application startup and normally identify the `CAP_NET_RAW` requirement.
+
+A successful result is deliberately narrow: it verifies **local host capability only**. It does not bind an application service address, send a packet, confirm the remote peer, or establish that routers, firewalls, cloud filters, an ISP, a VPN or any other middlebox will pass Next Header 253/254.
+
 ## What routers may do
 
 An IPv6 router can forward a packet based on the destination address without understanding the upper-layer protocol. That does not guarantee end-to-end delivery.
