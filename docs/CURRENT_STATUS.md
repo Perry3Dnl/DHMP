@@ -1,6 +1,6 @@
 # DHMP current status
 
-Updated 2026-09-30.
+Updated 2026-10-02.
 
 Authoritative direction: [direct DHMP over IP](DIRECT_TRANSPORT_DIRECTION.md).
 Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
@@ -20,7 +20,7 @@ Release objective: [finish the existing feature set into a stable base](STABLE_B
 - The V1 framing core has no carry storage or cross-packet record reassembly. The explicit DAPI/1 application schema may assemble bounded application messages from complete fixed records above that core.
 - `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
 - `DhmpServer` uses the same wire contract with its own local receive policy.
-- `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: data on experimental protocol 253 and control/handshake on 254. It includes bounded source-IPv6 multi-peer routing plus `DhmpIpv6PathBudget` for known-PMTU payload calculation.
+- `DHMP.RawIpv6` provides the first concrete direct-IP .NET backend on Linux: data on experimental protocol 253 and control/handshake on 254. It includes bounded source-IPv6 multi-peer routing, `DhmpIpv6PathBudget`, authenticated DPLPMTUD search/re-confirmation and live sender-budget adaptation. `DhmpRawIpv6HostProbe` can preflight local Linux/IPv6/raw-socket readiness without claiming network-path reachability.
 - `DHMP.Security` provides an experimental PSK security profile using authenticated control setup, HKDF-derived directional keys, ChaCha20-Poly1305 packet protection, bounded replay, rolling protected-packet loss telemetry and authenticated RTT probes.
 - `DhmpBoundedReceiveDispatcher` provides explicit async ownership/overload behavior: one-slot replacement for Latest and fixed-capacity reject-on-saturation for Sequential, with immutable pressure snapshots for metrics. `DhmpCongestionAdvisor` converts snapshot deltas into bounded receiver pressure recommendations.
 - Offline licensing remains separate from peer authentication. The original three-argument ASP.NET registration remains host/license-only. The opt-in one-argument registration now adds the experimental [automatic API application integration](ASP_NET_API_INTEGRATION.md), mapping factory-created client calls and the existing backend pipeline over authenticated raw IPv6.
@@ -56,7 +56,7 @@ Historical versions remain available through git history.
 3. Peer discovery and multiplexing beyond the implemented one-session-per-source-IPv6 routing model. Compatibility negotiation and PSK authentication are implemented for explicitly configured peers.
 4. Production hardening/metrics around the implemented bounded async receive dispatcher; the unbounded receive-queue gap is closed.
 5. Broader loss/duplicate/reordering policy beyond the implemented optional Latest generation filter.
-6. Dynamic IPv6 PMTU discovery plus broader network congestion control. Authenticated receiver-overload feedback, rolling secure loss observation, RTT measurement and adaptive pacing are implemented; ECN, RTT-inflation policy and fairness remain open.
+6. Automatic PMTU maintenance/PTB acceleration plus broader network congestion control. Authenticated DPLPMTUD search/re-confirmation, live sender-budget adaptation, receiver-overload feedback, rolling secure loss observation, RTT measurement and adaptive pacing are implemented; periodic PMTU maintenance, validated ICMPv6 PTB input, ECN, RTT-inflation policy and fairness remain open.
 7. Independent review/hardening of the implemented PSK security profile, plus a decision on forward-secret/public-key profiles.
 8. Kernel, NIC and physical two-host validation.
 
