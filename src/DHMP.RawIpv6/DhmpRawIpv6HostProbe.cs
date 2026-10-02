@@ -7,6 +7,8 @@ namespace DHMP.RawIpv6;
 /// Result of checking whether the current host can open the native DHMP raw-IPv6
 /// data and control sockets.
 /// </summary>
+/// <param name="Status">The local readiness state.</param>
+/// <param name="Message">A human-readable diagnostic for the state.</param>
 public sealed record DhmpRawIpv6HostProbeResult(
     DhmpRawIpv6HostProbeStatus Status,
     string Message)
@@ -23,11 +25,22 @@ public sealed record DhmpRawIpv6HostProbeResult(
 /// </summary>
 public enum DhmpRawIpv6HostProbeStatus
 {
+    /// <summary>Both experimental DHMP raw-IPv6 sockets opened successfully.</summary>
     Ready = 0,
+
+    /// <summary>The current native backend does not support this operating system.</summary>
     UnsupportedOperatingSystem = 1,
+
+    /// <summary>The runtime does not report IPv6 socket support.</summary>
     Ipv6Unavailable = 2,
+
+    /// <summary>The caller did not explicitly opt into experimental Next Header values 253/254.</summary>
     ExperimentalProtocolNumbersNotEnabled = 3,
+
+    /// <summary>The operating system denied raw-socket access.</summary>
     PermissionDenied = 4,
+
+    /// <summary>A native raw socket could not be opened for another operating-system reason.</summary>
     SocketOpenFailed = 5
 }
 
@@ -38,6 +51,13 @@ public enum DhmpRawIpv6HostProbeStatus
 /// </summary>
 public static class DhmpRawIpv6HostProbe
 {
+    /// <summary>
+    /// Checks local native-backend readiness without binding an application address or sending traffic.
+    /// </summary>
+    /// <param name="enableExperimentalProtocolNumbers">
+    /// Explicitly opts this probe into the RFC 4727/IANA experimental Next Header values 253/254.
+    /// </param>
+    /// <returns>A local readiness result. Success does not establish remote-path reachability.</returns>
     public static DhmpRawIpv6HostProbeResult Probe(
         bool enableExperimentalProtocolNumbers = false)
         => ProbeCore(
