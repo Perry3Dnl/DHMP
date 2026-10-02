@@ -23,6 +23,8 @@ This document tracks work required before any public NuGet publication. The repo
 - [x] Plaintext raw receive requires explicit acceptance.
 - [x] Wildcard raw service ownership requires explicit acceptance.
 - [x] Conservative 1280-byte unknown-path mode.
+- [x] Authenticated DPLPMTUD search/re-confirmation with live sender-budget adaptation.
+- [x] Local raw-IPv6 host readiness probe for Linux/IPv6/experimental-binding permission diagnostics.
 - [x] Linux raw sockets explicitly disable IPv6 source fragmentation.
 - [x] Shared NuGet metadata for repository URL, descriptions, tags, README and symbols.
 - [x] Local package-consumer CI: pack all public projects to an isolated local feed, restore clean consumer projects, and compile them.
@@ -36,7 +38,7 @@ This document tracks work required before any public NuGet publication. The repo
 - [x] Add a minimal external-user quickstart that does not assume knowledge of the repository's benchmark harnesses.
 - [ ] Perform a clean-machine package inspection from the generated local packages.
 - [ ] Decide the preview version/tag and release notes.
-- [ ] Explicitly accept/document which deployment limitations remain open for the preview: physical two-host/NIC validation, router/ISP reachability matrix, DPLPMTUD, complete Internet congestion control and independent security review.
+- [ ] Explicitly accept/document which deployment limitations remain open for the preview: physical two-host/NIC validation, router/ISP reachability matrix, automatic PMTU maintenance/PTB acceleration, complete Internet congestion control and independent security review.
 - [ ] Explicit owner approval to publish.
 
 ## Publication safety rule
