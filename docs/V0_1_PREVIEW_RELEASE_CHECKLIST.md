@@ -34,7 +34,7 @@ This document tracks work required before any public NuGet publication. The repo
 - [ ] **Choose and add the repository/package software license.** This is a legal/product-owner decision and is intentionally not guessed by the implementation.
 - [ ] Decide whether the first public preview is intentionally .NET 10-only or whether another target is required and actually supportable.
 - [ ] Add a NuGet-compatible package icon (PNG/JPEG) if desired. The repository logo is currently WebP.
-- [ ] Audit every public type/member for naming, XML documentation, lifetime/disposal behavior and preview stability.
+- [ ] Audit every public type/member for naming, XML documentation, lifetime/disposal behavior and preview stability. Public packages now generate and ship XML IntelliSense documentation, and package-consumer CI rejects packages that omit it; the member-by-member audit remains in progress.
 - [x] Add a minimal external-user quickstart that does not assume knowledge of the repository's benchmark harnesses.
 - [x] Perform clean-runner package inspection from the generated local packages: exact `net10.0` assembly/PDB payloads, package identity/version/readme/repository metadata, and leakage guards are enforced before isolated consumers restore.
 - [ ] Decide the preview version/tag and release notes.
