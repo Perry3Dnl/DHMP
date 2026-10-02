@@ -44,13 +44,13 @@ public static class DhmpRawIpv6HostProbe
             OperatingSystem.IsLinux(),
             Socket.OSSupportsIPv6,
             enableExperimentalProtocolNumbers,
-            DhmpLinuxRawIpv6Socket.Open);
+            protocol => DhmpLinuxRawIpv6Socket.Open(protocol));
 
     internal static DhmpRawIpv6HostProbeResult ProbeCore(
         bool isLinux,
         bool ipv6Available,
         bool experimentalProtocolNumbersEnabled,
-        Func<byte, Socket> openSocket)
+        Func<byte, IDisposable> openSocket)
     {
         ArgumentNullException.ThrowIfNull(openSocket);
 
@@ -78,11 +78,11 @@ public static class DhmpRawIpv6HostProbe
 
         try
         {
-            using Socket dataSocket =
+            using IDisposable dataSocket =
                 openSocket(
                     DhmpProtocol.ExperimentalIpv6DataNextHeader);
 
-            using Socket controlSocket =
+            using IDisposable controlSocket =
                 openSocket(
                     DhmpProtocol.ExperimentalIpv6ControlNextHeader);
 
