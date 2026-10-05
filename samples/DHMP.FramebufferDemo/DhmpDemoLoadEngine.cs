@@ -9,20 +9,24 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
     public const int SimulatedFramesPerSecond = 60;
     public const int QueueCapacityRecords = 4 * 1024 * 1024;
 
+    private const int BatchQueueCapacity = 4096;
+    private const int ConsumerChunkRecords = 262_144;
+
     private readonly DhmpServer _server;
     private readonly object _configurationGate = new();
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
-    private readonly long[] _queue = new long[QueueCapacityRecords];
+    private readonly WorkBatch[] _batches =
+        new WorkBatch[BatchQueueCapacity];
 
     private int _width = 1280;
     private int _height = 720;
     private string _label = "720p";
-    private long _cursor;
+    private long _offerCursor;
     private long _generation;
 
-    // Single-producer / single-consumer monotonically increasing positions.
-    private long _writePosition;
-    private long _readPosition;
+    // SPSC descriptor positions. High-rate records themselves are not queued.
+    private long _batchWritePosition;
+    private long _batchReadPosition;
 
     private long _offeredRecords;
     private long _acceptedRecords;
@@ -59,16 +63,19 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             label = _label;
         }
 
-        long write = Volatile.Read(ref _writePosition);
-        long read = Volatile.Read(ref _readPosition);
-        long queueDepth = Math.Max(0, write - read);
+        long accepted =
+            Interlocked.Read(ref _acceptedRecords);
+        long processed =
+            Interlocked.Read(ref _processedRecords);
+        long queueDepth =
+            Math.Max(0, accepted - processed);
 
         return new DhmpDemoSnapshot(
             _uptime.ElapsedMilliseconds,
             Interlocked.Read(ref _offeredRecords),
-            Interlocked.Read(ref _acceptedRecords),
+            accepted,
             Interlocked.Read(ref _droppedRecords),
-            Interlocked.Read(ref _processedRecords),
+            processed,
             Interlocked.Read(ref _publishedRecords),
             Interlocked.Read(ref _processedRecordBytes),
             queueDepth,
@@ -81,7 +88,8 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             SimulatedFramesPerSecond);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
     {
         Task producer = ProduceAsync(stoppingToken);
         Task consumer = ConsumeAsync(stoppingToken);
@@ -89,16 +97,23 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
         await Task.WhenAll(producer, consumer);
     }
 
-    private async Task ProduceAsync(CancellationToken stoppingToken)
+    private async Task ProduceAsync(
+        CancellationToken stoppingToken)
     {
         const int SlicesPerSecond = 100;
-        TimeSpan targetSlice = TimeSpan.FromSeconds(1d / SlicesPerSecond);
-        long lastOfferTimestamp = Stopwatch.GetTimestamp();
+
+        TimeSpan targetSlice =
+            TimeSpan.FromSeconds(1d / SlicesPerSecond);
+
+        long lastOfferTimestamp =
+            Stopwatch.GetTimestamp();
+
         double fractionalOffer = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            long sliceStarted = Stopwatch.GetTimestamp();
+            long sliceStarted =
+                Stopwatch.GetTimestamp();
 
             int width;
             int height;
@@ -110,16 +125,21 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             }
 
             long targetPerSecond =
-                CalculateTargetRecordsPerSecond(width, height);
+                CalculateTargetRecordsPerSecond(
+                    width,
+                    height);
 
             long now = Stopwatch.GetTimestamp();
+
             double elapsedOfferSeconds =
                 (double)(now - lastOfferTimestamp) /
                 Stopwatch.Frequency;
+
             lastOfferTimestamp = now;
 
             double exactOffer =
-                targetPerSecond * elapsedOfferSeconds +
+                targetPerSecond *
+                elapsedOfferSeconds +
                 fractionalOffer;
 
             long requested =
@@ -129,130 +149,250 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                 exactOffer - requested;
 
             if (requested > 0)
-                Interlocked.Add(ref _offeredRecords, requested);
-
-            long write = Volatile.Read(ref _writePosition);
-            long read = Volatile.Read(ref _readPosition);
-            long depth = Math.Max(0, write - read);
-            long free = Math.Max(0, QueueCapacityRecords - depth);
-            int accepted = (int)Math.Min(requested, free);
-            long dropped = requested - accepted;
-
-            for (int index = 0; index < accepted; index++)
-            {
-                long sequence = _cursor++;
-
-                int slot =
-                    (int)((write + index) % QueueCapacityRecords);
-
-                _queue[slot] = sequence;
-            }
-
-            if (accepted > 0)
-            {
-                Volatile.Write(
-                    ref _writePosition,
-                    write + accepted);
-                Interlocked.Add(
-                    ref _acceptedRecords,
-                    accepted);
-            }
-
-            if (dropped > 0)
             {
                 Interlocked.Add(
-                    ref _droppedRecords,
-                    dropped);
+                    ref _offeredRecords,
+                    requested);
+
+                OfferBatch(
+                    requested,
+                    width,
+                    height);
             }
 
             TimeSpan elapsed =
-                Stopwatch.GetElapsedTime(sliceStarted);
-            TimeSpan delay = targetSlice - elapsed;
+                Stopwatch.GetElapsedTime(
+                    sliceStarted);
+
+            TimeSpan delay =
+                targetSlice - elapsed;
 
             if (delay > TimeSpan.Zero)
-                await Task.Delay(delay, stoppingToken);
+            {
+                await Task.Delay(
+                    delay,
+                    stoppingToken);
+            }
             else
+            {
                 await Task.Yield();
+            }
         }
     }
 
-    private async Task ConsumeAsync(CancellationToken stoppingToken)
+    private void OfferBatch(
+        long requested,
+        int width,
+        int height)
     {
-        byte[] record = new byte[RecordSize];
+        long acceptedTotal =
+            Interlocked.Read(ref _acceptedRecords);
+
+        long processedTotal =
+            Interlocked.Read(ref _processedRecords);
+
+        long queuedRecords =
+            Math.Max(
+                0,
+                acceptedTotal - processedTotal);
+
+        long freeRecords =
+            Math.Max(
+                0,
+                QueueCapacityRecords - queuedRecords);
+
+        long batchWrite =
+            Volatile.Read(ref _batchWritePosition);
+
+        long batchRead =
+            Volatile.Read(ref _batchReadPosition);
+
+        bool descriptorAvailable =
+            batchWrite - batchRead <
+            BatchQueueCapacity;
+
+        int accepted = descriptorAvailable
+            ? (int)Math.Min(
+                requested,
+                freeRecords)
+            : 0;
+
+        long dropped =
+            requested - accepted;
+
+        long sequenceStart =
+            _offerCursor;
+
+        // Advance through the full conceptual offered stream,
+        // including records rejected by backpressure.
+        _offerCursor += requested;
+
+        if (accepted > 0)
+        {
+            int slot =
+                (int)(
+                    batchWrite %
+                    BatchQueueCapacity);
+
+            _batches[slot] =
+                new WorkBatch(
+                    sequenceStart,
+                    accepted,
+                    width,
+                    height);
+
+            Volatile.Write(
+                ref _batchWritePosition,
+                batchWrite + 1);
+
+            Interlocked.Add(
+                ref _acceptedRecords,
+                accepted);
+        }
+
+        if (dropped > 0)
+        {
+            Interlocked.Add(
+                ref _droppedRecords,
+                dropped);
+        }
+    }
+
+    private async Task ConsumeAsync(
+        CancellationToken stoppingToken)
+    {
+        byte[] record =
+            new byte[RecordSize];
+
+        int currentOffset = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            long read = Volatile.Read(ref _readPosition);
-            long write = Volatile.Read(ref _writePosition);
+            long batchRead =
+                Volatile.Read(
+                    ref _batchReadPosition);
 
-            if (read >= write)
+            long batchWrite =
+                Volatile.Read(
+                    ref _batchWritePosition);
+
+            if (batchRead >= batchWrite)
             {
                 await Task.Yield();
                 continue;
             }
 
-            int width;
-            int height;
+            int slot =
+                (int)(
+                    batchRead %
+                    BatchQueueCapacity);
 
-            lock (_configurationGate)
-            {
-                width = _width;
-                height = _height;
-            }
+            WorkBatch batch =
+                _batches[slot];
 
-            long pixelCount = (long)width * height;
-            long available = write - read;
-            int batch = (int)Math.Min(available, 262_144);
+            int remaining =
+                batch.Count - currentOffset;
+
+            int chunk =
+                Math.Min(
+                    remaining,
+                    ConsumerChunkRecords);
+
             int published = 0;
 
-            for (int index = 0; index < batch; index++)
-            {
-                int slot =
-                    (int)((read + index) % QueueCapacityRecords);
-                long position = _queue[slot];
+            ProcessRange(
+                record,
+                batch,
+                currentOffset,
+                chunk,
+                ref published);
 
-                long pixel = position % pixelCount;
-                ushort x = (ushort)(pixel % width);
-                ushort y = (ushort)(pixel / width);
-                ulong generation =
-                    unchecked((ulong)++_generation);
-
-                Span<byte> span = record;
-                BinaryPrimitives.WriteUInt16BigEndian(
-                    span[..2],
-                    x);
-                BinaryPrimitives.WriteUInt16BigEndian(
-                    span.Slice(2, 2),
-                    y);
-                BinaryPrimitives.WriteUInt64BigEndian(
-                    span.Slice(4, 8),
-                    generation);
-
-                span[12] = (byte)(position * 17);
-                span[13] = (byte)(position * 31);
-                span[14] = (byte)(position * 47);
-                span[15] = 0;
-
-                _server.ProcessPacket(
-                    span,
-                    _ => published++);
-            }
-
-            Volatile.Write(
-                ref _readPosition,
-                read + batch);
+            currentOffset += chunk;
 
             Interlocked.Add(
                 ref _processedRecords,
-                batch);
+                chunk);
+
             Interlocked.Add(
                 ref _publishedRecords,
                 published);
+
             Interlocked.Add(
                 ref _processedRecordBytes,
-                (long)batch * RecordSize);
+                (long)chunk * RecordSize);
+
+            if (currentOffset >= batch.Count)
+            {
+                currentOffset = 0;
+
+                Volatile.Write(
+                    ref _batchReadPosition,
+                    batchRead + 1);
+            }
 
             await Task.Yield();
+        }
+    }
+
+    private void ProcessRange(
+        byte[] record,
+        WorkBatch batch,
+        int offset,
+        int count,
+        ref int published)
+    {
+        long pixelCount =
+            (long)batch.Width *
+            batch.Height;
+
+        for (int index = 0; index < count; index++)
+        {
+            long position =
+                batch.SequenceStart +
+                offset +
+                index;
+
+            long pixel =
+                position % pixelCount;
+
+            ushort x =
+                (ushort)(pixel % batch.Width);
+
+            ushort y =
+                (ushort)(pixel / batch.Width);
+
+            ulong generation =
+                unchecked(
+                    (ulong)++_generation);
+
+            Span<byte> span = record;
+
+            BinaryPrimitives.WriteUInt16BigEndian(
+                span[..2],
+                x);
+
+            BinaryPrimitives.WriteUInt16BigEndian(
+                span.Slice(2, 2),
+                y);
+
+            BinaryPrimitives.WriteUInt64BigEndian(
+                span.Slice(4, 8),
+                generation);
+
+            span[12] =
+                (byte)(position * 17);
+
+            span[13] =
+                (byte)(position * 31);
+
+            span[14] =
+                (byte)(position * 47);
+
+            span[15] = 0;
+
+            _server.ProcessPacket(
+                span,
+                _ => published++);
         }
     }
 
@@ -270,6 +410,12 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             1,
             (long)Math.Round(target));
     }
+
+    private readonly record struct WorkBatch(
+        long SequenceStart,
+        int Count,
+        int Width,
+        int Height);
 }
 
 internal sealed record DhmpDemoSnapshot(
