@@ -17,6 +17,7 @@
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Client'">DHMP per-session client sending facade and optional application-level confirmation helpers.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Server'">DHMP server-side fixed-record processing, publication, freshness, and bounded receive helpers.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.RawIpv6'">Experimental Linux raw-IPv6 backend for DHMP direct-IP data and control traffic.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.AfXdp'">Experimental Linux AF_XDP fast-path research package and capability/benchmark API for DHMP.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Security'">Experimental DHMP PSK packet protection, replay defense, security setup, and secure-path telemetry.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Licensing'">Offline DHMP application-license verification primitives.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.AspNetCore'">ASP.NET Core integration, dependency injection, licensing startup gates, and experimental DHMP API transport.</Description>
