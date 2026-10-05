@@ -79,10 +79,7 @@ app.MapPost("/api/updates", async (
     }
 
     int updateCount = input.Length / InputRecordSize;
-    byte[] output = GC.AllocateUninitializedArray<byte>(
-        updateCount * DhmpRecordSize);
     byte[] record = new byte[DhmpRecordSize];
-    int outputOffset = 0;
     int accepted = 0;
     int published = 0;
 
@@ -115,13 +112,8 @@ app.MapPost("/api/updates", async (
 
         server.ProcessPacket(
             recordSpan,
-            latest =>
+            _ =>
             {
-                latest.CopyTo(
-                    output.AsSpan(
-                        outputOffset,
-                        DhmpRecordSize));
-                outputOffset += DhmpRecordSize;
                 published++;
             });
     }
@@ -135,15 +127,15 @@ app.MapPost("/api/updates", async (
         ref publishedRecordBytes,
         (long)published * DhmpRecordSize);
 
-    response.ContentType = "application/octet-stream";
-    response.ContentLength = outputOffset;
-
-    if (outputOffset > 0)
-    {
-        await response.Body.WriteAsync(
-            output.AsMemory(0, outputOffset),
-            cancellationToken);
-    }
+    response.ContentType = "application/json";
+    await response.WriteAsJsonAsync(
+        new
+        {
+            accepted,
+            published,
+            recordBytes = (long)published * DhmpRecordSize
+        },
+        cancellationToken);
 });
 
 app.Run();
