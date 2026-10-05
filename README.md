@@ -138,6 +138,12 @@ dotnet run --project samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj
 
 That sample demonstrates the protocol semantics only. It is not a network benchmark or a reachability test.
 
+A second sample demonstrates a **Latest-mode framebuffer**: only changed pixels are sent as fixed records, and the receiver keeps its existing pixel state until a newer update arrives. The public-facing sample uses ordinary HTTPS for the browser control channel and DHMP processing in the backend, so it demonstrates state semantics rather than claiming raw-browser DHMP transport.
+
+```sh
+dotnet run --project samples/DHMP.FramebufferDemo/DHMP.FramebufferDemo.csproj
+```
+
 <!-- BEGIN FULL BENCHMARK RESULTS -->
 ## Latest validation and benchmarks — 1 October 2026
 
