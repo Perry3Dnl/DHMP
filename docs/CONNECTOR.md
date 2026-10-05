@@ -90,6 +90,44 @@ rather than pretending that an unrestricted accept-any-peer listener already exi
 
 Automatic unknown-peer discovery/admission should be added at the control-plane boundary before the Connector API exposes it.
 
+
+
+## Messaging vocabulary
+
+Connector APIs describe actions from the local application's perspective:
+
+```text
+SendAsync(...)      send one message
+SendBurstAsync(...) send many messages at a configured rate
+ReceiveAsync()      wait for the next message
+OnReceive(...)      register handling for a named route
+```
+
+Named routes are an application profile above the unchanged DHMP V1 data plane. They do not add protocol-owned V1 headers or change fixed-record framing.
+
+Example:
+
+```csharp
+peer.OnReceive("player/input", record =>
+{
+    HandlePlayerInput(record);
+});
+
+await peer.SendAsync(
+    "player/state",
+    state,
+    DhmpDelivery.FireAndForget);
+```
+
+Delivery behavior remains explicit policy:
+
+- `FireAndForget` submits once with no confirmation wait;
+- `Confirmed` waits for application-owned confirmation evidence and does not retransmit;
+- `FullEcho` waits for the full-record echo profile and does not retransmit;
+- burst sending reuses the same route with a caller-selected rate bounded by the connection's configured send ceiling.
+
+The same vocabulary is used on both sides. There is no client/server reversal: code that calls `Send...` sends, and code that uses `Receive...` receives.
+
 ## Security
 
 The recommended Connector path supplies `PreSharedKey`. The Connector then performs the existing compatibility handshake followed by the authenticated PSK setup and uses the resulting session for protected send and receive traffic.
