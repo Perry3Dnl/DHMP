@@ -6,10 +6,14 @@
   const packetLabel=$('packetLabel');
   const workerLabel=$('workerLabel');
   const state=$('state');
+  const receiveButtons=[...document.querySelectorAll('[data-receive-mode]')];
+  const rateButtons=[...document.querySelectorAll('[data-rate-policy]')];
   const recordsHistory=[];
   const throughputHistory=[];
   let previous=null;
   let configureTimer=0;
+  let selectedReceiveMode='Sequential';
+  let selectedRatePolicy='RejectWindow';
 
   function compact(v){
     if(v>=1e9)return (v/1e9).toFixed(2)+'B';
@@ -43,7 +47,7 @@
     packetLabel.textContent=packetBytes.toLocaleString()+' bytes';
     workerLabel.textContent=workers.toString();
     state.textContent='reconfiguring…';state.classList.remove('live');
-    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers})});
+    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers,receiveMode:selectedReceiveMode,ratePolicy:selectedRatePolicy})});
     if(!response.ok)throw new Error('HTTP '+response.status);
     previous=null;recordsHistory.length=0;throughputHistory.length=0;renderCharts();
   }
@@ -59,6 +63,11 @@
       $('activeWorkers').textContent=cur.workers;
       $('logicalProcessors').textContent=cur.logicalProcessors;
       $('receiveMode').textContent=cur.receiveMode;
+      $('ratePolicy').textContent=cur.ratePolicy;
+      selectedReceiveMode=cur.receiveMode;
+      selectedRatePolicy=cur.ratePolicy;
+      receiveButtons.forEach(button=>button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode));
+      rateButtons.forEach(button=>button.classList.toggle('active',button.dataset.ratePolicy===selectedRatePolicy));
       $('workerFaults').textContent=Number(cur.workerFaults).toLocaleString();
       $('workerError').textContent=cur.lastWorkerError||'none';
       workerSlider.max=Math.max(1,Math.min(16,cur.logicalProcessors*2));
@@ -68,15 +77,18 @@
         const submitted=(cur.recordsSubmitted-previous.recordsSubmitted)/sec;
         const published=(cur.recordsPublished-previous.recordsPublished)/sec;
         const packets=(cur.packetsSubmitted-previous.packetsSubmitted)/sec;
-        const bytes=(cur.bytesPublished-previous.bytesPublished)/sec;
-        const gb=bytes/1e9;
-        const parity=submitted>0?published/submitted*100:0;
+        const submittedBytes=(cur.bytesSubmitted-previous.bytesSubmitted)/sec;
+        const gb=submittedBytes/1e9;
+        const acceptedPackets=Math.max(0,cur.packetsAccepted-previous.packetsAccepted);
+        const expectedPublished=acceptedPackets*Math.max(1,cur.expectedPublishedRecordsPerPacket);
+        const publishedDelta=Math.max(0,cur.recordsPublished-previous.recordsPublished);
+        const parity=expectedPublished>0?publishedDelta/expectedPublished*100:0;
         const sendTicks=Math.max(0,cur.sendTicks-previous.sendTicks);
         const processTicks=Math.max(0,cur.processTicks-previous.processTicks);
         const packetDelta=Math.max(1,cur.packetsSubmitted-previous.packetsSubmitted);
         const nsPerTick=1e9/Math.max(1,cur.stopwatchFrequency);
 
-        $('recordsRate').textContent=Math.round(published).toLocaleString();
+        $('recordsRate').textContent=Math.round(submitted).toLocaleString();
         $('gbps').textContent=gb.toFixed(2);
         $('packetsRate').textContent=Math.round(packets).toLocaleString();
         $('parity').textContent=parity.toFixed(2)+'%';
@@ -114,6 +126,16 @@
 
   packetSlider.addEventListener('input',()=>{packetLabel.textContent=PACKETS[Number(packetSlider.value)].toLocaleString()+' bytes';queueConfigure()});
   workerSlider.addEventListener('input',()=>{workerLabel.textContent=workerSlider.value;queueConfigure()});
+  receiveButtons.forEach(button=>button.addEventListener('click',()=>{
+    selectedReceiveMode=button.dataset.receiveMode;
+    receiveButtons.forEach(item=>item.classList.toggle('active',item===button));
+    queueConfigure();
+  }));
+  rateButtons.forEach(button=>button.addEventListener('click',()=>{
+    selectedRatePolicy=button.dataset.ratePolicy;
+    rateButtons.forEach(item=>item.classList.toggle('active',item===button));
+    queueConfigure();
+  }));
   window.addEventListener('resize',renderCharts);
 
   poll();
