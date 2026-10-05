@@ -216,7 +216,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             AddAccepted);
 
         var sendPolicy = new DhmpSendPolicy(
-            int.MaxValue,
+            long.MaxValue,
             MaximumPayloadBytes,
             DhmpRatePolicy.RejectWindow);
 
@@ -238,7 +238,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         long localBytes = 0;
         long localSendTicks = 0;
 
-        const int FlushPackets = 4096;
+        const int FlushPackets = 256;
 
         while (!cancellationToken.IsCancellationRequested)
         {
