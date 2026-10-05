@@ -13,20 +13,25 @@
   const reset = document.querySelector('#reset');
 
   const palette = ['#56d6ff', '#f4c95d', '#ff6b8a', '#7ce38b', '#b78cff', '#ff955c'];
-  const dirs = [
-    [1, 0],
-    [0, 1],
-    [-1, 0],
-    [0, -1]
-  ];
+  const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
   let previous = new Uint8ClampedArray(W * H * 4);
+  let touchedMask = new Uint8Array(W * H);
+  let dirtyRegions = [];
   let running = true;
   let requestInFlight = false;
   let framesThisSecond = 0;
   let updatesThisSecond = 0;
   let lastStats = performance.now();
   let pipes = [];
+
+  function markDirty(x0, y0, x1, y1) {
+    x0 = Math.max(0, Math.floor(x0));
+    y0 = Math.max(0, Math.floor(y0));
+    x1 = Math.min(W, Math.ceil(x1));
+    y1 = Math.min(H, Math.ceil(y1));
+    if (x1 > x0 && y1 > y0) dirtyRegions.push([x0, y0, x1, y1]);
+  }
 
   function makePipe(index) {
     const margin = 80;
@@ -40,9 +45,10 @@
     };
   }
 
-  function resetScene() {
+  function resetScene(sendClear = true) {
     sctx.fillStyle = '#000';
     sctx.fillRect(0, 0, W, H);
+    if (sendClear) markDirty(0, 0, W, H);
     pipes = Array.from({ length: 6 }, (_, index) => makePipe(index));
   }
 
@@ -70,11 +76,13 @@
     sctx.beginPath();
     sctx.arc(x, y, radius, 0, Math.PI * 2);
     sctx.fill();
+    markDirty(x - radius - 2, y - radius - 2, x + radius + 2, y + radius + 2);
   }
 
   function drawSegment(pipe, x2, y2) {
-    sctx.lineCap = 'round';
+    const pad = pipe.width + 10;
 
+    sctx.lineCap = 'round';
     sctx.strokeStyle = '#0a0e15';
     sctx.lineWidth = pipe.width + 8;
     sctx.beginPath();
@@ -95,17 +103,25 @@
     sctx.moveTo(pipe.x - 2, pipe.y - 2);
     sctx.lineTo(x2 - 2, y2 - 2);
     sctx.stroke();
+
+    markDirty(
+      Math.min(pipe.x, x2) - pad,
+      Math.min(pipe.y, y2) - pad,
+      Math.max(pipe.x, x2) + pad,
+      Math.max(pipe.y, y2) + pad
+    );
   }
 
   function growPipe(pipe) {
     const step = 7;
     const [dx, dy] = dirs[pipe.dir];
-    let x2 = pipe.x + dx * step;
-    let y2 = pipe.y + dy * step;
+    const x2 = pipe.x + dx * step;
+    const y2 = pipe.y + dy * step;
 
     if (x2 < 30 || x2 >= W - 30 || y2 < 30 || y2 >= H - 30) {
       pipe.dir = (pipe.dir + (Math.random() < 0.5 ? 1 : 3)) % 4;
       pipe.remaining = 30;
+      drawJoint(pipe.x, pipe.y, pipe.width, pipe.color);
       return;
     }
 
@@ -124,59 +140,79 @@
   function applyReceivedPixels(buffer) {
     const bytes = new Uint8Array(buffer);
     const view = new DataView(buffer);
-    const image = rctx.getImageData(0, 0, W, H);
 
     for (let off = 0; off + OUTPUT <= bytes.length; off += OUTPUT) {
       const x = view.getUint16(off, false);
       const y = view.getUint16(off + 2, false);
-      const p = (y * W + x) * 4;
-      image.data[p] = bytes[off + 12];
-      image.data[p + 1] = bytes[off + 13];
-      image.data[p + 2] = bytes[off + 14];
-      image.data[p + 3] = 255;
+      const r = bytes[off + 12];
+      const g = bytes[off + 13];
+      const b = bytes[off + 14];
+      rctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+      rctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  function collectChangedPixels(regions) {
+    const changed = [];
+    const touched = [];
+
+    for (const [x0, y0, x1, y1] of regions) {
+      const width = x1 - x0;
+      const height = y1 - y0;
+      const image = sctx.getImageData(x0, y0, width, height).data;
+
+      for (let localY = 0; localY < height; localY++) {
+        for (let localX = 0; localX < width; localX++) {
+          const x = x0 + localX;
+          const y = y0 + localY;
+          const pixel = y * W + x;
+
+          if (touchedMask[pixel]) continue;
+          touchedMask[pixel] = 1;
+          touched.push(pixel);
+
+          const local = (localY * width + localX) * 4;
+          const global = pixel * 4;
+          const r = image[local];
+          const g = image[local + 1];
+          const b = image[local + 2];
+
+          if (r !== previous[global] ||
+              g !== previous[global + 1] ||
+              b !== previous[global + 2]) {
+            changed.push([pixel, x, y, r, g, b]);
+          }
+        }
+      }
     }
 
-    rctx.putImageData(image, 0, 0);
+    for (const pixel of touched) touchedMask[pixel] = 0;
+    return changed;
   }
 
   async function sendChangedPixels() {
-    if (requestInFlight) return;
+    if (requestInFlight || dirtyRegions.length === 0) return;
 
-    const current = sctx.getImageData(0, 0, W, H).data;
-    let changed = 0;
+    const regions = dirtyRegions;
+    dirtyRegions = [];
+    const changedPixels = collectChangedPixels(regions);
+    if (changedPixels.length === 0) return;
 
-    for (let p = 0; p < W * H; p++) {
-      const i = p * 4;
-      if (current[i] !== previous[i] ||
-          current[i + 1] !== previous[i + 1] ||
-          current[i + 2] !== previous[i + 2]) changed++;
-    }
-
-    if (changed === 0) return;
-
-    const payload = new ArrayBuffer(changed * INPUT);
+    const payload = new ArrayBuffer(changedPixels.length * INPUT);
     const bytes = new Uint8Array(payload);
     const view = new DataView(payload);
-    let off = 0;
 
-    for (let p = 0; p < W * H; p++) {
-      const i = p * 4;
-      if (current[i] === previous[i] &&
-          current[i + 1] === previous[i + 1] &&
-          current[i + 2] === previous[i + 2]) continue;
-
-      const x = p % W;
-      const y = Math.floor(p / W);
+    for (let index = 0; index < changedPixels.length; index++) {
+      const [, x, y, r, g, b] = changedPixels[index];
+      const off = index * INPUT;
       view.setUint16(off, x, false);
       view.setUint16(off + 2, y, false);
-      bytes[off + 4] = current[i];
-      bytes[off + 5] = current[i + 1];
-      bytes[off + 6] = current[i + 2];
-      off += INPUT;
+      bytes[off + 4] = r;
+      bytes[off + 5] = g;
+      bytes[off + 6] = b;
     }
 
-    previous.set(current);
-    updatesThisSecond += changed;
+    updatesThisSecond += changedPixels.length;
     requestInFlight = true;
 
     try {
@@ -187,10 +223,19 @@
       });
 
       if (!response.ok) throw new Error('HTTP ' + response.status);
+
+      for (const [pixel, , , r, g, b] of changedPixels) {
+        const global = pixel * 4;
+        previous[global] = r;
+        previous[global + 1] = g;
+        previous[global + 2] = b;
+      }
+
       applyReceivedPixels(await response.arrayBuffer());
       stateEl.textContent = 'DHMP demo live';
       stateEl.classList.add('live');
     } catch {
+      for (const [, x, y] of changedPixels) markDirty(x, y, x + 1, y + 1);
       stateEl.textContent = 'demo request failed';
       stateEl.classList.remove('live');
     } finally {
@@ -227,14 +272,13 @@
   });
 
   reset.addEventListener('click', () => {
-    resetScene();
+    resetScene(true);
   });
 
   sctx.fillStyle = '#000';
   sctx.fillRect(0, 0, W, H);
   rctx.fillStyle = '#000';
   rctx.fillRect(0, 0, W, H);
-  previous.fill(255);
-  resetScene();
+  resetScene(false);
   requestAnimationFrame(animate);
 })();
