@@ -13,6 +13,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
     private int _packetBytes = 65_520;
     private int _workers = Math.Max(1, Environment.ProcessorCount);
+    private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
+    private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.RejectWindow;
     private long _configurationVersion;
 
     private long _packetsSubmitted;
@@ -26,7 +28,11 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private long _workerFaults;
     private string _lastWorkerError = string.Empty;
 
-    public void Configure(int packetBytes, int workers)
+    public void Configure(
+        int packetBytes,
+        int workers,
+        DhmpProcessingMode receiveMode,
+        DhmpRatePolicy ratePolicy)
     {
         if (packetBytes < RecordSize ||
             packetBytes > MaximumPayloadBytes ||
@@ -36,10 +42,20 @@ internal sealed class DhmpThroughputLab : BackgroundService
         if (workers <= 0 || workers > 64)
             throw new ArgumentOutOfRangeException(nameof(workers));
 
+        if (receiveMode is not DhmpProcessingMode.Sequential and
+            not DhmpProcessingMode.Latest)
+            throw new ArgumentOutOfRangeException(nameof(receiveMode));
+
+        if (ratePolicy is not DhmpRatePolicy.RejectWindow and
+            not DhmpRatePolicy.SmoothPacing)
+            throw new ArgumentOutOfRangeException(nameof(ratePolicy));
+
         lock (_configurationGate)
         {
             _packetBytes = packetBytes;
             _workers = workers;
+            _receiveMode = receiveMode;
+            _ratePolicy = ratePolicy;
             _configurationVersion++;
         }
     }
@@ -48,12 +64,16 @@ internal sealed class DhmpThroughputLab : BackgroundService
     {
         int packetBytes;
         int workers;
+        DhmpProcessingMode receiveMode;
+        DhmpRatePolicy ratePolicy;
         long version;
 
         lock (_configurationGate)
         {
             packetBytes = _packetBytes;
             workers = _workers;
+            receiveMode = _receiveMode;
+            ratePolicy = _ratePolicy;
             version = _configurationVersion;
         }
 
@@ -74,7 +94,11 @@ internal sealed class DhmpThroughputLab : BackgroundService
             Environment.ProcessorCount,
             version,
             RecordSize,
-            "Sequential",
+            receiveMode.ToString(),
+            ratePolicy.ToString(),
+            receiveMode == DhmpProcessingMode.Latest
+                ? 1
+                : packetBytes / RecordSize,
             Interlocked.Read(ref _workerFaults),
             _lastWorkerError);
     }
@@ -195,15 +219,19 @@ internal sealed class DhmpThroughputLab : BackgroundService
         CancellationToken cancellationToken)
     {
         int packetBytes;
+        DhmpProcessingMode receiveMode;
+        DhmpRatePolicy ratePolicy;
 
         lock (_configurationGate)
         {
             packetBytes = _packetBytes;
+            receiveMode = _receiveMode;
+            ratePolicy = _ratePolicy;
         }
 
         var wire = new DhmpWireContract(RecordSize);
         var receivePolicy = new DhmpReceivePolicy(
-            DhmpProcessingMode.Sequential,
+            receiveMode,
             MaximumPayloadBytes);
 
         var server = new DhmpServer(
@@ -218,7 +246,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         var sendPolicy = new DhmpSendPolicy(
             long.MaxValue,
             MaximumPayloadBytes,
-            DhmpRatePolicy.RejectWindow);
+            ratePolicy);
 
         var client = new DhmpClient(
             sender,
@@ -412,9 +440,13 @@ internal sealed record DhmpThroughputSnapshot(
     long ConfigurationVersion,
     int RecordSize,
     string ReceiveMode,
+    string RatePolicy,
+    int ExpectedPublishedRecordsPerPacket,
     long WorkerFaults,
     string LastWorkerError);
 
 internal sealed record DhmpThroughputRequest(
     int PacketBytes,
-    int Workers);
+    int Workers,
+    string ReceiveMode,
+    string RatePolicy);
