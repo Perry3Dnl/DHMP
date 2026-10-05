@@ -21,13 +21,13 @@
 
     <section class="status">
       <span id="state" class="pill">connecting…</span>
-      <span><strong id="fps">0</strong> preview FPS</span>
+      <span id="previewMetric"><strong id="fps">0</strong> preview FPS</span>
       <span><strong id="updates">0</strong> processed records/s</span>
       <span><strong id="ratio">0%</strong> of target processed</span>
       <span><strong id="bytes">0</strong> processed record MB/s</span>
     </section>
 
-    <section class="screens">
+    <section id="previewSection" class="screens">
       <article>
         <div class="screen-head"><h2>Source preview</h2><span id="sourceLabel">representative 720p visualization</span></div>
         <canvas id="source" width="1280" height="720"></canvas>
@@ -42,7 +42,7 @@
       <div class="resolution-head">
         <div>
           <strong>Framebuffer resolution</strong>
-          <span>Changes the server-side DHMP workload; preview stays lightweight</span>
+          <span id="resolutionHint">Changes the server-side DHMP workload; preview stays lightweight</span>
         </div>
         <output id="resolutionValue">1280×720 · 720p</output>
       </div>
