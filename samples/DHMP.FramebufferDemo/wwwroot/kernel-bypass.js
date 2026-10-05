@@ -13,6 +13,7 @@
   const afxdpPayloadHistory=[];
 
   let previous=null;
+  let corePrevious=null;
   let configureTimer=0;
   let lastSuccessfulMode='Unknown';
 
@@ -124,10 +125,15 @@
 
   async function poll(){
     try{
-      const response=await fetch('/api/afxdp/stats',{cache:'no-store'});
-      if(!response.ok)throw new Error('HTTP '+response.status);
+      const [response,coreResponse]=await Promise.all([
+        fetch('/api/afxdp/stats',{cache:'no-store'}),
+        fetch('/api/stress/stats',{cache:'no-store'})
+      ]);
+      if(!response.ok)throw new Error('AF_XDP HTTP '+response.status);
+      if(!coreResponse.ok)throw new Error('Core HTTP '+coreResponse.status);
 
       const cur=await response.json();
+      const core=await coreResponse.json();
 
       if(cur.mode && cur.mode!=='Unknown'){
         lastSuccessfulMode=cur.mode;
@@ -147,6 +153,32 @@
         Number(cur.workers)<=1
           ? cur.interfacePrefix+'0'
           : cur.interfacePrefix+'0…'+cur.interfacePrefix+(Number(cur.workers)-1);
+
+      $('corePacketBytes').textContent=Number(core.packetBytes).toLocaleString();
+
+      if(corePrevious && core.configurationVersion===corePrevious.configurationVersion){
+        const coreSeconds=Math.max(
+          .001,
+          (core.uptimeMilliseconds-corePrevious.uptimeMilliseconds)/1000);
+
+        const coreRecords=
+          Math.max(0,core.recordsSubmitted-corePrevious.recordsSubmitted)/
+          coreSeconds;
+
+        const corePackets=
+          Math.max(0,core.packetsSubmitted-corePrevious.packetsSubmitted)/
+          coreSeconds;
+
+        const coreBytes=
+          Math.max(0,core.bytesSubmitted-corePrevious.bytesSubmitted)/
+          coreSeconds;
+
+        $('corePayloadGb').textContent=(coreBytes/1e9).toFixed(2);
+        $('coreRecordRate').textContent=full(coreRecords);
+        $('corePacketRate').textContent=full(corePackets);
+      }
+
+      corePrevious=core;
 
       const payloadIndex=PAYLOADS.indexOf(Number(cur.payloadBytes));
       if(payloadIndex>=0 && document.activeElement!==payloadSlider){
