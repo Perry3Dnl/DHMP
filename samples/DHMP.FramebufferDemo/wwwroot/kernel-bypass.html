@@ -15,9 +15,9 @@
     </nav>
 
     <header class="hero">
-      <p class="eyebrow">DHMP RAW IPv6 VS AF_XDP</p>
-      <h1>Same server. Same payload. Same worker count. Two Linux network paths.</h1>
-      <p class="lead">Each live sample pair sends the same DHMP workload through the normal Linux raw-IPv6 path and the experimental AF_XDP fast path. Parallel workers use isolated veth/AF_XDP sockets, and the page reports combined wall-clock throughput across all workers.</p>
+      <p class="eyebrow">DHMP KERNEL-BYPASS LAB</p>
+      <h1>Keep the DHMP processing ceiling separate from the network-path test.</h1>
+      <p class="lead">The main Throughput Lab measures DHMP's in-process software processing ceiling with 65,520-byte logical batches. This page keeps that result visible, then separately compares two real Linux packet-I/O paths: Raw IPv6 sockets and AF_XDP. The packet-I/O numbers are not presented as DHMP's normal processing ceiling.</p>
     </header>
 
     <section class="status">
@@ -27,6 +27,31 @@
       <span><strong id="statusAfGb">0</strong> AF_XDP GB/s</span>
       <span><strong id="speedup">0.00×</strong> packet-rate speedup</span>
     </section>
+
+    <section class="headline-grid">
+      <article class="metric-card">
+        <span>DHMP processing ceiling</span>
+        <strong id="corePayloadGb">0.00</strong>
+        <small>GB/s logical, in-process</small>
+      </article>
+      <article class="metric-card">
+        <span>DHMP processing records</span>
+        <strong id="coreRecordRate">0</strong>
+        <small>records/s logical, in-process</small>
+      </article>
+      <article class="metric-card">
+        <span>DHMP processing packets</span>
+        <strong id="corePacketRate">0</strong>
+        <small>batch transactions/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Processing batch size</span>
+        <strong id="corePacketBytes">65,520</strong>
+        <small>bytes per in-process batch</small>
+      </article>
+    </section>
+
+    <p class="telemetry-note"><strong>Important:</strong> the cards above are the normal DHMP software-processing benchmark from the main page. They are a different workload from the 1,408-byte network packet test below, so they are shown as a reference ceiling, not used in the AF_XDP speedup calculation.</p>
 
     <section class="controls card">
       <div class="control-block">
@@ -70,19 +95,19 @@
 
     <section class="headline-grid">
       <article class="metric-card">
-        <span>Raw IPv6 packet rate</span>
+        <span>Raw IPv6 network-path rate</span>
         <strong id="rawPacketRate">0</strong>
         <small>packets/s</small>
       </article>
       <article class="metric-card">
-        <span>AF_XDP packet rate</span>
+        <span>AF_XDP network-path rate</span>
         <strong id="afxdpPacketRate">0</strong>
         <small>packets/s</small>
       </article>
       <article class="metric-card">
-        <span>Packet-rate speedup</span>
+        <span>Network-path speedup</span>
         <strong id="speedupCard">0.00×</strong>
-        <small>AF_XDP / Raw IPv6</small>
+        <small>AF_XDP / Raw IPv6 packet I/O</small>
       </article>
       <article class="metric-card">
         <span>Completed sample pairs</span>
@@ -93,22 +118,22 @@
 
     <section class="headline-grid">
       <article class="metric-card">
-        <span>Raw useful payload</span>
+        <span>Raw IPv6 network payload</span>
         <strong id="rawPayloadRate">0</strong>
         <small id="rawPayloadUnit">GB/s</small>
       </article>
       <article class="metric-card">
-        <span>AF_XDP useful payload</span>
+        <span>AF_XDP network payload</span>
         <strong id="afxdpPayloadRate">0</strong>
         <small id="afxdpPayloadUnit">GB/s</small>
       </article>
       <article class="metric-card">
-        <span>Raw logical records</span>
+        <span>Raw IPv6 packetized records</span>
         <strong id="rawRecordRate">0</strong>
         <small>16-byte records/s</small>
       </article>
       <article class="metric-card">
-        <span>AF_XDP logical records</span>
+        <span>AF_XDP packetized records</span>
         <strong id="afxdpRecordRate">0</strong>
         <small>16-byte records/s</small>
       </article>
@@ -118,7 +143,7 @@
       <div class="panel-head">
         <div>
           <p class="eyebrow">LIVE FAIR COMPARISON</p>
-          <h2>Combined directional DHMP transmit path</h2>
+          <h2>Combined network packet-I/O comparison</h2>
         </div>
         <div class="server-totals">
           <span><strong id="payloadBytes">0</strong> bytes/packet</span>
@@ -148,7 +173,7 @@
         <div class="wide"><span>Backend detail</span><strong id="detail">starting…</strong></div>
       </div>
 
-      <p class="telemetry-note">Combined rates are measured from total packets completed across all active workers divided by the wall-clock duration of the whole Raw IPv6 or AF_XDP phase. The page does not sum separately timed worker rates. This remains a directional TX-path comparison rather than an end-to-end latency result.</p>
+      <p class="telemetry-note">These network-path rates are measured from total packets completed across all active workers divided by the wall-clock duration of the whole Raw IPv6 or AF_XDP phase. They measure 1,408-byte-class Linux packet I/O and are deliberately not labeled as the normal DHMP processing ceiling. The AF_XDP speedup is only AF_XDP versus Raw IPv6 under this identical network workload.</p>
     </section>
 
     <section class="explain">
