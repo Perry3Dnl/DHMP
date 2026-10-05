@@ -84,6 +84,7 @@ jobs:
           rsync -az --delete --exclude '.git/' --exclude '**/bin/' --exclude '**/obj/' -e "sshpass -e ssh $opts" ./ "$remote:/opt/dhmp-demo/source/"
 
       - name: Build, start, and route demo
+        id: promote
         shell: bash
         env:
           SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
@@ -94,13 +95,23 @@ jobs:
           sshpass -e ssh $opts "$remote" "DEMO_DOMAIN='$DEMO_DOMAIN' DEPLOY_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
           set -euo pipefail
           ROOT=/opt/dhmp-demo/source
+          STATE=/opt/dhmp-demo/deploy-state
           CADDYFILE=/opt/dummy-stock-simulator/deploy/Caddyfile
           CADDY_CONTAINER=dummy-stock-caddy
           SHARED_NETWORK=dummy-stock-simulator_default
+          BACKUP="$STATE/Caddyfile.pre-$DEPLOY_SHA"
+          CANDIDATE="$STATE/Caddyfile.candidate-$DEPLOY_SHA"
+
           command -v docker >/dev/null
           docker network inspect "$SHARED_NETWORK" >/dev/null
           docker inspect "$CADDY_CONTAINER" >/dev/null
           test -f "$CADDYFILE"
+          mkdir -p "$STATE"
+
+          # Validate the currently live Caddyfile before touching it.
+          docker exec "$CADDY_CONTAINER" caddy validate --config /etc/caddy/Caddyfile >/dev/null
+          original_sha="$(sha256sum "$CADDYFILE" | awk '{print $1}')"
+
           cd "$ROOT/samples/DHMP.FramebufferDemo"
           DHMP_DEMO_COMMIT="$DEPLOY_SHA" SHARED_PROXY_NETWORK="$SHARED_NETWORK" docker compose up -d --build --remove-orphans
           for attempt in $(seq 1 30); do
@@ -108,28 +119,51 @@ jobs:
             if [ "$attempt" -eq 30 ]; then docker compose logs --tail 100; exit 1; fi
             sleep 2
           done
-          python3 - "$CADDYFILE" "$DEMO_DOMAIN" <<'PY'
+
+          python3 - "$CADDYFILE" "$CANDIDATE" "$DEMO_DOMAIN" <<'PY'
           import pathlib, re, sys
-          path = pathlib.Path(sys.argv[1])
-          domain = sys.argv[2]
+          source = pathlib.Path(sys.argv[1])
+          candidate = pathlib.Path(sys.argv[2])
+          domain = sys.argv[3]
           start = '# --- dhmp-demo begin ---'
           end = '# --- dhmp-demo end ---'
           block = start + '\n' + domain + ' {\n    encode zstd gzip\n    reverse_proxy dhmp-demo:8080\n}\n' + end
-          text = path.read_text()
+          text = source.read_text()
+          starts = text.count(start)
+          ends = text.count(end)
+          if starts != ends or starts > 1:
+              raise SystemExit('Malformed or duplicate DHMP demo Caddy marker block; refusing deployment.')
           pattern = re.compile(re.escape(start) + r'.*?' + re.escape(end), re.S)
-          next_text = pattern.sub(block, text) if pattern.search(text) else text.rstrip() + '\n\n' + block + '\n'
-          candidate = pathlib.Path(str(path) + '.dhmp-demo.candidate')
+          next_text = pattern.sub(block, text) if starts else text.rstrip() + '\n\n' + block + '\n'
           candidate.write_text(next_text)
           PY
-          candidate="${CADDYFILE}.dhmp-demo.candidate"
-          docker exec -i "$CADDY_CONTAINER" caddy validate --config - --adapter caddyfile < "$candidate"
-          cp -p "$CADDYFILE" "${CADDYFILE}.pre-dhmp-demo"
-          cat "$candidate" > "$CADDYFILE"
-          rm -f "$candidate"
-          docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile
+
+          # Validate candidate using the same Caddy binary before replacing anything.
+          docker exec -i "$CADDY_CONTAINER" caddy validate --config - --adapter caddyfile < "$CANDIDATE"
+
+          # Refuse to overwrite another deployment's concurrent Caddy edit.
+          current_sha="$(sha256sum "$CADDYFILE" | awk '{print $1}')"
+          if [ "$current_sha" != "$original_sha" ]; then
+            echo "Shared Caddyfile changed during DHMP deployment; refusing to overwrite it." >&2
+            exit 1
+          fi
+
+          cp -p "$CADDYFILE" "$BACKUP"
+          cat "$CANDIDATE" > "$CADDYFILE"
+
+          if ! docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile; then
+            cat "$BACKUP" > "$CADDYFILE"
+            docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile || true
+            echo "Caddy reload failed; previous Caddyfile restored." >&2
+            exit 1
+          fi
+
+          printf '%s\n' "$BACKUP" > "$STATE/current-backup"
+          rm -f "$CANDIDATE"
           REMOTE
 
       - name: Verify public demo
+        id: public_verify
         shell: bash
         run: |
           set -euo pipefail
@@ -139,3 +173,26 @@ jobs:
           done
           echo "Public demo health check failed. Confirm DNS for $DEMO_DOMAIN points at DEPLOY_HOST." >&2
           exit 1
+
+      - name: Restore previous Caddyfile if public verification failed
+        if: failure() && steps.promote.outcome == 'success'
+        shell: bash
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: |
+          set +e
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          opts="-p $DEPLOY_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          sshpass -e ssh $opts "$remote" "bash -s" <<'REMOTE'
+          set -euo pipefail
+          STATE=/opt/dhmp-demo/deploy-state
+          CADDYFILE=/opt/dummy-stock-simulator/deploy/Caddyfile
+          CADDY_CONTAINER=dummy-stock-caddy
+          test -f "$STATE/current-backup"
+          BACKUP="$(cat "$STATE/current-backup")"
+          case "$BACKUP" in /opt/dhmp-demo/deploy-state/Caddyfile.pre-*) ;; *) exit 2 ;; esac
+          test -f "$BACKUP"
+          docker exec -i "$CADDY_CONTAINER" caddy validate --config - --adapter caddyfile < "$BACKUP"
+          cat "$BACKUP" > "$CADDYFILE"
+          docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile
+          REMOTE
