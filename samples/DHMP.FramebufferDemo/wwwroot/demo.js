@@ -46,6 +46,10 @@
   const recordsChart = document.querySelector('#recordsChart');
   const throughputChart = document.querySelector('#throughputChart');
   const totalChart = document.querySelector('#totalChart');
+  const profileBuildEl = document.querySelector('#profileBuild');
+  const profileDhmpEl = document.querySelector('#profileDhmp');
+  const profileBuildNsEl = document.querySelector('#profileBuildNs');
+  const profileDhmpNsEl = document.querySelector('#profileDhmpNs');
 
   const palette = ['#56d6ff', '#f4c95d', '#ff6b8a', '#7ce38b', '#b78cff', '#ff955c'];
   const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
@@ -368,6 +372,49 @@
         const target = Math.max(1, current.targetRecordsPerSecond);
         const targetPercent = processed / target * 100;
 
+        const buildTickDelta = Math.max(
+          0,
+          current.recordBuildTicks -
+            previousServerStats.recordBuildTicks
+        );
+
+        const dhmpTickDelta = Math.max(
+          0,
+          current.dhmpProcessTicks -
+            previousServerStats.dhmpProcessTicks
+        );
+
+        const timedTicks = Math.max(
+          1,
+          buildTickDelta + dhmpTickDelta
+        );
+
+        const buildPercent =
+          buildTickDelta / timedTicks * 100;
+
+        const dhmpPercent =
+          dhmpTickDelta / timedTicks * 100;
+
+        const processedDelta = Math.max(
+          1,
+          current.processedRecords -
+            previousServerStats.processedRecords
+        );
+
+        const tickToNanoseconds =
+          1_000_000_000 /
+          Math.max(1, current.stopwatchFrequency);
+
+        const buildNsPerRecord =
+          buildTickDelta *
+          tickToNanoseconds /
+          processedDelta;
+
+        const dhmpNsPerRecord =
+          dhmpTickDelta *
+          tickToNanoseconds /
+          processedDelta;
+
         serverHistory.push({
           offered,
           accepted,
@@ -392,6 +439,15 @@
           ' / ' +
           Number(current.queueCapacityRecords).toLocaleString();
         serverMbpsEl.textContent = mbps.toFixed(2);
+
+        profileBuildEl.textContent =
+          buildPercent.toFixed(1) + '%';
+        profileDhmpEl.textContent =
+          dhmpPercent.toFixed(1) + '%';
+        profileBuildNsEl.textContent =
+          buildNsPerRecord.toFixed(2);
+        profileDhmpNsEl.textContent =
+          dhmpNsPerRecord.toFixed(2);
 
         resolutionValue.textContent =
           current.width + '×' + current.height + ' · ' + current.label;
