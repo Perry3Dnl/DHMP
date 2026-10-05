@@ -1,8 +1,8 @@
 using DHMP.Protocol;
 using DHMP.Server;
 
-const int MaxWidth = 7680;
-const int MaxHeight = 4320;
+const int MaxWidth = 61440;
+const int MaxHeight = 34560;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -159,6 +159,9 @@ static bool IsSupportedResolution(
         (2560, 1440, "1440p") => true,
         (3840, 2160, "4K") => true,
         (7680, 4320, "8K") => true,
+        (15360, 8640, "16K") => true,
+        (30720, 17280, "32K") => true,
+        (61440, 34560, "64K") => true,
         _ => false
     };
 }
