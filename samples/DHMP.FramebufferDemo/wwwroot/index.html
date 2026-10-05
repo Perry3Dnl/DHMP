@@ -82,7 +82,13 @@
           <canvas id="totalChart" width="560" height="220"></canvas>
         </article>
       </div>
-      <p class="telemetry-note">The producer offers the configured synthetic load into a bounded queue. A separate consumer drains that queue through <code>DhmpServer</code>. The browser polls these real server counters roughly once per second and is not part of the high-rate path.</p>
+      <div class="profiler-grid">
+        <div><span>Record construction</span><strong id="profileBuild">0%</strong></div>
+        <div><span>DHMP process + publish</span><strong id="profileDhmp">0%</strong></div>
+        <div><span>Build ns/record</span><strong id="profileBuildNs">0</strong></div>
+        <div><span>DHMP ns/record</span><strong id="profileDhmpNs">0</strong></div>
+      </div>
+      <p class="telemetry-note">The producer offers the configured synthetic load into a bounded queue. A separate consumer drains that queue through <code>DhmpServer</code>. The profiler times whole chunks, not individual records, so it adds minimal measurement overhead.</p>
     </section>
 
     <section class="explain">
