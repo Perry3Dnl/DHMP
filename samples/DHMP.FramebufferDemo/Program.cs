@@ -46,9 +46,33 @@ app.MapPost(
                 new { error = "Unsupported worker count." });
         }
 
+        if (!Enum.TryParse<DHMP.Protocol.DhmpProcessingMode>(
+                request.ReceiveMode,
+                ignoreCase: true,
+                out var receiveMode) ||
+            receiveMode is not DHMP.Protocol.DhmpProcessingMode.Sequential and
+                not DHMP.Protocol.DhmpProcessingMode.Latest)
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported receive mode." });
+        }
+
+        if (!Enum.TryParse<DHMP.Protocol.DhmpRatePolicy>(
+                request.RatePolicy,
+                ignoreCase: true,
+                out var ratePolicy) ||
+            ratePolicy is not DHMP.Protocol.DhmpRatePolicy.RejectWindow and
+                not DHMP.Protocol.DhmpRatePolicy.SmoothPacing)
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported rate policy." });
+        }
+
         lab.Configure(
             request.PacketBytes,
-            request.Workers);
+            request.Workers,
+            receiveMode,
+            ratePolicy);
 
         return Results.Json(lab.Snapshot());
     });
