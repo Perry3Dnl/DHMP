@@ -104,6 +104,67 @@ public sealed class DhmpConnectorOptionsTests
             options.ReceiveMode);
     }
 
+    [Fact]
+    public void Duplicate_source_resolution_requires_psk_and_field()
+    {
+        var noKey = new DhmpConnectorOptions(
+            IPAddress.IPv6Loopback,
+            recordSize: 32,
+            Guid.NewGuid())
+        {
+            AllowUnprotectedPayloads = true,
+            DuplicatePeerHandling =
+                DhmpDuplicatePeerHandling.ResolveWithConnectionId,
+            ConnectionIdField =
+                new DhmpConnectionIdField(0)
+        };
+
+        Assert.Throws<InvalidOperationException>(
+            noKey.Validate);
+
+        using var key =
+            new DhmpPreSharedKey(
+                11,
+                new byte[DhmpPreSharedKey.KeySizeBytes]);
+
+        var noField = new DhmpConnectorOptions(
+            IPAddress.IPv6Loopback,
+            recordSize: 32,
+            Guid.NewGuid())
+        {
+            PreSharedKey = key,
+            DuplicatePeerHandling =
+                DhmpDuplicatePeerHandling.ResolveWithConnectionId
+        };
+
+        Assert.Throws<InvalidOperationException>(
+            noField.Validate);
+    }
+
+    [Fact]
+    public void Duplicate_source_connection_field_must_fit_record()
+    {
+        using var key =
+            new DhmpPreSharedKey(
+                12,
+                new byte[DhmpPreSharedKey.KeySizeBytes]);
+
+        var options = new DhmpConnectorOptions(
+            IPAddress.IPv6Loopback,
+            recordSize: 16,
+            Guid.NewGuid())
+        {
+            PreSharedKey = key,
+            DuplicatePeerHandling =
+                DhmpDuplicatePeerHandling.ResolveWithConnectionId,
+            ConnectionIdField =
+                new DhmpConnectionIdField(9)
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            options.Validate);
+    }
+
     private sealed class AsyncDisposableAdapter :
         IDisposable
     {
