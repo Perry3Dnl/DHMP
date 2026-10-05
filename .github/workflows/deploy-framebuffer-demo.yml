@@ -1,0 +1,141 @@
+name: Deploy framebuffer demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to deploy the public DHMP demo'
+        required: true
+        type: string
+      domain:
+        description: 'Public demo domain'
+        required: true
+        default: dhmp.perry3d.nl
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dhmp-framebuffer-demo
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      DEMO_DOMAIN: ${{ inputs.domain }}
+      DEPLOY_SHA: ${{ github.sha }}
+      EXPECTED_SSH_ED25519_FINGERPRINT: ${{ vars.DEPLOY_HOST_KEY_FINGERPRINT || 'SHA256:Vq5Cic1/9iZsNAXfG9GQlnOjciecd6V9BPLGV5X2ExE' }}
+
+    steps:
+      - name: Require explicit confirmation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.confirm }}" = "DEPLOY" || { echo "Confirmation must be exactly DEPLOY." >&2; exit 1; }
+          [[ "$DEMO_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "Invalid demo domain." >&2; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build demo before deployment
+        run: dotnet build samples/DHMP.FramebufferDemo/DHMP.FramebufferDemo.csproj -c Release
+
+      - name: Validate deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${DEPLOY_HOST:?Missing DEPLOY_HOST secret}"
+          : "${DEPLOY_USER:?Missing DEPLOY_USER secret}"
+          : "${DEPLOY_PASSWORD:?Missing DEPLOY_PASSWORD secret}"
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Pin SSH host key
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends sshpass rsync >/dev/null
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keyscan -T 15 -t ed25519 -p "$DEPLOY_PORT" "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts" 2>/dev/null
+          test -s "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          actual="$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk 'NR==1 {print $2}')"
+          test "$actual" = "$EXPECTED_SSH_ED25519_FINGERPRINT" || { echo "SSH host fingerprint changed; refusing deployment." >&2; exit 1; }
+
+      - name: Sync repository to scoped server directory
+        shell: bash
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          opts="-p $DEPLOY_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          sshpass -e ssh $opts "$remote" "mkdir -p /opt/dhmp-demo/source"
+          rsync -az --delete --exclude '.git/' --exclude '**/bin/' --exclude '**/obj/' -e "sshpass -e ssh $opts" ./ "$remote:/opt/dhmp-demo/source/"
+
+      - name: Build, start, and route demo
+        shell: bash
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          opts="-p $DEPLOY_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          sshpass -e ssh $opts "$remote" "DEMO_DOMAIN='$DEMO_DOMAIN' DEPLOY_SHA='$DEPLOY_SHA' bash -s" <<'REMOTE'
+          set -euo pipefail
+          ROOT=/opt/dhmp-demo/source
+          CADDYFILE=/opt/dummy-stock-simulator/deploy/Caddyfile
+          CADDY_CONTAINER=dummy-stock-caddy
+          SHARED_NETWORK=dummy-stock-simulator_default
+          command -v docker >/dev/null
+          docker network inspect "$SHARED_NETWORK" >/dev/null
+          docker inspect "$CADDY_CONTAINER" >/dev/null
+          test -f "$CADDYFILE"
+          cd "$ROOT/samples/DHMP.FramebufferDemo"
+          DHMP_DEMO_COMMIT="$DEPLOY_SHA" SHARED_PROXY_NETWORK="$SHARED_NETWORK" docker compose up -d --build --remove-orphans
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8091/health >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then docker compose logs --tail 100; exit 1; fi
+            sleep 2
+          done
+          python3 - "$CADDYFILE" "$DEMO_DOMAIN" <<'PY'
+          import pathlib, re, sys
+          path = pathlib.Path(sys.argv[1])
+          domain = sys.argv[2]
+          start = '# --- dhmp-demo begin ---'
+          end = '# --- dhmp-demo end ---'
+          block = start + '\n' + domain + ' {\n    encode zstd gzip\n    reverse_proxy dhmp-demo:8080\n}\n' + end
+          text = path.read_text()
+          pattern = re.compile(re.escape(start) + r'.*?' + re.escape(end), re.S)
+          next_text = pattern.sub(block, text) if pattern.search(text) else text.rstrip() + '\n\n' + block + '\n'
+          candidate = pathlib.Path(str(path) + '.dhmp-demo.candidate')
+          candidate.write_text(next_text)
+          PY
+          candidate="${CADDYFILE}.dhmp-demo.candidate"
+          docker exec -i "$CADDY_CONTAINER" caddy validate --config - --adapter caddyfile < "$candidate"
+          cp -p "$CADDYFILE" "${CADDYFILE}.pre-dhmp-demo"
+          cat "$candidate" > "$CADDYFILE"
+          rm -f "$candidate"
+          docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile
+          REMOTE
+
+      - name: Verify public demo
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 20); do
+            if body="$(curl -fsS --max-time 10 "https://$DEMO_DOMAIN/health" 2>/dev/null)"; then echo "$body"; exit 0; fi
+            sleep 3
+          done
+          echo "Public demo health check failed. Confirm DNS for $DEMO_DOMAIN points at DEPLOY_HOST." >&2
+          exit 1
