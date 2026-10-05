@@ -23,7 +23,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        project: [DHMP.Protocol.Tests, DHMP.Server.Tests, DHMP.Licensing.Tests, DHMP.AspNetCore.Tests, DHMP.RawIpv6.Tests, DHMP.Security.Tests]
+        project: [DHMP.Protocol.Tests, DHMP.Server.Tests, DHMP.Licensing.Tests, DHMP.AspNetCore.Tests, DHMP.RawIpv6.Tests, DHMP.Security.Tests, DHMP.Connector.Tests]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -43,6 +43,8 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Build direct-IP .NET backend
         run: dotnet build src/DHMP.RawIpv6/DHMP.RawIpv6.csproj --configuration Release
+      - name: Build application-facing Connector package
+        run: dotnet build src/DHMP.Connector/DHMP.Connector.csproj --configuration Release
       - name: Build privilege-free core quickstart
         run: dotnet build samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj --configuration Release
       - name: Build direct-IP experiments
