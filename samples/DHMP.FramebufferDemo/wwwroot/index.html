@@ -28,7 +28,7 @@
         <canvas id="source" width="1280" height="720"></canvas>
       </article>
       <article>
-        <div class="screen-head"><h2>Receiver</h2><span>only received pixels are changed</span></div>
+        <div class="screen-head"><h2>Receiver preview</h2><span>advances only after server DHMP acknowledgement</span></div>
         <canvas id="receiver" width="1280" height="720"></canvas>
       </article>
     </section>
@@ -85,11 +85,11 @@
       </div>
       <div>
         <strong>Persistent framebuffer</strong>
-        <p>No update means no change. The receiver leaves the previous pixel on screen until a newer update arrives.</p>
+        <p>No update means no change. The preview advances only after the server confirms the DHMP batch was processed; the full record payload is not echoed back over HTTPS.</p>
       </div>
       <div>
         <strong>What this proves</strong>
-        <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser control traffic uses ordinary HTTPS POSTs; browsers cannot send raw DHMP IPv6 packets.</p>
+        <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser control traffic uses ordinary HTTPS POSTs; browsers cannot send raw DHMP IPv6 packets. Server responses carry only compact acknowledgements and telemetry, not echoed pixel records.</p>
       </div>
     </section>
 
