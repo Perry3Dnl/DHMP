@@ -22,9 +22,9 @@
     <section class="status">
       <span id="state" class="pill">connecting…</span>
       <span><strong id="fps">0</strong> preview FPS</span>
-      <span><strong id="updates">0</strong> server records/s</span>
-      <span><strong id="ratio">0%</strong> of target load</span>
-      <span><strong id="bytes">0</strong> server record MB/s</span>
+      <span><strong id="updates">0</strong> processed records/s</span>
+      <span><strong id="ratio">0%</strong> of target processed</span>
+      <span><strong id="bytes">0</strong> processed record MB/s</span>
     </section>
 
     <section class="screens">
@@ -59,16 +59,18 @@
           <h2>Live backend processing</h2>
         </div>
         <div class="server-totals">
-          <span><strong id="serverRx">0</strong> received records/s</span>
-          <span><strong id="serverTx">0</strong> published records/s</span>
-          <span><strong id="serverMbps">0</strong> record MB/s</span>
-          <span><strong id="serverTotal">0</strong> total records</span>
+          <span><strong id="serverOffered">0</strong> offered/s</span>
+          <span><strong id="serverAccepted">0</strong> accepted/s</span>
+          <span><strong id="serverProcessed">0</strong> processed/s</span>
+          <span><strong id="serverDropped">0</strong> dropped/s</span>
+          <span><strong id="serverQueue">0</strong> queue depth</span>
+          <span><strong id="serverMbps">0</strong> processed MB/s</span>
         </div>
       </div>
 
       <div class="charts">
         <article class="chart-card">
-          <div class="chart-title"><strong>DHMP records per second</strong><span>server measured</span></div>
+          <div class="chart-title"><strong>Offered vs accepted vs processed</strong><span>server measured</span></div>
           <canvas id="recordsChart" width="560" height="220"></canvas>
         </article>
         <article class="chart-card">
@@ -76,11 +78,11 @@
           <canvas id="throughputChart" width="560" height="220"></canvas>
         </article>
         <article class="chart-card">
-          <div class="chart-title"><strong>Cumulative DHMP records</strong><span>since container start</span></div>
+          <div class="chart-title"><strong>Queue pressure / drops</strong><span>bounded producer-consumer queue</span></div>
           <canvas id="totalChart" width="560" height="220"></canvas>
         </article>
       </div>
-      <p class="telemetry-note">These graphs are measured inside the deployed DHMP demo backend around <code>DhmpServer</code>. The browser polls this real server data once per second; it does not receive the high-rate feed itself.</p>
+      <p class="telemetry-note">The producer offers the configured synthetic load into a bounded queue. A separate consumer drains that queue through <code>DhmpServer</code>. The browser polls these real server counters roughly once per second and is not part of the high-rate path.</p>
     </section>
 
     <section class="explain">
