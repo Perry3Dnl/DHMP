@@ -22,6 +22,7 @@ PACK_PROJECTS = [
     ROOT / "src/DHMP.Server/DHMP.Server.csproj",
     ROOT / "src/DHMP.Security/DHMP.Security.csproj",
     ROOT / "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
+    ROOT / "src/DHMP.AfXdp/DHMP.AfXdp.csproj",
     ROOT / "src/DHMP.AspNetCore/DHMP.AspNetCore.csproj",
     ROOT / "src/DHMP.Connector/DHMP.Connector.csproj",
 ]
@@ -33,6 +34,7 @@ PACKAGE_IDS = [
     "DHMP.Server",
     "DHMP.Security",
     "DHMP.RawIpv6",
+    "DHMP.AfXdp",
     "DHMP.AspNetCore",
     "DHMP.Connector",
 ]
