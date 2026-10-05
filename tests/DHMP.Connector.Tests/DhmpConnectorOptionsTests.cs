@@ -165,6 +165,25 @@ public sealed class DhmpConnectorOptionsTests
             options.Validate);
     }
 
+    [Fact]
+    public void BlindFire_only_configuration_does_not_enable_normal_plaintext_connections()
+    {
+        var options = new DhmpConnectorOptions(
+            IPAddress.IPv6Loopback,
+            recordSize: 32,
+            Guid.NewGuid())
+        {
+            AllowUnprotectedBlindFire = true,
+            EnableExperimentalProtocolNumbers = true
+        };
+
+        options.Validate();
+
+        Assert.True(options.AllowUnprotectedBlindFire);
+        Assert.False(options.AllowUnprotectedPayloads);
+        Assert.Null(options.PreSharedKey);
+    }
+
     private sealed class AsyncDisposableAdapter :
         IDisposable
     {
