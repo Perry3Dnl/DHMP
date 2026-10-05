@@ -5,6 +5,11 @@ services:
       dockerfile: samples/DHMP.FramebufferDemo/Dockerfile
     container_name: dhmp-demo
     restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - BPF
+      - SYS_RESOURCE
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
