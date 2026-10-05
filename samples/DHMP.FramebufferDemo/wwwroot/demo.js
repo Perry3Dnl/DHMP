@@ -1,9 +1,9 @@
 (() => {
-  const W = 160, H = 90, INPUT = 7, OUTPUT = 16;
+  const W = 1280, H = 720, INPUT = 7, OUTPUT = 16;
   const source = document.querySelector('#source');
   const receiver = document.querySelector('#receiver');
-  const sctx = source.getContext('2d', { alpha: false });
-  const rctx = receiver.getContext('2d', { alpha: false });
+  const sctx = source.getContext('2d', { alpha: false, willReadFrequently: true });
+  const rctx = receiver.getContext('2d', { alpha: false, willReadFrequently: true });
   const stateEl = document.querySelector('#state');
   const fpsEl = document.querySelector('#fps');
   const updatesEl = document.querySelector('#updates');
@@ -12,12 +12,114 @@
   const toggle = document.querySelector('#toggle');
   const reset = document.querySelector('#reset');
 
+  const palette = ['#56d6ff', '#f4c95d', '#ff6b8a', '#7ce38b', '#b78cff', '#ff955c'];
+  const dirs = [
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+    [0, -1]
+  ];
+
   let previous = new Uint8ClampedArray(W * H * 4);
   let running = true;
   let requestInFlight = false;
   let framesThisSecond = 0;
   let updatesThisSecond = 0;
   let lastStats = performance.now();
+  let pipes = [];
+
+  function makePipe(index) {
+    const margin = 80;
+    return {
+      x: margin + Math.floor(Math.random() * (W - margin * 2)),
+      y: margin + Math.floor(Math.random() * (H - margin * 2)),
+      dir: Math.floor(Math.random() * 4),
+      remaining: 30 + Math.floor(Math.random() * 90),
+      color: palette[index % palette.length],
+      width: 18 + (index % 3) * 3
+    };
+  }
+
+  function resetScene() {
+    sctx.fillStyle = '#000';
+    sctx.fillRect(0, 0, W, H);
+    pipes = Array.from({ length: 6 }, (_, index) => makePipe(index));
+  }
+
+  function chooseTurn(pipe) {
+    const turn = Math.random() < 0.5 ? 1 : -1;
+    pipe.dir = (pipe.dir + turn + 4) % 4;
+    pipe.remaining = 35 + Math.floor(Math.random() * 110);
+    drawJoint(pipe.x, pipe.y, pipe.width, pipe.color);
+  }
+
+  function drawJoint(x, y, width, color) {
+    const radius = width * 0.68;
+    const gradient = sctx.createRadialGradient(
+      x - radius * 0.35,
+      y - radius * 0.35,
+      radius * 0.15,
+      x,
+      y,
+      radius
+    );
+    gradient.addColorStop(0, '#ffffff');
+    gradient.addColorStop(0.18, color);
+    gradient.addColorStop(1, '#111722');
+    sctx.fillStyle = gradient;
+    sctx.beginPath();
+    sctx.arc(x, y, radius, 0, Math.PI * 2);
+    sctx.fill();
+  }
+
+  function drawSegment(pipe, x2, y2) {
+    sctx.lineCap = 'round';
+
+    sctx.strokeStyle = '#0a0e15';
+    sctx.lineWidth = pipe.width + 8;
+    sctx.beginPath();
+    sctx.moveTo(pipe.x, pipe.y);
+    sctx.lineTo(x2, y2);
+    sctx.stroke();
+
+    sctx.strokeStyle = pipe.color;
+    sctx.lineWidth = pipe.width;
+    sctx.beginPath();
+    sctx.moveTo(pipe.x, pipe.y);
+    sctx.lineTo(x2, y2);
+    sctx.stroke();
+
+    sctx.strokeStyle = 'rgba(255,255,255,.55)';
+    sctx.lineWidth = Math.max(2, pipe.width * 0.22);
+    sctx.beginPath();
+    sctx.moveTo(pipe.x - 2, pipe.y - 2);
+    sctx.lineTo(x2 - 2, y2 - 2);
+    sctx.stroke();
+  }
+
+  function growPipe(pipe) {
+    const step = 7;
+    const [dx, dy] = dirs[pipe.dir];
+    let x2 = pipe.x + dx * step;
+    let y2 = pipe.y + dy * step;
+
+    if (x2 < 30 || x2 >= W - 30 || y2 < 30 || y2 >= H - 30) {
+      pipe.dir = (pipe.dir + (Math.random() < 0.5 ? 1 : 3)) % 4;
+      pipe.remaining = 30;
+      return;
+    }
+
+    drawSegment(pipe, x2, y2);
+    pipe.x = x2;
+    pipe.y = y2;
+    pipe.remaining--;
+
+    if (pipe.remaining <= 0) chooseTurn(pipe);
+  }
+
+  function drawScene() {
+    for (const pipe of pipes) growPipe(pipe);
+  }
 
   function applyReceivedPixels(buffer) {
     const bytes = new Uint8Array(buffer);
@@ -35,24 +137,6 @@
     }
 
     rctx.putImageData(image, 0, 0);
-  }
-
-  function drawScene(t) {
-    sctx.fillStyle = '#071018';
-    sctx.fillRect(0, 0, W, H);
-
-    const x = Math.floor((Math.sin(t * 0.0017) * .5 + .5) * (W - 30));
-    const y = Math.floor((Math.cos(t * 0.0013) * .5 + .5) * (H - 22));
-    sctx.fillStyle = '#55d6be';
-    sctx.fillRect(x, y, 30, 22);
-
-    const x2 = Math.floor((Math.cos(t * 0.0011) * .5 + .5) * (W - 16));
-    sctx.fillStyle = '#f0b35a';
-    sctx.fillRect(x2, 12, 16, 16);
-
-    sctx.fillStyle = '#eef4ff';
-    sctx.font = '10px monospace';
-    sctx.fillText('DHMP', 6, H - 7);
   }
 
   async function sendChangedPixels() {
@@ -116,7 +200,7 @@
 
   function animate(now) {
     if (running) {
-      drawScene(now);
+      drawScene();
       void sendChangedPixels();
       framesThisSecond++;
     }
@@ -127,7 +211,7 @@
       const ups = updatesThisSecond / seconds;
       fpsEl.textContent = fps.toFixed(0);
       updatesEl.textContent = Math.round(ups).toLocaleString();
-      ratioEl.textContent = (ups / (W * H * Math.max(fps, 1)) * 100).toFixed(1) + '%';
+      ratioEl.textContent = (ups / (W * H * Math.max(fps, 1)) * 100).toFixed(3) + '%';
       bytesEl.textContent = (ups * OUTPUT / 1000).toFixed(1);
       framesThisSecond = 0;
       updatesThisSecond = 0;
@@ -143,8 +227,7 @@
   });
 
   reset.addEventListener('click', () => {
-    rctx.fillStyle = '#000';
-    rctx.fillRect(0, 0, W, H);
+    resetScene();
   });
 
   sctx.fillStyle = '#000';
@@ -152,5 +235,6 @@
   rctx.fillStyle = '#000';
   rctx.fillRect(0, 0, W, H);
   previous.fill(255);
+  resetScene();
   requestAnimationFrame(animate);
 })();
