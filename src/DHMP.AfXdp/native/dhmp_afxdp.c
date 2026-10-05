@@ -199,25 +199,26 @@ static int prepare_context(
         &socket_config);
 
     if (status != 0 && prefer_zero_copy) {
-        socket_config.bind_flags =
-            (uint16_t)(XDP_USE_NEED_WAKEUP | XDP_COPY);
+        /*
+         * Some drivers/veth combinations leave queue ownership transiently busy
+         * after a failed zero-copy bind. Tear down the entire UMEM/socket context
+         * and retry copy mode from scratch instead of reusing the failed bind state.
+         */
+        destroy_context(ctx);
 
-        status = xsk_socket__create(
-            &ctx->xsk,
+        struct timespec retry_delay = {
+            .tv_sec = 0,
+            .tv_nsec = 50 * 1000 * 1000
+        };
+        nanosleep(&retry_delay, NULL);
+
+        return prepare_context(
+            ctx,
             ifname,
             queue_id,
-            ctx->umem,
-            NULL,
-            &ctx->tx,
-            &socket_config);
-
-        if (status == 0)
-            ctx->mode = DHMP_AFXDP_COPY;
-    } else if (status == 0) {
-        ctx->mode =
-            prefer_zero_copy
-                ? DHMP_AFXDP_ZERO_COPY
-                : DHMP_AFXDP_COPY;
+            0,
+            error,
+            error_capacity);
     }
 
     if (status != 0) {
@@ -230,8 +231,10 @@ static int prepare_context(
         return status;
     }
 
-    if (ctx->mode == DHMP_AFXDP_UNAVAILABLE)
-        ctx->mode = DHMP_AFXDP_COPY;
+    ctx->mode =
+        prefer_zero_copy
+            ? DHMP_AFXDP_ZERO_COPY
+            : DHMP_AFXDP_COPY;
 
     ctx->free_count = DHMP_NUM_FRAMES;
     for (uint32_t i = 0; i < DHMP_NUM_FRAMES; ++i)
