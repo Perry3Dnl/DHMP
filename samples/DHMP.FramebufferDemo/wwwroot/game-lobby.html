@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Virtual Game Lobby</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+  <main>
+    <nav class="top-nav">
+      <a href="/">Throughput Lab</a>
+      <a class="active" href="/game-lobby.html">Virtual Game Lobby</a>
+    </nav>
+
+    <header class="hero">
+      <p class="eyebrow">DHMP VIRTUAL GAME LOBBY</p>
+      <h1>How many realtime players can the data path support?</h1>
+      <p class="lead">Model a data-only game server where each player sends state to the server and receives the newest state for a selected set of other players. The page compares the workload against the live DHMP processing ceiling measured by this server.</p>
+    </header>
+
+    <section class="status">
+      <span id="lobbyState" class="pill">loading live DHMP ceiling…</span>
+      <span><strong id="liveCeilingRecords">0</strong> live records/s ceiling</span>
+      <span><strong id="liveCeilingGb">0</strong> live logical GB/s</span>
+      <span><strong id="capacityUse">0%</strong> DHMP capacity used</span>
+    </section>
+
+    <section class="lobby-controls card">
+      <div class="control-block">
+        <div><span class="control-label">Players connected</span><strong id="playersLabel">40,000</strong></div>
+        <input id="players" type="range" min="0" max="7" step="1" value="5">
+        <div class="scale eight"><span>1K</span><span>5K</span><span>10K</span><span>20K</span><span>40K</span><span>75K</span><span>100K</span><span>250K</span></div>
+      </div>
+
+      <div class="control-block">
+        <div><span class="control-label">Tick rate</span><strong id="tickLabel">60 Hz</strong></div>
+        <input id="tickRate" type="range" min="0" max="4" step="1" value="4">
+        <div class="scale five"><span>10</span><span>20</span><span>30</span><span>45</span><span>60 Hz</span></div>
+      </div>
+
+      <div class="control-block">
+        <div><span class="control-label">State size per player update</span><strong id="stateSizeLabel">32 bytes</strong></div>
+        <input id="stateSize" type="range" min="0" max="5" step="1" value="1">
+        <div class="scale six"><span>16B</span><span>32B</span><span>64B</span><span>128B</span><span>256B</span><span>512B</span></div>
+      </div>
+
+      <div class="control-block">
+        <div><span class="control-label">Interest set per player</span><strong id="interestLabel">64 players</strong></div>
+        <input id="interest" type="range" min="0" max="6" step="1" value="2">
+        <div class="scale seven"><span>16</span><span>32</span><span>64</span><span>128</span><span>256</span><span>512</span><span>ALL</span></div>
+      </div>
+    </section>
+
+    <section class="mode-panel card">
+      <div class="mode-group">
+        <span class="control-label">DHMP receive semantics</span>
+        <div class="mode-buttons">
+          <button type="button" class="mode-button active" data-lobby-mode="Latest">Latest</button>
+          <button type="button" class="mode-button" data-lobby-mode="Sequential">Sequential</button>
+        </div>
+        <p class="muted">Latest models realtime state where stale intermediate updates can be discarded. Sequential models workloads where every complete update must be published.</p>
+      </div>
+      <div class="mode-group">
+        <span class="control-label">Scenario</span>
+        <div class="mode-buttons">
+          <button type="button" class="mode-button active" data-scenario="interest">Interest managed</button>
+          <button type="button" class="mode-button" data-scenario="all">All-to-all</button>
+        </div>
+        <p class="muted">All-to-all forces every player to receive every other player's state and demonstrates how quickly fan-out becomes the real bottleneck.</p>
+      </div>
+    </section>
+
+    <section class="headline-grid lobby-headline">
+      <article class="metric-card"><span>Ingress</span><strong id="ingressGb">0</strong><small>GB/s to server</small></article>
+      <article class="metric-card"><span>Fan-out</span><strong id="fanoutGb">0</strong><small>GB/s from server</small></article>
+      <article class="metric-card"><span>Logical updates</span><strong id="updatesRate">0</strong><small>records/s</small></article>
+      <article class="metric-card"><span>Required wire rate</span><strong id="wireGbps">0</strong><small>Gb/s payload only</small></article>
+    </section>
+
+    <section class="server-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">CAPACITY MODEL</p>
+          <h2 id="scenarioTitle">40,000-player interest-managed lobby</h2>
+        </div>
+        <div class="server-totals">
+          <span><strong id="playersOut">40,000</strong> players</span>
+          <span><strong id="tickOut">60</strong> Hz</span>
+          <span><strong id="interestOut">64</strong> peers/player</span>
+          <span><strong id="stateOut">32</strong> bytes/state</span>
+        </div>
+      </div>
+
+      <div class="capacity-grid">
+        <article class="capacity-card">
+          <span>Player → server records</span>
+          <strong id="incomingRecords">0</strong>
+          <small>records/s</small>
+        </article>
+        <article class="capacity-card">
+          <span>Server → players records</span>
+          <strong id="outgoingRecords">0</strong>
+          <small>records/s</small>
+        </article>
+        <article class="capacity-card">
+          <span>DHMP processing requirement</span>
+          <strong id="totalRecords">0</strong>
+          <small>logical records/s</small>
+        </article>
+        <article class="capacity-card">
+          <span>Headroom vs live ceiling</span>
+          <strong id="headroom">—</strong>
+          <small>processing-only model</small>
+        </article>
+      </div>
+
+      <div class="capacity-bar-wrap">
+        <div class="capacity-bar-head"><span>DHMP processing utilization</span><strong id="capacityUseBar">0%</strong></div>
+        <div class="capacity-bar"><div id="capacityFill"></div></div>
+      </div>
+
+      <div class="explain lobby-explain">
+        <div>
+          <strong>Ingress scales linearly</strong>
+          <p>Each connected player contributes one state update per tick. This part is generally modest even at tens of thousands of players.</p>
+        </div>
+        <div>
+          <strong>Fan-out dominates</strong>
+          <p>Outbound work is players × relevant peers × tick rate. Interest management is what makes very large lobbies physically possible.</p>
+        </div>
+        <div>
+          <strong>Processing is not bandwidth</strong>
+          <p>The live DHMP ceiling is an in-process logical processing result. The required wire rate shows the separate NIC/network problem.</p>
+        </div>
+      </div>
+
+      <p class="telemetry-note">This page is a capacity model, not proof that this many real Internet clients have been tested. It intentionally separates DHMP processing capacity from physical NIC, kernel, encryption, game simulation, connection-management and database limits.</p>
+    </section>
+
+    <footer>
+      <a href="/">Open Throughput Lab</a>
+      <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
+    </footer>
+  </main>
+  <script src="/game-lobby.js"></script>
+</body>
+</html>
