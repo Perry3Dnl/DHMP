@@ -34,10 +34,12 @@
   const resolutionValue = document.querySelector('#resolutionValue');
   const sourceLabel = document.querySelector('#sourceLabel');
 
-  const serverRxEl = document.querySelector('#serverRx');
-  const serverTxEl = document.querySelector('#serverTx');
+  const serverOfferedEl = document.querySelector('#serverOffered');
+  const serverAcceptedEl = document.querySelector('#serverAccepted');
+  const serverProcessedEl = document.querySelector('#serverProcessed');
+  const serverDroppedEl = document.querySelector('#serverDropped');
+  const serverQueueEl = document.querySelector('#serverQueue');
   const serverMbpsEl = document.querySelector('#serverMbps');
-  const serverTotalEl = document.querySelector('#serverTotal');
   const recordsChart = document.querySelector('#recordsChart');
   const throughputChart = document.querySelector('#throughputChart');
   const totalChart = document.querySelector('#totalChart');
@@ -269,10 +271,11 @@
     drawLineChart(
       recordsChart,
       [
-        serverHistory.map(point => point.rx),
-        serverHistory.map(point => point.tx)
+        serverHistory.map(point => point.offered),
+        serverHistory.map(point => point.accepted),
+        serverHistory.map(point => point.processed)
       ],
-      ['received/s', 'published/s']
+      ['offered/s', 'accepted/s', 'processed/s']
     );
 
     drawLineChart(
@@ -283,8 +286,11 @@
 
     drawLineChart(
       totalChart,
-      [serverHistory.map(point => point.total)],
-      ['total records']
+      [
+        serverHistory.map(point => point.queue),
+        serverHistory.map(point => point.dropped)
+      ],
+      ['queue depth', 'dropped/s']
     );
   }
 
@@ -302,48 +308,68 @@
             previousServerStats.uptimeMilliseconds) / 1000
         );
 
-        const rx =
+        const offered =
           Math.max(
             0,
-            current.receivedRecords -
-              previousServerStats.receivedRecords
+            current.offeredRecords -
+              previousServerStats.offeredRecords
           ) / elapsed;
 
-        const tx =
+        const accepted =
           Math.max(
             0,
-            current.publishedRecords -
-              previousServerStats.publishedRecords
+            current.acceptedRecords -
+              previousServerStats.acceptedRecords
+          ) / elapsed;
+
+        const processed =
+          Math.max(
+            0,
+            current.processedRecords -
+              previousServerStats.processedRecords
+          ) / elapsed;
+
+        const dropped =
+          Math.max(
+            0,
+            current.droppedRecords -
+              previousServerStats.droppedRecords
           ) / elapsed;
 
         const byteDelta = Math.max(
           0,
-          current.receivedRecordBytes -
-            previousServerStats.receivedRecordBytes
+          current.processedRecordBytes -
+            previousServerStats.processedRecordBytes
         );
 
         const mbps = byteDelta / elapsed / 1_000_000;
         const target = Math.max(1, current.targetRecordsPerSecond);
-        const targetPercent = rx / target * 100;
+        const targetPercent = processed / target * 100;
 
         serverHistory.push({
-          rx,
-          tx,
-          mbps,
-          total: current.receivedRecords
+          offered,
+          accepted,
+          processed,
+          dropped,
+          queue: current.queueDepth,
+          mbps
         });
 
         if (serverHistory.length > 60) serverHistory.shift();
 
-        updatesEl.textContent = Math.round(rx).toLocaleString();
+        updatesEl.textContent = Math.round(processed).toLocaleString();
         ratioEl.textContent = targetPercent.toFixed(1) + '%';
         bytesEl.textContent = mbps.toFixed(2);
 
-        serverRxEl.textContent = Math.round(rx).toLocaleString();
-        serverTxEl.textContent = Math.round(tx).toLocaleString();
+        serverOfferedEl.textContent = Math.round(offered).toLocaleString();
+        serverAcceptedEl.textContent = Math.round(accepted).toLocaleString();
+        serverProcessedEl.textContent = Math.round(processed).toLocaleString();
+        serverDroppedEl.textContent = Math.round(dropped).toLocaleString();
+        serverQueueEl.textContent =
+          Number(current.queueDepth).toLocaleString() +
+          ' / ' +
+          Number(current.queueCapacityRecords).toLocaleString();
         serverMbpsEl.textContent = mbps.toFixed(2);
-        serverTotalEl.textContent =
-          Number(current.receivedRecords).toLocaleString();
 
         resolutionValue.textContent =
           current.width + '×' + current.height + ' · ' + current.label;
@@ -357,8 +383,11 @@
     } catch {
       stateEl.textContent = 'server telemetry unavailable';
       stateEl.classList.remove('live');
-      serverRxEl.textContent = '—';
-      serverTxEl.textContent = '—';
+      serverOfferedEl.textContent = '—';
+      serverAcceptedEl.textContent = '—';
+      serverProcessedEl.textContent = '—';
+      serverDroppedEl.textContent = '—';
+      serverQueueEl.textContent = '—';
       serverMbpsEl.textContent = '—';
     }
   }
