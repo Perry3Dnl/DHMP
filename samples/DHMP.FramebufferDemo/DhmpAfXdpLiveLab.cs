@@ -8,11 +8,13 @@ using DHMP.RawIpv6;
 
 internal sealed class DhmpAfXdpLiveLab : BackgroundService
 {
-    private const long PacketsPerSample = 250_000;
+    private const long PacketsPerWorkerSample = 250_000;
+    private const int MaximumWorkers = 16;
 
     private readonly object _gate = new();
 
-    private int _payloadBytes = 1200;
+    private int _payloadBytes = 1408;
+    private int _workers = Math.Min(MaximumWorkers, Math.Max(1, Environment.ProcessorCount));
     private long _configurationVersion;
 
     private long _afXdpPacketsCompleted;
@@ -25,28 +27,36 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
     private long _runs;
     private long _failures;
-    private string _mode = "Probing";
-    private string _detail = "AF_XDP capability probe pending.";
+    private bool _isRunning;
+    private string _mode = "Unknown";
+    private string _detail = "Waiting for the first paired benchmark sample.";
 
-    private readonly string _interfaceName =
-        Environment.GetEnvironmentVariable("DHMP_AFXDP_INTERFACE")
-        ?? "dhmpxdp0";
+    private readonly string _interfacePrefix =
+        Environment.GetEnvironmentVariable("DHMP_AFXDP_INTERFACE_PREFIX")
+        ?? "dhmpxdp";
 
-    private readonly IPAddress _rawLocalAddress =
-        IPAddress.Parse(
-            Environment.GetEnvironmentVariable("DHMP_AFXDP_RAW_LOCAL")
-            ?? "fd42:6468:6d70::1");
+    public int MaxWorkers =>
+        Math.Min(
+            MaximumWorkers,
+            Math.Max(1, Environment.ProcessorCount * 2));
 
-    public void Configure(int payloadBytes)
+    public void Configure(
+        int payloadBytes,
+        int workers)
     {
         if (payloadBytes <= 0 ||
             payloadBytes > 1408 ||
             payloadBytes % DhmpThroughputLab.RecordSize != 0)
             throw new ArgumentOutOfRangeException(nameof(payloadBytes));
 
+        if (workers <= 0 ||
+            workers > MaxWorkers)
+            throw new ArgumentOutOfRangeException(nameof(workers));
+
         lock (_gate)
         {
             _payloadBytes = payloadBytes;
+            _workers = workers;
             _configurationVersion++;
         }
     }
@@ -54,16 +64,20 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
     public DhmpAfXdpLiveSnapshot Snapshot()
     {
         int payloadBytes;
+        int workers;
         long version;
         string mode;
         string detail;
+        bool isRunning;
 
         lock (_gate)
         {
             payloadBytes = _payloadBytes;
+            workers = _workers;
             version = _configurationVersion;
             mode = _mode;
             detail = _detail;
+            isRunning = _isRunning;
         }
 
         return new DhmpAfXdpLiveSnapshot(
@@ -79,9 +93,13 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
             Interlocked.Read(ref _failures),
             payloadBytes,
             payloadBytes / DhmpThroughputLab.RecordSize,
-            PacketsPerSample,
-            _interfaceName,
+            PacketsPerWorkerSample,
+            workers,
+            MaxWorkers,
+            Environment.ProcessorCount,
+            _interfacePrefix,
             mode,
+            isRunning,
             detail,
             version);
     }
@@ -92,82 +110,51 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             int payloadBytes;
+            int workers;
             long version;
             long runNumber;
 
             lock (_gate)
             {
                 payloadBytes = _payloadBytes;
+                workers = _workers;
                 version = _configurationVersion;
+                _isRunning = true;
+                _detail =
+                    $"Running paired Raw IPv6 and AF_XDP phases with {workers} parallel workers.";
             }
 
             runNumber = Interlocked.Read(ref _runs);
 
             try
             {
-                lock (_gate)
-                {
-                    _mode = "Probing";
-                    _detail = "Running paired Raw IPv6 and AF_XDP TX samples.";
-                }
-
-                RawTxResult raw;
-                DhmpAfXdpBenchmarkResult afXdp;
+                PhaseResult raw;
+                AfXdpPhaseResult afXdp;
 
                 if ((runNumber & 1) == 0)
                 {
-                    raw = await Task.Run(
-                        () => RunRawIpv6Transmit(
-                            payloadBytes,
-                            PacketsPerSample),
+                    raw = await RunRawPhaseAsync(
+                        payloadBytes,
+                        workers,
                         stoppingToken);
 
-                    afXdp = await Task.Run(
-                        () => RunAfXdp(
-                            payloadBytes,
-                            PacketsPerSample),
+                    afXdp = await RunAfXdpPhaseAsync(
+                        payloadBytes,
+                        workers,
                         stoppingToken);
                 }
                 else
                 {
-                    afXdp = await Task.Run(
-                        () => RunAfXdp(
-                            payloadBytes,
-                            PacketsPerSample),
+                    afXdp = await RunAfXdpPhaseAsync(
+                        payloadBytes,
+                        workers,
                         stoppingToken);
 
-                    raw = await Task.Run(
-                        () => RunRawIpv6Transmit(
-                            payloadBytes,
-                            PacketsPerSample),
+                    raw = await RunRawPhaseAsync(
+                        payloadBytes,
+                        workers,
                         stoppingToken);
                 }
-
-                if (!afXdp.Supported)
-                {
-                    Interlocked.Increment(ref _failures);
-
-                    lock (_gate)
-                    {
-                        _mode = "Unavailable";
-                        _detail = afXdp.Detail;
-                    }
-
-                    await Task.Delay(
-                        TimeSpan.FromSeconds(2),
-                        stoppingToken);
-                    continue;
-                }
-
-                long afXdpTicks =
-                    (long)Math.Round(
-                        afXdp.Seconds *
-                        Stopwatch.Frequency);
-
-                long rawTicks =
-                    (long)Math.Round(
-                        raw.Seconds *
-                        Stopwatch.Frequency);
 
                 Interlocked.Add(
                     ref _afXdpPacketsCompleted,
@@ -179,7 +166,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
                 Interlocked.Add(
                     ref _afXdpTicks,
-                    afXdpTicks);
+                    afXdp.ElapsedTicks);
 
                 Interlocked.Add(
                     ref _rawPacketsCompleted,
@@ -191,15 +178,16 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
                 Interlocked.Add(
                     ref _rawTicks,
-                    rawTicks);
+                    raw.ElapsedTicks);
 
                 Interlocked.Increment(ref _runs);
 
                 lock (_gate)
                 {
-                    _mode = afXdp.Mode.ToString();
+                    _mode = afXdp.Mode;
+                    _isRunning = false;
                     _detail =
-                        $"{afXdp.Detail} Paired Raw IPv6 TX sample completed.";
+                        $"Completed paired {workers}-worker sample. AF_XDP mode: {afXdp.Mode}.";
                 }
 
                 lock (_gate)
@@ -221,7 +209,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
                 lock (_gate)
                 {
-                    _mode = "Unavailable";
+                    _isRunning = false;
                     _detail = exception.GetBaseException().Message;
                 }
 
@@ -232,30 +220,130 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         }
     }
 
-    private DhmpAfXdpBenchmarkResult RunAfXdp(
+    private async Task<PhaseResult> RunRawPhaseAsync(
         int payloadBytes,
-        long packets) =>
-        DhmpAfXdpBenchmark.RunTransmit(
-            _interfaceName,
-            payloadBytes,
-            packets,
-            queueId: 0,
-            preferZeroCopy: true);
+        int workers,
+        CancellationToken cancellationToken)
+    {
+        using var startGate = new ManualResetEventSlim(false);
 
-    private RawTxResult RunRawIpv6Transmit(
+        Task<WorkerResult>[] tasks =
+            Enumerable.Range(0, workers)
+                .Select(
+                    worker =>
+                        Task.Factory.StartNew(
+                            () =>
+                            {
+                                startGate.Wait(cancellationToken);
+
+                                return RunRawIpv6Transmit(
+                                    worker,
+                                    payloadBytes,
+                                    PacketsPerWorkerSample);
+                            },
+                            cancellationToken,
+                            TaskCreationOptions.LongRunning,
+                            TaskScheduler.Default))
+                .ToArray();
+
+        long started = Stopwatch.GetTimestamp();
+        startGate.Set();
+
+        WorkerResult[] results =
+            await Task.WhenAll(tasks);
+
+        long elapsed =
+            Stopwatch.GetTimestamp() - started;
+
+        return new PhaseResult(
+            results.Sum(result => result.PacketsCompleted),
+            results.Sum(result => result.PayloadBytesCompleted),
+            elapsed);
+    }
+
+    private async Task<AfXdpPhaseResult> RunAfXdpPhaseAsync(
+        int payloadBytes,
+        int workers,
+        CancellationToken cancellationToken)
+    {
+        using var startGate = new ManualResetEventSlim(false);
+
+        Task<DhmpAfXdpBenchmarkResult>[] tasks =
+            Enumerable.Range(0, workers)
+                .Select(
+                    worker =>
+                        Task.Factory.StartNew(
+                            () =>
+                            {
+                                startGate.Wait(cancellationToken);
+
+                                return DhmpAfXdpBenchmark.RunTransmit(
+                                    InterfaceName(worker),
+                                    payloadBytes,
+                                    PacketsPerWorkerSample,
+                                    queueId: 0,
+                                    preferZeroCopy: true);
+                            },
+                            cancellationToken,
+                            TaskCreationOptions.LongRunning,
+                            TaskScheduler.Default))
+                .ToArray();
+
+        long started = Stopwatch.GetTimestamp();
+        startGate.Set();
+
+        DhmpAfXdpBenchmarkResult[] results =
+            await Task.WhenAll(tasks);
+
+        long elapsed =
+            Stopwatch.GetTimestamp() - started;
+
+        DhmpAfXdpBenchmarkResult? failed =
+            results.FirstOrDefault(
+                result => !result.Supported);
+
+        if (failed is not null)
+        {
+            throw new InvalidOperationException(
+                failed.Detail);
+        }
+
+        string[] modes =
+            results
+                .Select(result => result.Mode.ToString())
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+        string mode =
+            modes.Length == 1
+                ? modes[0]
+                : string.Join("/", modes);
+
+        return new AfXdpPhaseResult(
+            results.Sum(result => result.PacketsCompleted),
+            results.Sum(result => result.PayloadBytesCompleted),
+            elapsed,
+            mode);
+    }
+
+    private WorkerResult RunRawIpv6Transmit(
+        int worker,
         int payloadBytes,
         long packets)
     {
+        string interfaceName =
+            InterfaceName(worker);
+
         NetworkInterface networkInterface =
             NetworkInterface.GetAllNetworkInterfaces()
                 .SingleOrDefault(
                     candidate =>
                         string.Equals(
                             candidate.Name,
-                            _interfaceName,
+                            interfaceName,
                             StringComparison.Ordinal))
             ?? throw new InvalidOperationException(
-                $"Benchmark interface '{_interfaceName}' was not found.");
+                $"Benchmark interface '{interfaceName}' was not found.");
 
         IPv6InterfaceProperties? ipv6 =
             networkInterface
@@ -265,7 +353,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         if (ipv6 is null)
         {
             throw new InvalidOperationException(
-                $"Benchmark interface '{_interfaceName}' has no IPv6 properties.");
+                $"Benchmark interface '{interfaceName}' has no IPv6 properties.");
         }
 
         var multicast =
@@ -280,7 +368,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
         sender.Bind(
             new IPEndPoint(
-                _rawLocalAddress,
+                RawLocalAddress(worker),
                 0));
 
         sender.SendBufferSize =
@@ -303,15 +391,12 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                 multicast,
                 0);
 
-        long started =
-            Stopwatch.GetTimestamp();
-
         for (long packet = 0;
              packet < packets;
              packet++)
         {
             BitConverter.TryWriteBytes(
-                payload.AsSpan(0, Math.Min(8, payload.Length)),
+                payload.AsSpan(0, 8),
                 packet);
 
             sender.SendTo(
@@ -320,23 +405,32 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                 target);
         }
 
-        long finished =
-            Stopwatch.GetTimestamp();
-
-        double seconds =
-            (finished - started) /
-            (double)Stopwatch.Frequency;
-
-        return new RawTxResult(
+        return new WorkerResult(
             packets,
-            packets * (long)payloadBytes,
-            seconds);
+            packets * (long)payloadBytes);
     }
 
-    private sealed record RawTxResult(
+    private string InterfaceName(int worker) =>
+        $"{_interfacePrefix}{worker}";
+
+    private static IPAddress RawLocalAddress(int worker) =>
+        IPAddress.Parse(
+            $"fd42:6468:6d70:{worker + 1:x}::1");
+
+    private sealed record WorkerResult(
+        long PacketsCompleted,
+        long PayloadBytesCompleted);
+
+    private sealed record PhaseResult(
         long PacketsCompleted,
         long PayloadBytesCompleted,
-        double Seconds);
+        long ElapsedTicks);
+
+    private sealed record AfXdpPhaseResult(
+        long PacketsCompleted,
+        long PayloadBytesCompleted,
+        long ElapsedTicks,
+        string Mode);
 }
 
 internal sealed record DhmpAfXdpLiveSnapshot(
@@ -352,11 +446,16 @@ internal sealed record DhmpAfXdpLiveSnapshot(
     long Failures,
     int PayloadBytes,
     int RecordsPerPacket,
-    long PacketsPerSample,
-    string InterfaceName,
+    long PacketsPerWorkerSample,
+    int Workers,
+    int MaxWorkers,
+    int LogicalProcessors,
+    string InterfacePrefix,
     string Mode,
+    bool IsRunning,
     string Detail,
     long ConfigurationVersion);
 
 internal sealed record DhmpAfXdpConfigureRequest(
-    int PayloadBytes);
+    int PayloadBytes,
+    int Workers);
