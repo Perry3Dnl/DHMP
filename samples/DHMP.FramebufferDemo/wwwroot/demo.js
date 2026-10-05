@@ -33,6 +33,9 @@
   const resolution = document.querySelector('#resolution');
   const resolutionValue = document.querySelector('#resolutionValue');
   const sourceLabel = document.querySelector('#sourceLabel');
+  const previewSection = document.querySelector('#previewSection');
+  const previewMetric = document.querySelector('#previewMetric');
+  const resolutionHint = document.querySelector('#resolutionHint');
 
   const serverOfferedEl = document.querySelector('#serverOffered');
   const serverAcceptedEl = document.querySelector('#serverAccepted');
@@ -48,6 +51,7 @@
   const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
   let running = true;
+  let previewEnabled = true;
   let framesThisSecond = 0;
   let lastPreviewStats = performance.now();
   let lastReceiverPreview = 0;
@@ -156,6 +160,23 @@
     for (const pipe of pipes) growPipe(pipe);
   }
 
+  function updatePreviewMode(selected) {
+    previewEnabled = selected.label !== '64K';
+
+    previewSection.hidden = !previewEnabled;
+    previewMetric.hidden = !previewEnabled;
+    toggle.hidden = !previewEnabled;
+    reset.hidden = !previewEnabled;
+
+    resolutionHint.textContent = previewEnabled
+      ? 'Changes the server-side DHMP workload; preview stays lightweight'
+      : '64K stress mode: visual preview disabled so the page is telemetry-only';
+
+    if (!previewEnabled) {
+      fpsEl.textContent = '0';
+    }
+  }
+
   async function setServerWorkload(selected) {
     stateEl.textContent = 'setting server workload…';
     stateEl.classList.remove('live');
@@ -170,6 +191,7 @@
       if (!response.ok) throw new Error('HTTP ' + response.status);
 
       selectedResolution = selected;
+      updatePreviewMode(selected);
       resolutionValue.textContent =
         selected.width + '×' + selected.height + ' · ' + selected.label;
       sourceLabel.textContent =
@@ -393,7 +415,7 @@
   }
 
   function animate(now) {
-    if (running) {
+    if (previewEnabled && running) {
       drawPreview();
       framesThisSecond++;
 
@@ -431,6 +453,7 @@
       selected.height + ' · ' +
       selected.label;
 
+    updatePreviewMode(selected);
     clearTimeout(workloadTimer);
 
     workloadTimer = setTimeout(
@@ -447,6 +470,7 @@
   receiver.height = PREVIEW_H;
 
   resetPreview();
+  updatePreviewMode(selectedResolution);
   void setServerWorkload(selectedResolution);
   void pollServerStats();
   setInterval(pollServerStats, 1000);
