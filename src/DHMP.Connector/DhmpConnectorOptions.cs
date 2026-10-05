@@ -111,10 +111,12 @@ public sealed class DhmpConnectorOptions
             HandshakeTimeout > TimeSpan.FromMilliseconds(uint.MaxValue - 1))
             throw new ArgumentOutOfRangeException(nameof(HandshakeTimeout));
 
-        if (PreSharedKey is null && !AllowUnprotectedPayloads)
+        if (PreSharedKey is null &&
+            !AllowUnprotectedPayloads &&
+            !AllowUnprotectedBlindFire)
             throw new InvalidOperationException(
-                "DHMP Connector requires either a pre-shared key or explicit AllowUnprotectedPayloads=true. " +
-                "Plaintext DHMP V1 has no protocol-owned end-to-end authentication/integrity check.");
+                "DHMP Connector requires a pre-shared key, explicit AllowUnprotectedPayloads=true for normal plaintext connections, " +
+                "or explicit AllowUnprotectedBlindFire=true for BlindFire-only use.");
 
         if (!Enum.IsDefined(DuplicatePeerHandling))
             throw new ArgumentOutOfRangeException(nameof(DuplicatePeerHandling));
