@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DHMP Kernel Bypass Lab</title>
+  <title>DHMP Kernel Bypass Comparison</title>
   <link rel="stylesheet" href="/site.css">
 </head>
 <body>
@@ -15,17 +15,16 @@
     </nav>
 
     <header class="hero">
-      <p class="eyebrow">DHMP AF_XDP FAST-PATH LAB</p>
-      <h1>Push DHMP through the fastest network path this host can expose.</h1>
-      <p class="lead">This page drives the experimental <code>DHMP.AfXdp</code> backend on an isolated Linux veth pair. The backend always requests AF_XDP zero-copy first and falls back to AF_XDP copy mode only when the server's driver cannot provide zero-copy.</p>
+      <p class="eyebrow">DHMP RAW IPv6 VS AF_XDP</p>
+      <h1>Same server. Same payload. Two Linux network paths.</h1>
+      <p class="lead">Each live sample pair sends the same number of DHMP packets through the normal Linux raw-IPv6 socket path and the experimental AF_XDP fast path on the same isolated veth interface. The order alternates every run to reduce first-run bias.</p>
     </header>
 
     <section class="status">
-      <span id="state" class="pill">probing AF_XDP…</span>
-      <span><strong id="mode">—</strong> active mode</span>
-      <span><strong id="packetsRate">0</strong> packets/s</span>
-      <span><strong id="gbps">0</strong> GB/s</span>
-      <span><strong id="recordsRate">0</strong> records/s</span>
+      <span id="state" class="pill">starting comparison…</span>
+      <span><strong id="mode">—</strong> AF_XDP mode</span>
+      <span><strong id="speedup">0.00×</strong> packet-rate speedup</span>
+      <span><strong id="payloadSpeedup">0.00×</strong> payload-rate speedup</span>
     </section>
 
     <section class="controls card">
@@ -38,89 +37,112 @@
         <div class="scale five">
           <span>16B</span><span>256B</span><span>1KB</span><span>1.2KB</span><span>1.4KB</span>
         </div>
-        <p class="muted">AF_XDP benchmark packets stay within a normal 1500-byte Ethernet MTU. Each payload contains complete 16-byte DHMP records.</p>
+        <p class="muted">Both paths use this exact useful DHMP payload size and the same 250,000-packet sample count.</p>
       </div>
 
       <div class="mode-group bypass-mode">
-        <span class="control-label">Backend selection</span>
+        <span class="control-label">AF_XDP backend selection</span>
         <div class="mode-buttons">
           <button type="button" class="mode-button active" disabled>Prefer ZeroCopy</button>
         </div>
-        <p class="muted">The server chooses the best real AF_XDP mode available. ZeroCopy is preferred; Copy is used only as a fallback.</p>
+        <p class="muted">ZeroCopy is requested first. If this server's veth driver cannot provide it, AF_XDP Copy mode is used and labeled explicitly.</p>
       </div>
     </section>
 
     <section class="headline-grid">
       <article class="metric-card">
-        <span>AF_XDP packet rate</span>
-        <strong id="packetRate">0</strong>
+        <span>Raw IPv6</span>
+        <strong id="rawPacketRate">0</strong>
         <small>packets/s</small>
       </article>
       <article class="metric-card">
-        <span>Logical records</span>
-        <strong id="recordRate">0</strong>
-        <small>16-byte records/s</small>
+        <span>AF_XDP</span>
+        <strong id="afxdpPacketRate">0</strong>
+        <small>packets/s</small>
       </article>
       <article class="metric-card">
-        <span>Useful payload</span>
-        <strong id="payloadGb">0</strong>
+        <span>Packet-rate speedup</span>
+        <strong id="speedupCard">0.00×</strong>
+        <small>AF_XDP / Raw IPv6</small>
+      </article>
+      <article class="metric-card">
+        <span>Completed sample pairs</span>
+        <strong id="runs">0</strong>
+        <small>250K packets per path</small>
+      </article>
+    </section>
+
+    <section class="headline-grid">
+      <article class="metric-card">
+        <span>Raw useful payload</span>
+        <strong id="rawPayloadGb">0</strong>
         <small>GB/s</small>
       </article>
       <article class="metric-card">
-        <span>Completed runs</span>
-        <strong id="runs">0</strong>
-        <small>250K-packet samples</small>
+        <span>AF_XDP useful payload</span>
+        <strong id="afxdpPayloadGb">0</strong>
+        <small>GB/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Raw logical records</span>
+        <strong id="rawRecordRate">0</strong>
+        <small>16-byte records/s</small>
+      </article>
+      <article class="metric-card">
+        <span>AF_XDP logical records</span>
+        <strong id="afxdpRecordRate">0</strong>
+        <small>16-byte records/s</small>
       </article>
     </section>
 
     <section class="server-panel">
       <div class="panel-head">
         <div>
-          <p class="eyebrow">LIVE SERVER RESULT</p>
-          <h2>DHMP AF_XDP transmit fast path</h2>
+          <p class="eyebrow">LIVE FAIR COMPARISON</p>
+          <h2>Directional DHMP transmit path</h2>
         </div>
         <div class="server-totals">
           <span><strong id="payloadBytes">0</strong> bytes/packet</span>
           <span><strong id="recordsPerPacket">0</strong> records/packet</span>
+          <span><strong id="packetsPerSample">0</strong> packets/sample</span>
           <span><strong id="interfaceName">—</strong> interface</span>
-          <span><strong id="failureCount">0</strong> failures</span>
         </div>
       </div>
 
       <div class="charts">
         <article class="chart-card">
-          <div class="chart-title"><strong>Packet rate</strong><span>AF_XDP completions/s</span></div>
+          <div class="chart-title"><strong>Packet rate</strong><span>Raw IPv6 vs AF_XDP</span></div>
           <canvas id="packetChart"></canvas>
         </article>
         <article class="chart-card">
-          <div class="chart-title"><strong>Payload throughput</strong><span>useful DHMP GB/s</span></div>
+          <div class="chart-title"><strong>Useful payload throughput</strong><span>GB/s, identical DHMP payload</span></div>
           <canvas id="throughputChart"></canvas>
         </article>
       </div>
 
       <div class="profiler-grid">
-        <div><span>Active AF_XDP mode</span><strong id="activeMode">—</strong></div>
-        <div><span>Payload bytes</span><strong id="profilePayload">0</strong></div>
-        <div><span>Records per packet</span><strong id="profileRecords">0</strong></div>
-        <div><span>Benchmark runs</span><strong id="profileRuns">0</strong></div>
-        <div class="wide"><span>Backend detail</span><strong id="detail">probing…</strong></div>
+        <div><span>AF_XDP mode</span><strong id="activeMode">—</strong></div>
+        <div><span>Raw IPv6 path</span><strong>Linux raw socket</strong></div>
+        <div><span>Sample order</span><strong>Alternates each pair</strong></div>
+        <div><span>Failures</span><strong id="failureCount">0</strong></div>
+        <div class="wide"><span>Backend detail</span><strong id="detail">starting…</strong></div>
       </div>
 
-      <p class="telemetry-note">This is a live AF_XDP TX-path benchmark on an isolated veth pair inside the demo container. It measures AF_XDP descriptor completion and useful DHMP payload rate. It is not an end-to-end Internet result and does not claim remote delivery latency. The displayed mode is the mode actually initialized by the host.</p>
+      <p class="telemetry-note">This is a directional TX-path comparison, not an end-to-end latency test. Raw IPv6 measures synchronous submission through the normal Linux raw-socket/kernel path onto the benchmark veth. AF_XDP measures TX completion through its UMEM/ring fast path on the same veth. Both use the same payload and packet count. No production network traffic is generated.</p>
     </section>
 
     <section class="explain">
       <div>
-        <strong>Zero-copy first</strong>
-        <p>The backend requests AF_XDP zero-copy on every run. If the veth/driver cannot expose it, the native backend falls back to AF_XDP copy mode and reports that explicitly.</p>
+        <strong>Same workload</strong>
+        <p>Both paths transmit the same number of packets with the same useful DHMP payload and fixed 16-byte record accounting.</p>
       </div>
       <div>
-        <strong>No production traffic</strong>
-        <p>The benchmark uses a private veth pair inside the container rather than sending synthetic benchmark frames onto the server's external network interface.</p>
+        <strong>Same host and interface</strong>
+        <p>Both benchmarks execute inside the same deployed container against the same isolated benchmark veth, avoiding differences between machines.</p>
       </div>
       <div>
-        <strong>Compare with the normal lab</strong>
-        <p>The normal Throughput Lab measures DHMP API/framing processing. This page measures the experimental network fast-path boundary, so the numbers answer a different question.</p>
+        <strong>Alternating order</strong>
+        <p>Raw IPv6 runs first on one sample pair and AF_XDP first on the next, reducing systematic warm-up and first-run bias.</p>
       </div>
     </section>
 
