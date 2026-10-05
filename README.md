@@ -99,6 +99,9 @@ Delivery behavior stays an option on sending rather than becoming another topolo
 Duplicate source IPv6 connections are rejected by default. Applications that intentionally need multiple logical connections from the same source address can opt into `DhmpDuplicatePeerHandling.ResolveWithConnectionId` and reserve an 8-byte application-owned `ConnectionId` field. Its location participates in schema negotiation; the value is derived from the authenticated session and used only when source IPv6 alone is ambiguous. This adds no mandatory DHMP V1 header bytes.
 
 
+For ultra-light IoT telemetry, Connector also offers explicit **BlindFire** mode: register a device source IPv6 once on the server, then future device boots can emit one plaintext fixed record with no HELLO/ACCEPT or security handshake. BlindFire is separately gated by `AllowUnprotectedBlindFire=true`; it does not enable normal plaintext connections. It provides no encryption, cryptographic authentication, replay protection, or delivery confirmation. Source IPv6 plus schema/record validation are routing checks, not security guarantees.
+
+
 ### Current capabilities
 
 | Area | Current DHMP implementation |
