@@ -93,6 +93,8 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
     {
         const int SlicesPerSecond = 100;
         TimeSpan targetSlice = TimeSpan.FromSeconds(1d / SlicesPerSecond);
+        long lastOfferTimestamp = Stopwatch.GetTimestamp();
+        double fractionalOffer = 0;
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -110,13 +112,24 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             long targetPerSecond =
                 CalculateTargetRecordsPerSecond(width, height);
 
-            long requested =
-                Math.Max(
-                    1,
-                    (targetPerSecond + SlicesPerSecond - 1) /
-                    SlicesPerSecond);
+            long now = Stopwatch.GetTimestamp();
+            double elapsedOfferSeconds =
+                (double)(now - lastOfferTimestamp) /
+                Stopwatch.Frequency;
+            lastOfferTimestamp = now;
 
-            Interlocked.Add(ref _offeredRecords, requested);
+            double exactOffer =
+                targetPerSecond * elapsedOfferSeconds +
+                fractionalOffer;
+
+            long requested =
+                Math.Max(0, (long)exactOffer);
+
+            fractionalOffer =
+                exactOffer - requested;
+
+            if (requested > 0)
+                Interlocked.Add(ref _offeredRecords, requested);
 
             long write = Volatile.Read(ref _writePosition);
             long read = Volatile.Read(ref _readPosition);
@@ -127,8 +140,7 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
 
             for (int index = 0; index < accepted; index++)
             {
-                long sequence =
-                    Interlocked.Increment(ref _cursor) - 1;
+                long sequence = _cursor++;
 
                 int slot =
                     (int)((write + index) % QueueCapacityRecords);
@@ -202,9 +214,8 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                 long pixel = position % pixelCount;
                 ushort x = (ushort)(pixel % width);
                 ushort y = (ushort)(pixel / width);
-                ulong generation = unchecked(
-                    (ulong)Interlocked.Increment(
-                        ref _generation));
+                ulong generation =
+                    unchecked((ulong)++_generation);
 
                 Span<byte> span = record;
                 BinaryPrimitives.WriteUInt16BigEndian(
