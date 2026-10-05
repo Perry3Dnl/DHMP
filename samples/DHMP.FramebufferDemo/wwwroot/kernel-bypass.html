@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Kernel Bypass Lab</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+  <main>
+    <nav class="top-nav">
+      <a href="/">Throughput Lab</a>
+      <a class="active" href="/kernel-bypass.html">Kernel Bypass</a>
+      <a href="/game-lobby.html">Virtual Game Lobby</a>
+    </nav>
+
+    <header class="hero">
+      <p class="eyebrow">DHMP AF_XDP FAST-PATH LAB</p>
+      <h1>Push DHMP through the fastest network path this host can expose.</h1>
+      <p class="lead">This page drives the experimental <code>DHMP.AfXdp</code> backend on an isolated Linux veth pair. The backend always requests AF_XDP zero-copy first and falls back to AF_XDP copy mode only when the server's driver cannot provide zero-copy.</p>
+    </header>
+
+    <section class="status">
+      <span id="state" class="pill">probing AF_XDP…</span>
+      <span><strong id="mode">—</strong> active mode</span>
+      <span><strong id="packetsRate">0</strong> packets/s</span>
+      <span><strong id="gbps">0</strong> GB/s</span>
+      <span><strong id="recordsRate">0</strong> records/s</span>
+    </section>
+
+    <section class="controls card">
+      <div class="control-block">
+        <div>
+          <span class="control-label">DHMP payload per packet</span>
+          <strong id="payloadLabel">1,200 bytes</strong>
+        </div>
+        <input id="payloadSize" type="range" min="0" max="4" step="1" value="3">
+        <div class="scale five">
+          <span>16B</span><span>256B</span><span>1KB</span><span>1.2KB</span><span>1.4KB</span>
+        </div>
+        <p class="muted">AF_XDP benchmark packets stay within a normal 1500-byte Ethernet MTU. Each payload contains complete 16-byte DHMP records.</p>
+      </div>
+
+      <div class="mode-group bypass-mode">
+        <span class="control-label">Backend selection</span>
+        <div class="mode-buttons">
+          <button type="button" class="mode-button active" disabled>Prefer ZeroCopy</button>
+        </div>
+        <p class="muted">The server chooses the best real AF_XDP mode available. ZeroCopy is preferred; Copy is used only as a fallback.</p>
+      </div>
+    </section>
+
+    <section class="headline-grid">
+      <article class="metric-card">
+        <span>AF_XDP packet rate</span>
+        <strong id="packetRate">0</strong>
+        <small>packets/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Logical records</span>
+        <strong id="recordRate">0</strong>
+        <small>16-byte records/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Useful payload</span>
+        <strong id="payloadGb">0</strong>
+        <small>GB/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Completed runs</span>
+        <strong id="runs">0</strong>
+        <small>250K-packet samples</small>
+      </article>
+    </section>
+
+    <section class="server-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">LIVE SERVER RESULT</p>
+          <h2>DHMP AF_XDP transmit fast path</h2>
+        </div>
+        <div class="server-totals">
+          <span><strong id="payloadBytes">0</strong> bytes/packet</span>
+          <span><strong id="recordsPerPacket">0</strong> records/packet</span>
+          <span><strong id="interfaceName">—</strong> interface</span>
+          <span><strong id="failureCount">0</strong> failures</span>
+        </div>
+      </div>
+
+      <div class="charts">
+        <article class="chart-card">
+          <div class="chart-title"><strong>Packet rate</strong><span>AF_XDP completions/s</span></div>
+          <canvas id="packetChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-title"><strong>Payload throughput</strong><span>useful DHMP GB/s</span></div>
+          <canvas id="throughputChart"></canvas>
+        </article>
+      </div>
+
+      <div class="profiler-grid">
+        <div><span>Active AF_XDP mode</span><strong id="activeMode">—</strong></div>
+        <div><span>Payload bytes</span><strong id="profilePayload">0</strong></div>
+        <div><span>Records per packet</span><strong id="profileRecords">0</strong></div>
+        <div><span>Benchmark runs</span><strong id="profileRuns">0</strong></div>
+        <div class="wide"><span>Backend detail</span><strong id="detail">probing…</strong></div>
+      </div>
+
+      <p class="telemetry-note">This is a live AF_XDP TX-path benchmark on an isolated veth pair inside the demo container. It measures AF_XDP descriptor completion and useful DHMP payload rate. It is not an end-to-end Internet result and does not claim remote delivery latency. The displayed mode is the mode actually initialized by the host.</p>
+    </section>
+
+    <section class="explain">
+      <div>
+        <strong>Zero-copy first</strong>
+        <p>The backend requests AF_XDP zero-copy on every run. If the veth/driver cannot expose it, the native backend falls back to AF_XDP copy mode and reports that explicitly.</p>
+      </div>
+      <div>
+        <strong>No production traffic</strong>
+        <p>The benchmark uses a private veth pair inside the container rather than sending synthetic benchmark frames onto the server's external network interface.</p>
+      </div>
+      <div>
+        <strong>Compare with the normal lab</strong>
+        <p>The normal Throughput Lab measures DHMP API/framing processing. This page measures the experimental network fast-path boundary, so the numbers answer a different question.</p>
+      </div>
+    </section>
+
+    <footer>
+      <a href="/">Open normal Throughput Lab</a>
+      <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
+    </footer>
+  </main>
+  <script src="/kernel-bypass.js"></script>
+</body>
+</html>
