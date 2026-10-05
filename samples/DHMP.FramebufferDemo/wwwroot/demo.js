@@ -14,39 +14,27 @@
 
   let previous = new Uint8ClampedArray(W * H * 4);
   let running = true;
+  let requestInFlight = false;
   let framesThisSecond = 0;
   let updatesThisSecond = 0;
   let lastStats = performance.now();
-  let socket;
 
-  function connect() {
-    const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-    socket = new WebSocket(protocol + '://' + location.host + '/ws');
-    socket.binaryType = 'arraybuffer';
-    socket.addEventListener('open', () => {
-      stateEl.textContent = 'DHMP demo live';
-      stateEl.classList.add('live');
-    });
-    socket.addEventListener('close', () => {
-      stateEl.textContent = 'reconnecting…';
-      stateEl.classList.remove('live');
-      setTimeout(connect, 1000);
-    });
-    socket.addEventListener('message', event => {
-      const bytes = new Uint8Array(event.data);
-      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-      const image = rctx.getImageData(0, 0, W, H);
-      for (let off = 0; off + OUTPUT <= bytes.length; off += OUTPUT) {
-        const x = view.getUint16(off, false);
-        const y = view.getUint16(off + 2, false);
-        const p = (y * W + x) * 4;
-        image.data[p] = bytes[off + 12];
-        image.data[p + 1] = bytes[off + 13];
-        image.data[p + 2] = bytes[off + 14];
-        image.data[p + 3] = 255;
-      }
-      rctx.putImageData(image, 0, 0);
-    });
+  function applyReceivedPixels(buffer) {
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    const image = rctx.getImageData(0, 0, W, H);
+
+    for (let off = 0; off + OUTPUT <= bytes.length; off += OUTPUT) {
+      const x = view.getUint16(off, false);
+      const y = view.getUint16(off + 2, false);
+      const p = (y * W + x) * 4;
+      image.data[p] = bytes[off + 12];
+      image.data[p + 1] = bytes[off + 13];
+      image.data[p + 2] = bytes[off + 14];
+      image.data[p + 3] = 255;
+    }
+
+    rctx.putImageData(image, 0, 0);
   }
 
   function drawScene(t) {
@@ -67,8 +55,9 @@
     sctx.fillText('DHMP', 6, H - 7);
   }
 
-  function sendChangedPixels() {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+  async function sendChangedPixels() {
+    if (requestInFlight) return;
+
     const current = sctx.getImageData(0, 0, W, H).data;
     let changed = 0;
 
@@ -78,6 +67,7 @@
           current[i + 1] !== previous[i + 1] ||
           current[i + 2] !== previous[i + 2]) changed++;
     }
+
     if (changed === 0) return;
 
     const payload = new ArrayBuffer(changed * INPUT);
@@ -103,13 +93,31 @@
 
     previous.set(current);
     updatesThisSecond += changed;
-    socket.send(payload);
+    requestInFlight = true;
+
+    try {
+      const response = await fetch('/api/updates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: payload
+      });
+
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      applyReceivedPixels(await response.arrayBuffer());
+      stateEl.textContent = 'DHMP demo live';
+      stateEl.classList.add('live');
+    } catch {
+      stateEl.textContent = 'demo request failed';
+      stateEl.classList.remove('live');
+    } finally {
+      requestInFlight = false;
+    }
   }
 
   function animate(now) {
     if (running) {
       drawScene(now);
-      sendChangedPixels();
+      void sendChangedPixels();
       framesThisSecond++;
     }
 
@@ -144,6 +152,5 @@
   rctx.fillStyle = '#000';
   rctx.fillRect(0, 0, W, H);
   previous.fill(255);
-  connect();
   requestAnimationFrame(animate);
 })();
