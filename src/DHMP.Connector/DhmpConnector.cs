@@ -22,6 +22,7 @@ public sealed class DhmpConnector : IAsyncDisposable
     private readonly DhmpSendPolicy _sendPolicy;
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly ConcurrentDictionary<ConnectionKey, DhmpConnection> _connections = new();
+    private readonly ConcurrentDictionary<IPAddress, DhmpBlindFireRegistration> _blindFireRegistrations = new();
     private readonly SemaphoreSlim _peerGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
 
@@ -76,6 +77,9 @@ public sealed class DhmpConnector : IAsyncDisposable
     public IReadOnlyCollection<DhmpConnection> Connections =>
         _connections.Values.ToArray();
 
+    public IReadOnlyCollection<DhmpBlindFireRegistration> BlindFireRegistrations =>
+        _blindFireRegistrations.Values.ToArray();
+
     public Task StartAsync(
         CancellationToken cancellationToken = default)
     {
@@ -115,6 +119,123 @@ public sealed class DhmpConnector : IAsyncDisposable
             _receiverTask = null;
             throw;
         }
+    }
+
+    /// <summary>
+    /// Register one plaintext IoT/telemetry source for one-packet BlindFire delivery.
+    /// No DHMP handshake or security session is created for BlindFire packets.
+    /// </summary>
+    public DhmpBlindFireRegistration RegisterIoTDevice(
+        IPAddress remoteAddress)
+    {
+        ThrowIfDisposed();
+        EnsureStarted();
+        ValidateRemoteAddress(remoteAddress);
+
+        if (!_options.AllowUnprotectedBlindFire)
+            throw new InvalidOperationException(
+                "BlindFire is disabled. Set AllowUnprotectedBlindFire=true only when plaintext source-address/schema validation is acceptable.");
+
+        if (_connections.Keys.Any(
+                key => key.RemoteAddress.Equals(remoteAddress)))
+            throw new InvalidOperationException(
+                "The IPv6 address is already used by an established DHMP connection.");
+
+        if (_blindFireRegistrations.ContainsKey(remoteAddress))
+            throw new InvalidOperationException(
+                "This BlindFire IPv6 source is already registered.");
+
+        var server =
+            new DhmpServer(
+                _wireContract,
+                _receivePolicy);
+
+        var registration =
+            new DhmpBlindFireRegistration(
+                this,
+                remoteAddress);
+
+        var binding =
+            new DhmpRawIpv6PeerBinding(
+                remoteAddress,
+                server,
+                span => registration.PublishBatch(
+                    span,
+                    _wireContract.RecordSize),
+                allowUnprotectedPayloads: true);
+
+        _receiver!.Router.Register(binding);
+
+        if (!_blindFireRegistrations.TryAdd(
+                remoteAddress,
+                registration))
+        {
+            _receiver.Router.Remove(remoteAddress);
+            throw new InvalidOperationException(
+                "Could not publish the BlindFire registration.");
+        }
+
+        return registration;
+    }
+
+    public DhmpBlindFireRegistration RegisterIoTDevice(
+        string remoteAddress)
+    {
+        if (!IPAddress.TryParse(
+                remoteAddress,
+                out IPAddress? parsed))
+            throw new ArgumentException(
+                "Remote address must be a valid IPv6 address.",
+                nameof(remoteAddress));
+
+        return RegisterIoTDevice(parsed);
+    }
+
+    /// <summary>
+    /// Sends exactly one plaintext fixed DHMP record without performing a handshake.
+    /// The remote server must already have registered this source IPv6/schema out of band.
+    /// </summary>
+    public async ValueTask BlindFireAsync(
+        IPAddress remoteAddress,
+        ReadOnlyMemory<byte> record,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ValidateRemoteAddress(remoteAddress);
+
+        if (!_options.AllowUnprotectedBlindFire)
+            throw new InvalidOperationException(
+                "BlindFire is disabled. Set AllowUnprotectedBlindFire=true only when plaintext one-packet delivery is intentionally accepted.");
+
+        _wireContract.ValidateRecord(record.Length);
+
+        using var sender =
+            new DhmpRawIpv6PacketSender(
+                CreateRawOptions(
+                    remoteAddress,
+                    allowUnprotectedPayloads: true));
+
+        await sender.SendPacketAsync(
+            record,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public ValueTask BlindFireAsync(
+        string remoteAddress,
+        ReadOnlyMemory<byte> record,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IPAddress.TryParse(
+                remoteAddress,
+                out IPAddress? parsed))
+            throw new ArgumentException(
+                "Remote address must be a valid IPv6 address.",
+                nameof(remoteAddress));
+
+        return BlindFireAsync(
+            parsed,
+            record,
+            cancellationToken);
     }
 
     /// <summary>
@@ -171,6 +292,32 @@ public sealed class DhmpConnector : IAsyncDisposable
         return AcceptAsync(
             parsed,
             cancellationToken);
+    }
+
+    internal async ValueTask CloseBlindFireAsync(
+        DhmpBlindFireRegistration registration)
+    {
+        ArgumentNullException.ThrowIfNull(registration);
+
+        if (!registration.BelongsTo(this))
+            throw new ArgumentException(
+                "The BlindFire registration belongs to a different DHMP Connector.",
+                nameof(registration));
+
+        if (_blindFireRegistrations.TryRemove(
+                registration.RemoteAddress,
+                out DhmpBlindFireRegistration? current) &&
+            ReferenceEquals(current, registration))
+        {
+            if (_receiver is not null)
+            {
+                await _receiver.Router
+                    .RemoveAsync(registration.RemoteAddress)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        registration.MarkDisposed();
     }
 
     internal async ValueTask CloseAsync(
@@ -239,6 +386,13 @@ public sealed class DhmpConnector : IAsyncDisposable
                  _connections.Values.ToArray())
         {
             await CloseAsync(connection)
+                .ConfigureAwait(false);
+        }
+
+        foreach (DhmpBlindFireRegistration registration in
+                 _blindFireRegistrations.Values.ToArray())
+        {
+            await CloseBlindFireAsync(registration)
                 .ConfigureAwait(false);
         }
 
@@ -503,7 +657,8 @@ public sealed class DhmpConnector : IAsyncDisposable
     }
 
     private DhmpRawIpv6Options CreateRawOptions(
-        IPAddress remoteAddress) =>
+        IPAddress remoteAddress,
+        bool? allowUnprotectedPayloads = null) =>
         new(
             _options.LocalAddress,
             remoteAddress,
@@ -512,7 +667,8 @@ public sealed class DhmpConnector : IAsyncDisposable
             _options.HandshakeTimeout,
             _options.EnableExperimentalProtocolNumbers,
             _options.AllowWildcardLocalAddress,
-            _options.AllowUnprotectedPayloads);
+            allowUnprotectedPayloads ??
+                _options.AllowUnprotectedPayloads);
 
     private void EnsureStarted()
     {
