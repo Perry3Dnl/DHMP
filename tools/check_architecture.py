@@ -24,7 +24,7 @@ for path in sorted(paths):
             errors.append(f"Case-only path collision: {canonical[key]} / {prefix}")
         canonical[key] = prefix
 
-expected_projects = {"DHMP.Protocol", "DHMP.Client", "DHMP.Server", "DHMP.Licensing", "DHMP.AspNetCore", "DHMP.RawIpv6", "DHMP.Security", "DHMP.Connector"}
+expected_projects = {"DHMP.Protocol", "DHMP.Client", "DHMP.Server", "DHMP.Licensing", "DHMP.AspNetCore", "DHMP.RawIpv6", "DHMP.AfXdp", "DHMP.Security", "DHMP.Connector"}
 actual_projects = {p.parent.name for p in (ROOT / "src").rglob("*.csproj")}
 if actual_projects != expected_projects:
     errors.append(f"Unexpected runtime project layout: {sorted(actual_projects)}")
@@ -58,6 +58,9 @@ required_paths = {
     "src/DHMP.Security/DhmpProtectedPacketSender.cs",
     "src/DHMP.Security/DhmpSecurityControlCodec.cs",
     "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
+    "src/DHMP.AfXdp/DHMP.AfXdp.csproj",
+    "src/DHMP.AfXdp/DhmpAfXdpHostProbe.cs",
+    "src/DHMP.AfXdp/DhmpAfXdpBenchmark.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6PacketSender.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6Receiver.cs",
     "src/DHMP.RawIpv6/DhmpRawIpv6ListenerOptions.cs",
