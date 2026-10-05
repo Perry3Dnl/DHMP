@@ -97,6 +97,8 @@
         <div><span>Server process</span><strong id="processNs">0 ns/packet</strong></div>
         <div><span>Publication parity</span><strong id="publicationParity">0%</strong></div>
         <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
+        <div><span>Worker restarts</span><strong id="workerFaults">0</strong></div>
+        <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
       <p class="telemetry-note">This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
