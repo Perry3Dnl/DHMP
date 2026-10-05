@@ -6,11 +6,11 @@ namespace DHMP.Protocol;
 /// <remarks>Not a congestion controller or pacing guarantee. Calls must be serialized.</remarks>
 public sealed class DhmpPmaxBudget
 {
-    private readonly int _pmax;
+    private readonly long _pmax;
     private long _windowStart;
-    private int _count;
+    private long _count;
 
-    public DhmpPmaxBudget(int pmax)
+    public DhmpPmaxBudget(long pmax)
     {
         if (pmax <= 0) throw new ArgumentOutOfRangeException(nameof(pmax));
         _pmax = pmax;
