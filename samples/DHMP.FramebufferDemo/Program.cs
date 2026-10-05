@@ -53,10 +53,14 @@ app.MapGet(
         return Results.Json(new
         {
             uptimeMilliseconds = snapshot.UptimeMilliseconds,
-            receivedRecords = snapshot.ReceivedRecords,
+            offeredRecords = snapshot.OfferedRecords,
+            acceptedRecords = snapshot.AcceptedRecords,
+            droppedRecords = snapshot.DroppedRecords,
+            processedRecords = snapshot.ProcessedRecords,
             publishedRecords = snapshot.PublishedRecords,
-            receivedRecordBytes = snapshot.ReceivedRecordBytes,
-            publishedRecordBytes = snapshot.PublishedRecordBytes,
+            processedRecordBytes = snapshot.ProcessedRecordBytes,
+            queueDepth = snapshot.QueueDepth,
+            queueCapacityRecords = snapshot.QueueCapacityRecords,
             width = snapshot.Width,
             height = snapshot.Height,
             label = snapshot.Label,
