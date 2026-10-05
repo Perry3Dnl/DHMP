@@ -9,18 +9,18 @@ namespace DHMP.Protocol;
 /// <remarks>GetDelay/Commit calls must be serialized by the sender.</remarks>
 public sealed class DhmpPacingSchedule
 {
-    private int _messagesPerSecond;
+    private long _messagesPerSecond;
     private long _nextTimestamp;
 
-    public DhmpPacingSchedule(int messagesPerSecond)
+    public DhmpPacingSchedule(long messagesPerSecond)
     {
         UpdateRate(messagesPerSecond);
     }
 
-    public int MessagesPerSecond =>
+    public long MessagesPerSecond =>
         Volatile.Read(ref _messagesPerSecond);
 
-    public void UpdateRate(int messagesPerSecond)
+    public void UpdateRate(long messagesPerSecond)
     {
         if (messagesPerSecond <= 0)
             throw new ArgumentOutOfRangeException(
@@ -59,7 +59,7 @@ public sealed class DhmpPacingSchedule
                 ? _nextTimestamp
                 : timestamp;
 
-        int rate =
+        long rate =
             Volatile.Read(
                 ref _messagesPerSecond);
 
