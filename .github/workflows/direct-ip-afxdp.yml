@@ -1,0 +1,95 @@
+name: DHMP AF_XDP Fast-Path Experiment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/DHMP.AfXdp/**'
+      - 'benchmarks/direct-ip-afxdp/**'
+      - '.github/workflows/direct-ip-afxdp.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install AF_XDP build dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxdp-dev \
+            libbpf-dev \
+            libelf-dev \
+            zlib1g-dev \
+            iproute2
+
+      - name: Build native AF_XDP helper
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash src/DHMP.AfXdp/native/build-linux.sh
+
+      - name: Build managed comparison harness
+        run: dotnet build benchmarks/direct-ip-afxdp/Dhmp.AfXdpComparison.csproj -c Release
+
+      - name: Prepare isolated veth path
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo ip link del dhmpxdp0 2>/dev/null || true
+          sudo ip link add dhmpxdp0 type veth peer name dhmpxdp1
+          sudo ip link set dhmpxdp0 up
+          sudo ip link set dhmpxdp1 up
+          sudo ip -6 addr add fd42:6468:6d70::1/64 dev dhmpxdp0 nodad
+          sudo ip -6 addr add fd42:6468:6d70::2/64 dev dhmpxdp1 nodad
+          ip -details link show dhmpxdp0
+          ip -6 addr show dev dhmpxdp0
+          uname -a
+          grep CapEff /proc/self/status || true
+
+      - name: Compare raw IPv6 with AF_XDP TX
+        shell: bash
+        run: |
+          set -euo pipefail
+          DLL="$PWD/benchmarks/direct-ip-afxdp/bin/Release/net10.0/Dhmp.AfXdpComparison.dll"
+          NATIVE="$PWD/src/DHMP.AfXdp/native"
+          DOTNET="$(command -v dotnet)"
+
+          set +e
+          output=$(sudo env \
+            LD_LIBRARY_PATH="$NATIVE${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            "$DOTNET" "$DLL" \
+            dhmpxdp0 \
+            fd42:6468:6d70::1 \
+            fd42:6468:6d70::2 \
+            1200 \
+            1000000 2>&1)
+          status=$?
+          set -e
+
+          echo "$output"
+
+          if [ "$status" -ne 0 ]; then
+            echo "::error::AF_XDP comparison harness failed unexpectedly."
+            exit "$status"
+          fi
+
+          if grep -q '"Supported":false' <<< "$output"; then
+            echo "::notice::AF_XDP is unavailable on this hosted runner/interface. No bypass result was fabricated."
+          fi
+
+      - name: Cleanup veth
+        if: always()
+        run: sudo ip link del dhmpxdp0 2>/dev/null || true
