@@ -67,6 +67,12 @@ public sealed class DhmpConnectorOptions
     public bool AllowWildcardLocalAddress { get; init; }
     public bool AllowUnprotectedPayloads { get; init; }
 
+    /// <summary>
+    /// Explicit opt-in for plaintext one-packet BlindFire telemetry.
+    /// Source IPv6 and schema/record validation are not authentication.
+    /// </summary>
+    public bool AllowUnprotectedBlindFire { get; init; }
+
     public DhmpDuplicatePeerHandling DuplicatePeerHandling { get; init; } =
         DhmpDuplicatePeerHandling.Reject;
 
