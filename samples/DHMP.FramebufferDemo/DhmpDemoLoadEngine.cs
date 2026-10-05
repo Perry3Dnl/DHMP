@@ -71,10 +71,12 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         const int SlicesPerSecond = 50;
-        var sliceClock = Stopwatch.StartNew();
+        TimeSpan targetSlice =
+            TimeSpan.FromSeconds(1d / SlicesPerSecond);
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            long sliceStarted = Stopwatch.GetTimestamp();
             int width;
             int height;
 
@@ -92,23 +94,13 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
 
             ProcessBatch(width, height, batchSize);
 
-            long targetElapsedTicks =
-                Stopwatch.Frequency / SlicesPerSecond;
+            TimeSpan elapsed =
+                Stopwatch.GetElapsedTime(sliceStarted);
+            TimeSpan delay = targetSlice - elapsed;
 
-            long remainingTicks =
-                targetElapsedTicks - sliceClock.ElapsedTicks;
-
-            sliceClock.Restart();
-
-            if (remainingTicks > 0)
+            if (delay > TimeSpan.Zero)
             {
-                TimeSpan delay = TimeSpan.FromSeconds(
-                    (double)remainingTicks / Stopwatch.Frequency);
-
-                if (delay > TimeSpan.Zero)
-                {
-                    await Task.Delay(delay, stoppingToken);
-                }
+                await Task.Delay(delay, stoppingToken);
             }
         }
     }
