@@ -17,7 +17,9 @@ public sealed class DhmpRawIpv6PeerBinding
         DhmpServer server,
         Action<ReadOnlySpan<byte>> publishBatch,
         IDhmpPacketDecoder? decoder = null,
-        bool allowUnprotectedPayloads = false)
+        bool allowUnprotectedPayloads = false,
+        ulong? connectionId = null,
+        int? connectionIdOffset = null)
     {
         ArgumentNullException.ThrowIfNull(remoteAddress);
         ArgumentNullException.ThrowIfNull(server);
@@ -49,11 +51,29 @@ public sealed class DhmpRawIpv6PeerBinding
                 "Packet decoder overhead cannot fit within the supported raw IPv6 payload range.",
                 nameof(decoder));
 
+        if (connectionId.HasValue != connectionIdOffset.HasValue)
+            throw new ArgumentException(
+                "ConnectionId and connectionIdOffset must either both be supplied or both be omitted.");
+
+        if (connectionId is 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(connectionId),
+                "ConnectionId must be nonzero.");
+
+        if (connectionIdOffset is not null &&
+            (connectionIdOffset < 0 ||
+             connectionIdOffset > server.WireContract.RecordSize - sizeof(ulong)))
+            throw new ArgumentOutOfRangeException(
+                nameof(connectionIdOffset),
+                "The 8-byte ConnectionId field must fit inside one application record.");
+
         RemoteAddress = remoteAddress;
         Server = server;
         PublishBatch = publishBatch;
         Decoder = decoder;
         UnprotectedPayloadsAllowed = allowUnprotectedPayloads;
+        ConnectionId = connectionId;
+        ConnectionIdOffset = connectionIdOffset;
     }
 
     public IPAddress RemoteAddress { get; }
@@ -61,6 +81,8 @@ public sealed class DhmpRawIpv6PeerBinding
     public Action<ReadOnlySpan<byte>> PublishBatch { get; }
     public IDhmpPacketDecoder? Decoder { get; }
     public bool UnprotectedPayloadsAllowed { get; }
+    public ulong? ConnectionId { get; }
+    public int? ConnectionIdOffset { get; }
 
     public int MaximumNetworkPayloadBytes =>
         checked(
