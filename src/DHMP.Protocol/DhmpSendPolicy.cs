@@ -6,7 +6,7 @@ namespace DHMP.Protocol;
 public readonly record struct DhmpSendPolicy
 {
     public DhmpSendPolicy(
-        int pmax,
+        long pmax,
         int maximumPayloadBytes = 1408,
         DhmpRatePolicy ratePolicy = DhmpRatePolicy.RejectWindow)
     {
@@ -26,7 +26,7 @@ public readonly record struct DhmpSendPolicy
         RatePolicy = ratePolicy;
     }
 
-    public int Pmax { get; }
+    public long Pmax { get; }
     public int MaximumPayloadBytes { get; }
     public DhmpRatePolicy RatePolicy { get; }
 
