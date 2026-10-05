@@ -298,14 +298,12 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                     remaining,
                     ConsumerChunkRecords);
 
-            int published = 0;
-
-            ProcessRange(
-                record,
-                batch,
-                currentOffset,
-                chunk,
-                ref published);
+            int published =
+                ProcessRange(
+                    record,
+                    batch,
+                    currentOffset,
+                    chunk);
 
             currentOffset += chunk;
 
@@ -334,13 +332,13 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
         }
     }
 
-    private void ProcessRange(
+    private int ProcessRange(
         byte[] record,
         WorkBatch batch,
         int offset,
-        int count,
-        ref int published)
+        int count)
     {
+        int published = 0;
         long pixelCount =
             (long)batch.Width *
             batch.Height;
@@ -394,6 +392,8 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                 span,
                 _ => published++);
         }
+
+        return published;
     }
 
     private static long CalculateTargetRecordsPerSecond(
