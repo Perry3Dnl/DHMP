@@ -12,7 +12,10 @@
     { label: '1080p', width: 1920, height: 1080 },
     { label: '1440p', width: 2560, height: 1440 },
     { label: '4K', width: 3840, height: 2160 },
-    { label: '8K', width: 7680, height: 4320 }
+    { label: '8K', width: 7680, height: 4320 },
+    { label: '16K', width: 15360, height: 8640 },
+    { label: '32K', width: 30720, height: 17280 },
+    { label: '64K', width: 61440, height: 34560 }
   ];
 
   const source = document.querySelector('#source');
