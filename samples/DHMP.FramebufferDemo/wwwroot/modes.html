@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Modes Demo</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/modes.css">
+</head>
+<body>
+  <main>
+    <nav class="demo-nav">
+      <a href="/">Framebuffer demo</a>
+      <a href="/scada.html">SCADA / Energy demo</a>
+      <a class="active" href="/modes.html">DHMP modes</a>
+    </nav>
+
+    <header>
+      <p class="eyebrow">DHMP BEHAVIOR DEMO</p>
+      <h1>Different jobs need different semantics.</h1>
+      <p class="lead">DHMP keeps its data plane simple while allowing applications to choose how received records are published, how sends are completed, how rate limits behave, and whether an IoT device uses an established connection at all.</p>
+    </header>
+
+    <section class="mode-grid">
+      <article class="mode-card mode-card-wide">
+        <div class="mode-head">
+          <div>
+            <p class="eyebrow">RECEIVE MODE</p>
+            <h2>Latest vs Sequential</h2>
+          </div>
+          <div class="segmented" role="group" aria-label="Receive mode">
+            <button class="active" data-receive="latest">Latest</button>
+            <button data-receive="sequential">Sequential</button>
+          </div>
+        </div>
+        <p class="mode-copy" id="receiveCopy">Latest publishes only the last complete record from each packet. Intermediate records in that packet are obsolete by design.</p>
+        <div class="packet-stage">
+          <div>
+            <span class="stage-label">Packet arrives</span>
+            <div id="incomingRecords" class="record-row"></div>
+          </div>
+          <div class="arrow">→</div>
+          <div>
+            <span class="stage-label">Application receives</span>
+            <div id="publishedRecords" class="record-row"></div>
+          </div>
+        </div>
+        <div class="mode-metrics">
+          <span><strong id="receiveIn">6</strong> records in packet</span>
+          <span><strong id="receiveOut">1</strong> published</span>
+          <span><strong id="receiveSkipped">5</strong> superseded</span>
+        </div>
+      </article>
+
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <p class="eyebrow">SEND INTENT</p>
+            <h2>FireAndForget</h2>
+          </div>
+          <span class="mode-badge fast">FAST PATH</span>
+        </div>
+        <div class="send-scene">
+          <div class="endpoint">APP</div>
+          <div class="flight-track"><span id="fafPacket" class="flight-packet">record</span></div>
+          <div class="endpoint">PEER</div>
+        </div>
+        <p>Submit once and return after the local backend accepts the record. There is no confirmation wait and no retransmission.</p>
+        <button id="fafButton" class="demo-button">Send record</button>
+        <div id="fafStatus" class="event-log">Ready.</div>
+      </article>
+
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <p class="eyebrow">SEND INTENT</p>
+            <h2>Confirmed</h2>
+          </div>
+          <span class="mode-badge">OBSERVED ACK</span>
+        </div>
+        <div class="send-scene">
+          <div class="endpoint">APP</div>
+          <div class="flight-track"><span id="confirmedPacket" class="flight-packet">record</span><span id="confirmAck" class="ack-packet">confirm</span></div>
+          <div class="endpoint">PEER</div>
+        </div>
+        <p>Submit once and wait until the application-owned confirmation ID is observed. DHMP does not retransmit the record automatically.</p>
+        <button id="confirmedButton" class="demo-button">Send + wait</button>
+        <div id="confirmedStatus" class="event-log">Ready.</div>
+      </article>
+
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <p class="eyebrow">IOT PATH</p>
+            <h2>BlindFire</h2>
+          </div>
+          <span class="mode-badge warn">EXPLICIT OPT-IN</span>
+        </div>
+        <div class="iot-scene">
+          <div id="iotDevice" class="iot-device">sensor<br><small>sleeping</small></div>
+          <div class="iot-track"><span id="blindPacket" class="blind-packet">1 record</span></div>
+          <div class="iot-server">registered<br>receiver</div>
+        </div>
+        <p>Boot, join IPv6, emit one plaintext fixed record, dispose, sleep. No connection handshake, no confirmation, no replay protection.</p>
+        <button id="blindButton" class="demo-button">Wake sensor</button>
+        <div id="blindStatus" class="event-log">Sensor sleeping.</div>
+      </article>
+
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <p class="eyebrow">RATE POLICY</p>
+            <h2>SmoothPacing</h2>
+          </div>
+          <span class="mode-badge">SPREAD LOAD</span>
+        </div>
+        <p>Records are spaced over time at the configured Pmax instead of intentionally releasing an entire one-second budget at once.</p>
+        <div id="smoothTimeline" class="timeline"></div>
+        <button id="smoothButton" class="demo-button">Run burst</button>
+      </article>
+
+      <article class="mode-card">
+        <div class="mode-head">
+          <div>
+            <p class="eyebrow">RATE POLICY</p>
+            <h2>RejectWindow</h2>
+          </div>
+          <span class="mode-badge warn">HARD BUDGET</span>
+        </div>
+        <p>The fixed one-second Pmax budget is preserved. Sends beyond the current window are rejected instead of delayed into a smoother stream.</p>
+        <div id="rejectTimeline" class="timeline"></div>
+        <button id="rejectButton" class="demo-button">Run burst</button>
+      </article>
+    </section>
+
+    <section class="mode-summary">
+      <p class="eyebrow">HOW THE PIECES COMBINE</p>
+      <h2>These are orthogonal choices</h2>
+      <div class="summary-flow">
+        <div><strong>Receive</strong><span>Latest or Sequential</span></div>
+        <div>+</div>
+        <div><strong>Send</strong><span>FireAndForget or Confirmed</span></div>
+        <div>+</div>
+        <div><strong>Rate</strong><span>SmoothPacing or RejectWindow</span></div>
+      </div>
+      <p class="telemetry-note">BlindFire is intentionally separate: it skips normal connection establishment and is meant for explicitly opted-in one-packet telemetry. This page demonstrates API semantics and behavior, not network benchmark results.</p>
+    </section>
+  </main>
+  <script src="/modes.js"></script>
+</body>
+</html>
