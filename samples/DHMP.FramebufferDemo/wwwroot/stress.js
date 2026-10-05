@@ -59,6 +59,8 @@
       $('activeWorkers').textContent=cur.workers;
       $('logicalProcessors').textContent=cur.logicalProcessors;
       $('receiveMode').textContent=cur.receiveMode;
+      $('workerFaults').textContent=Number(cur.workerFaults).toLocaleString();
+      $('workerError').textContent=cur.lastWorkerError||'none';
       workerSlider.max=Math.max(1,Math.min(16,cur.logicalProcessors*2));
 
       if(previous){
@@ -94,7 +96,12 @@
       }
 
       previous=cur;
-      state.textContent='stress test live';state.classList.add('live');
+      if(cur.workerFaults>0 && cur.lastWorkerError){
+        state.textContent='stress test recovered from worker fault';
+      }else{
+        state.textContent='stress test live';
+      }
+      state.classList.add('live');
     }catch{
       state.textContent='telemetry unavailable';state.classList.remove('live');
     }
