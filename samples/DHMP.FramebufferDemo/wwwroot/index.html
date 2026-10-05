@@ -11,8 +11,9 @@
     <header>
       <p class="eyebrow">DHMP LIVE DEMO</p>
       <h1>Send only what changed.</h1>
-      <p class="lead">A 1280×720 logical framebuffer is updated as independent fixed-size DHMP records. The receiver keeps every old pixel until a newer value for that pixel arrives.</p>
+      <p class="lead">A persistent framebuffer is updated as independent fixed-size DHMP records. The receiver keeps every old pixel until a newer value for that pixel arrives.</p>
     </header>
+
     <section class="status">
       <span id="state" class="pill">connecting…</span>
       <span><strong id="fps">0</strong> source FPS</span>
@@ -20,9 +21,10 @@
       <span><strong id="ratio">0%</strong> of full frames sent</span>
       <span><strong id="bytes">0</strong> DHMP record KB/s</span>
     </section>
+
     <section class="screens">
       <article>
-        <div class="screen-head"><h2>Source</h2><span>720p persistent pipes scene</span></div>
+        <div class="screen-head"><h2>Source</h2><span id="sourceLabel">720p persistent pipes scene</span></div>
         <canvas id="source" width="1280" height="720"></canvas>
       </article>
       <article>
@@ -30,6 +32,52 @@
         <canvas id="receiver" width="1280" height="720"></canvas>
       </article>
     </section>
+
+    <section class="resolution-control">
+      <div class="resolution-head">
+        <div>
+          <strong>Framebuffer resolution</strong>
+          <span>Change the logical resolution live</span>
+        </div>
+        <output id="resolutionValue">1280×720 · 720p</output>
+      </div>
+      <input id="resolution" type="range" min="0" max="8" step="1" value="4">
+      <div class="resolution-scale" aria-hidden="true">
+        <span>160p</span><span>240p</span><span>360p</span><span>480p</span><span>720p</span><span>1080p</span><span>1440p</span><span>4K</span><span>8K</span>
+      </div>
+    </section>
+
+    <section class="server-panel">
+      <div class="panel-head">
+        <div>
+          <p class="eyebrow">SERVER-SIDE DHMP TELEMETRY</p>
+          <h2>Live backend processing</h2>
+        </div>
+        <div class="server-totals">
+          <span><strong id="serverRx">0</strong> received records/s</span>
+          <span><strong id="serverTx">0</strong> published records/s</span>
+          <span><strong id="serverMbps">0</strong> record MB/s</span>
+          <span><strong id="serverTotal">0</strong> total records</span>
+        </div>
+      </div>
+
+      <div class="charts">
+        <article class="chart-card">
+          <div class="chart-title"><strong>DHMP records per second</strong><span>server measured</span></div>
+          <canvas id="recordsChart" width="560" height="220"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-title"><strong>DHMP record throughput</strong><span>MB/s, 16-byte records</span></div>
+          <canvas id="throughputChart" width="560" height="220"></canvas>
+        </article>
+        <article class="chart-card">
+          <div class="chart-title"><strong>Cumulative DHMP records</strong><span>since container start</span></div>
+          <canvas id="totalChart" width="560" height="220"></canvas>
+        </article>
+      </div>
+      <p class="telemetry-note">These graphs are measured inside the deployed DHMP demo backend around <code>DhmpServer</code>. They show DHMP record processing in this application profile, not raw IPv6/NIC throughput.</p>
+    </section>
+
     <section class="explain">
       <div>
         <strong>Latest semantics</strong>
@@ -44,6 +92,7 @@
         <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser control traffic uses ordinary HTTPS POSTs; browsers cannot send raw DHMP IPv6 packets.</p>
       </div>
     </section>
+
     <footer>
       <button id="toggle" type="button">Pause animation</button>
       <button id="reset" type="button">New pipes scene</button>
