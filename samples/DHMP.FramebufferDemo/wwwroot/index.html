@@ -16,19 +16,19 @@
 
     <section class="status">
       <span id="state" class="pill">connecting…</span>
-      <span><strong id="fps">0</strong> source FPS</span>
-      <span><strong id="updates">0</strong> pixel updates/s</span>
-      <span><strong id="ratio">0%</strong> of full frames sent</span>
-      <span><strong id="bytes">0</strong> DHMP record KB/s</span>
+      <span><strong id="fps">0</strong> preview FPS</span>
+      <span><strong id="updates">0</strong> server records/s</span>
+      <span><strong id="ratio">0%</strong> of target load</span>
+      <span><strong id="bytes">0</strong> server record MB/s</span>
     </section>
 
     <section class="screens">
       <article>
-        <div class="screen-head"><h2>Source</h2><span id="sourceLabel">720p persistent pipes scene</span></div>
+        <div class="screen-head"><h2>Source preview</h2><span id="sourceLabel">representative 720p visualization</span></div>
         <canvas id="source" width="1280" height="720"></canvas>
       </article>
       <article>
-        <div class="screen-head"><h2>Receiver preview</h2><span>advances only after server DHMP acknowledgement</span></div>
+        <div class="screen-head"><h2>Receiver preview</h2><span>sampled visualization, not the high-rate feed</span></div>
         <canvas id="receiver" width="1280" height="720"></canvas>
       </article>
     </section>
@@ -37,7 +37,7 @@
       <div class="resolution-head">
         <div>
           <strong>Framebuffer resolution</strong>
-          <span>Change the logical resolution live</span>
+          <span>Changes the server-side DHMP workload; preview stays lightweight</span>
         </div>
         <output id="resolutionValue">1280×720 · 720p</output>
       </div>
@@ -75,7 +75,7 @@
           <canvas id="totalChart" width="560" height="220"></canvas>
         </article>
       </div>
-      <p class="telemetry-note">These graphs are measured inside the deployed DHMP demo backend around <code>DhmpServer</code>. They show DHMP record processing in this application profile, not raw IPv6/NIC throughput.</p>
+      <p class="telemetry-note">These graphs are measured inside the deployed DHMP demo backend around <code>DhmpServer</code>. The browser polls this real server data once per second; it does not receive the high-rate feed itself.</p>
     </section>
 
     <section class="explain">
@@ -85,11 +85,11 @@
       </div>
       <div>
         <strong>Persistent framebuffer</strong>
-        <p>No update means no change. The preview advances only after the server confirms the DHMP batch was processed; the full record payload is not echoed back over HTTPS.</p>
+        <p>No update means no change. The browser preview is intentionally sampled and local; the real high-rate workload stays on the server so HTTPS and browser rendering cannot throttle the DHMP measurements.</p>
       </div>
       <div>
         <strong>What this proves</strong>
-        <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser control traffic uses ordinary HTTPS POSTs; browsers cannot send raw DHMP IPv6 packets. Server responses carry only compact acknowledgements and telemetry, not echoed pixel records.</p>
+        <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser traffic is limited to occasional workload changes and roughly one telemetry poll per second. The displayed rates and graphs come from the server-side DHMP workload generator and <code>DhmpServer</code> counters.</p>
       </div>
     </section>
 
