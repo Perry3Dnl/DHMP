@@ -19,7 +19,7 @@
       <span><strong id="recordsRate">0</strong> records/s</span>
       <span><strong id="gbps">0</strong> GB/s</span>
       <span><strong id="packetsRate">0</strong> packets/s</span>
-      <span><strong id="parity">0%</strong> published parity</span>
+      <span><strong id="parity">0%</strong> publication correctness</span>
     </section>
 
     <section class="controls card">
@@ -41,6 +41,25 @@
         </div>
         <input id="workers" type="range" min="1" max="8" step="1" value="4">
         <p class="muted">Independent DHMP client/server paths running concurrently on this host.</p>
+      </div>
+    </section>
+
+    <section class="mode-panel card">
+      <div class="mode-group">
+        <span class="control-label">Receive mode</span>
+        <div class="mode-buttons" data-group="receive">
+          <button type="button" class="mode-button active" data-receive-mode="Sequential">Sequential</button>
+          <button type="button" class="mode-button" data-receive-mode="Latest">Latest</button>
+        </div>
+        <p class="muted">Sequential publishes every complete record. Latest publishes only the last complete record in each packet.</p>
+      </div>
+      <div class="mode-group">
+        <span class="control-label">Rate policy</span>
+        <div class="mode-buttons" data-group="rate">
+          <button type="button" class="mode-button active" data-rate-policy="RejectWindow">RejectWindow</button>
+          <button type="button" class="mode-button" data-rate-policy="SmoothPacing">SmoothPacing</button>
+        </div>
+        <p class="muted">RejectWindow runs flat-out until the local budget is exhausted. SmoothPacing spaces packet submissions over time.</p>
       </div>
     </section>
 
@@ -95,8 +114,9 @@
       <div class="profiler-grid">
         <div><span>Client/send path</span><strong id="sendNs">0 ns/packet</strong></div>
         <div><span>Server process</span><strong id="processNs">0 ns/packet</strong></div>
-        <div><span>Publication parity</span><strong id="publicationParity">0%</strong></div>
+        <div><span>Publication correctness</span><strong id="publicationParity">0%</strong></div>
         <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
+        <div><span>Rate policy</span><strong id="ratePolicy">RejectWindow</strong></div>
         <div><span>Worker restarts</span><strong id="workerFaults">0</strong></div>
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
@@ -114,8 +134,8 @@
         <p>Each packet contains only fixed 16-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
       </div>
       <div>
-        <strong>Published parity matters</strong>
-        <p>Submitted and published record rates should remain aligned. A gap indicates the path is not processing everything submitted.</p>
+        <strong>Mode-aware correctness</strong>
+        <p>Sequential expects every record to be published. Latest expects exactly one record per accepted packet. The dashboard checks correctness against the selected DHMP receive mode.</p>
       </div>
     </section>
 
