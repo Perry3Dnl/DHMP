@@ -44,3 +44,11 @@ footer{display:flex;justify-content:flex-end}
 a{color:#c8d9ee;text-decoration:none;border:1px solid #343f4c;border-radius:8px;padding:10px 14px}
 @media(max-width:900px){.controls,.charts{grid-template-columns:1fr}.headline-grid,.profiler-grid{grid-template-columns:repeat(2,1fr)}.panel-head{align-items:flex-start;flex-direction:column}.server-totals{justify-content:flex-start}}
 @media(max-width:600px){main{padding-top:30px}.headline-grid,.profiler-grid,.explain{grid-template-columns:1fr}.scale{font-size:.62rem}}
+
+.mode-panel{margin:18px 0 22px;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.mode-group{display:grid;gap:10px}
+.mode-buttons{display:flex;flex-wrap:wrap;gap:8px}
+.mode-button{font:inherit;border:1px solid #34404e;background:#121923;color:#c9d7e7;border-radius:9px;padding:9px 13px;cursor:pointer}
+.mode-button:hover{border-color:#5a6f86}
+.mode-button.active{background:#18304b;border-color:#6da9e6;color:#fff;box-shadow:0 0 0 1px rgba(105,183,255,.08) inset}
+@media(max-width:760px){.mode-panel{grid-template-columns:1fr}}
