@@ -10,6 +10,7 @@ namespace DHMP.RawIpv6;
 /// </summary>
 public sealed class DhmpRawIpv6Options
 {
+    /// <summary>Create one explicit Linux raw-IPv6 peer binding with a hard payload ceiling.</summary>
     public DhmpRawIpv6Options(
         IPAddress localAddress,
         IPAddress remoteAddress,
@@ -73,6 +74,7 @@ public sealed class DhmpRawIpv6Options
         UnprotectedPayloadsAllowed = allowUnprotectedPayloads;
     }
 
+    /// <summary>Create options whose maximum protocol payload is derived from a known IPv6 path MTU.</summary>
     public static DhmpRawIpv6Options FromPathMtu(
         IPAddress localAddress,
         IPAddress remoteAddress,
@@ -125,9 +127,16 @@ public sealed class DhmpRawIpv6Options
             allowWildcardLocalAddress,
             allowUnprotectedPayloads);
 
+    /// <summary>Explicit local native IPv6 address used for the raw binding.</summary>
     public IPAddress LocalAddress { get; }
+
+    /// <summary>Explicit remote native IPv6 peer address.</summary>
     public IPAddress RemoteAddress { get; }
+
+    /// <summary>Hard raw upper-layer payload ceiling in bytes.</summary>
     public int MaximumPayloadBytes { get; }
+
+    /// <summary>Requested operating-system socket buffer size in bytes.</summary>
     public int SocketBufferBytes { get; }
     /// <summary>Total deadline for one compatibility or PSK handshake, including send and receive.</summary>
     public TimeSpan HandshakeTimeout { get; }
@@ -150,9 +159,11 @@ public sealed class DhmpRawIpv6Options
     /// </summary>
     public bool UnprotectedPayloadsAllowed { get; }
 
+    /// <summary>Experimental IPv6 Next Header value used for DHMP data in the current research backend.</summary>
     public byte DataProtocolNumber =>
         DhmpProtocol.ExperimentalIpv6DataNextHeader;
 
+    /// <summary>Experimental IPv6 Next Header value used for DHMP control traffic in the current research backend.</summary>
     public byte ControlProtocolNumber =>
         DhmpProtocol.ExperimentalIpv6ControlNextHeader;
 

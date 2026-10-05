@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DHMP.AspNetCore;
 
+/// <summary>Dependency-injection registration helpers for DHMP host licensing and optional API integration.</summary>
 public static class DhmpServiceCollectionExtensions
 {
     private sealed class DhmpRegistrationMarker
@@ -50,6 +51,10 @@ public static class DhmpServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Register DHMP host licensing with an explicit application identifier, offline license key,
+    /// and trusted public verification key. This overload does not enable the automatic API transport.
+    /// </summary>
     public static IServiceCollection AddDHMP(
         this IServiceCollection services,
         Guid applicationId,

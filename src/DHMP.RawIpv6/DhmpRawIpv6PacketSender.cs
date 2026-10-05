@@ -18,6 +18,10 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
     private int _currentMaximumPayloadBytes;
     private int _disposed;
 
+    /// <summary>
+    /// Open a Linux raw-IPv6 sender for one explicitly configured peer. The sender owns its socket
+    /// and releases it on <see cref="Dispose"/>; the supplied options object remains caller-owned.
+    /// </summary>
     public DhmpRawIpv6PacketSender(DhmpRawIpv6Options options)
         : this(
             options,
@@ -62,14 +66,18 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
         }
     }
 
+    /// <summary>Immutable hard payload ceiling derived from the configured raw-IPv6 options.</summary>
     public int MaximumPayloadBytes { get; }
 
+    /// <summary>Current live payload ceiling, which may be lower while dynamic path sizing is active.</summary>
     public int CurrentMaximumPayloadBytes =>
         Volatile.Read(ref _currentMaximumPayloadBytes);
 
+    /// <summary>Whether authenticated path discovery may update the live payload ceiling.</summary>
     public bool DynamicPathBudgetEnabled =>
         _dynamicPathBudgetEnabled;
 
+    /// <summary>IPv6 extension-header allowance reserved by the dynamic path-budget calculation.</summary>
     public int DynamicAdditionalIpv6HeaderBytes =>
         _dynamicAdditionalIpv6HeaderBytes;
 
@@ -154,6 +162,10 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
     void IDhmpPathBudgetTarget.FallBackToMinimumPathBudget()
         => FallBackToMinimumPathBudget();
 
+    /// <summary>
+    /// Submit one complete DHMP upper-layer payload to the configured raw IPv6 peer.
+    /// Completion means local socket submission completed, not remote delivery.
+    /// </summary>
     public async ValueTask SendPacketAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken = default)
@@ -192,6 +204,7 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
                 $"Raw IPv6 socket accepted {sent} of {payload.Length} DHMP payload bytes.");
     }
 
+    /// <summary>Close the owned raw IPv6 socket and reject future sends.</summary>
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)

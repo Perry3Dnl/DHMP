@@ -6,8 +6,13 @@ namespace DHMP.Client;
 /// <summary>Bounds for the opt-in DECO/1 full-record echo application profile.</summary>
 public sealed class DhmpEchoConfirmationOptions
 {
+    /// <summary>Maximum number of locally initiated echo confirmations waiting concurrently.</summary>
     public int MaximumInFlight { get; set; } = 32;
+
+    /// <summary>Maximum number of inbound echo requests processed concurrently.</summary>
     public int MaximumConcurrentReceives { get; set; } = 8;
+
+    /// <summary>Maximum time allowed for one send or echo operation before delivery becomes unknown.</summary>
     public TimeSpan ConfirmationTimeout { get; set; } = TimeSpan.FromSeconds(5);
 }
 
@@ -20,6 +25,7 @@ public readonly record struct DhmpEchoReceipt(TimeSpan RoundTripTime);
 /// </summary>
 public sealed class DhmpEchoConfirmation : IAsyncDisposable
 {
+    /// <summary>Bytes reserved by the DECO/1 application schema inside each fixed DHMP record.</summary>
     public const int ApplicationHeaderBytes = 40;
     private readonly DhmpClient _client;
     private readonly Guid _sessionId;
@@ -36,6 +42,10 @@ public sealed class DhmpEchoConfirmation : IAsyncDisposable
     private bool _stopped;
     private sealed record Pending(byte[] Record, TaskCompletionSource Completion);
 
+    /// <summary>
+    /// Create a DECO/1 helper bound to one authenticated session. The helper serializes access to
+    /// the supplied client but does not own or dispose that client or its packet sender.
+    /// </summary>
     public DhmpEchoConfirmation(DhmpClient client, Guid authenticatedSessionId, DhmpEchoConfirmationOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(client);
@@ -51,6 +61,7 @@ public sealed class DhmpEchoConfirmation : IAsyncDisposable
         _timeout = options.ConfirmationTimeout;
     }
 
+    /// <summary>Maximum application content bytes available in one DECO/1 record.</summary>
     public int MaximumContentBytes => _client.WireContract.RecordSize - ApplicationHeaderBytes;
 
     /// <summary>Send once and wait for an exact echo. Timeout/cancellation means delivery is unknown.</summary>
@@ -149,6 +160,9 @@ public sealed class DhmpEchoConfirmation : IAsyncDisposable
     // Called only under _sync. Active sends/receives own their buffers until this point.
     private void Leave() { if (--_active == 0 && _stopped) _drained.TrySetResult(); }
 
+    /// <summary>
+    /// Stop new echo work, cancel pending waits and join active operations without disposing the client.
+    /// </summary>
     public ValueTask DisposeAsync()
     {
         lock (_sync)
