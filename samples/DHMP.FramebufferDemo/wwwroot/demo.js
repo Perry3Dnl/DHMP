@@ -207,11 +207,14 @@
   function collectChangedPixels(regions) {
     const changed = [];
     const touched = new Set();
+    const patches = [];
 
     for (const [x0, y0, x1, y1] of regions) {
       const width = x1 - x0;
       const height = y1 - y0;
-      const image = sctx.getImageData(x0, y0, width, height).data;
+      const image = sctx.getImageData(x0, y0, width, height);
+      patches.push([x0, y0, image]);
+      const data = image.data;
 
       for (let localY = 0; localY < height; localY++) {
         for (let localX = 0; localX < width; localX++) {
@@ -222,9 +225,9 @@
           touched.add(pixel);
 
           const local = (localY * width + localX) * 4;
-          const r = image[local];
-          const g = image[local + 1];
-          const b = image[local + 2];
+          const r = data[local];
+          const g = data[local + 1];
+          const b = data[local + 2];
           const packed = packRgb(r, g, b);
           const previous = lastSent.get(pixel) || 0;
 
@@ -235,24 +238,13 @@
       }
     }
 
-    return changed;
+    return { changed, patches };
   }
 
-  function applyReceivedPixels(buffer, requestEpoch) {
+  function applyAcknowledgedPatches(patches, requestEpoch) {
     if (requestEpoch !== epoch) return;
-
-    const bytes = new Uint8Array(buffer);
-    const view = new DataView(buffer);
-
-    for (let off = 0; off + OUTPUT <= bytes.length; off += OUTPUT) {
-      const x = view.getUint16(off, false);
-      const y = view.getUint16(off + 2, false);
-      if (x >= W || y >= H) continue;
-      const r = bytes[off + 12];
-      const g = bytes[off + 13];
-      const b = bytes[off + 14];
-      rctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
-      rctx.fillRect(x, y, 1, 1);
+    for (const [x, y, image] of patches) {
+      rctx.putImageData(image, x, y);
     }
   }
 
@@ -262,7 +254,8 @@
     const requestEpoch = epoch;
     const regions = dirtyRegions;
     dirtyRegions = [];
-    const changedPixels = collectChangedPixels(regions);
+    const batch = collectChangedPixels(regions);
+    const changedPixels = batch.changed;
     if (changedPixels.length === 0) return;
 
     const payload = new ArrayBuffer(changedPixels.length * INPUT);
@@ -290,14 +283,17 @@
       });
 
       if (!response.ok) throw new Error('HTTP ' + response.status);
-      const responseBuffer = await response.arrayBuffer();
+      const ack = await response.json();
+      if (ack.published !== changedPixels.length) {
+        throw new Error('Server published ' + ack.published + ' of ' + changedPixels.length + ' records');
+      }
 
       if (requestEpoch === epoch) {
         for (const [pixel, , , , , , packed] of changedPixels) {
           if (packed === 0) lastSent.delete(pixel);
           else lastSent.set(pixel, packed);
         }
-        applyReceivedPixels(responseBuffer, requestEpoch);
+        applyAcknowledgedPatches(batch.patches, requestEpoch);
       }
 
       stateEl.textContent = 'DHMP demo live';
