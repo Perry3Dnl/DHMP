@@ -3,115 +3,124 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DHMP Latest Framebuffer Demo</title>
+  <title>DHMP Throughput Lab</title>
   <link rel="stylesheet" href="/site.css">
 </head>
 <body>
   <main>
-    <nav class="demo-nav">
-      <a class="active" href="/">Framebuffer demo</a>
-      <a href="/scada.html">SCADA / Energy demo</a>
-      <a href="/modes.html">DHMP modes</a>
-    </nav>
-    <header>
-      <p class="eyebrow">DHMP LIVE DEMO</p>
-      <h1>Send only what changed.</h1>
-      <p class="lead">A persistent framebuffer is updated as independent fixed-size DHMP records. The receiver keeps every old pixel until a newer value for that pixel arrives.</p>
+    <header class="hero">
+      <p class="eyebrow">DHMP HIGH-THROUGHPUT STRESS LAB</p>
+      <h1>Push the protocol until the server runs out of headroom.</h1>
+      <p class="lead">This page drives the real <code>DhmpClient → transport boundary → DhmpServer</code> path entirely on the server. The browser only receives one compact telemetry snapshot per second.</p>
     </header>
 
     <section class="status">
       <span id="state" class="pill">connecting…</span>
-      <span id="previewMetric"><strong id="fps">0</strong> preview FPS</span>
-      <span><strong id="updates">0</strong> processed records/s</span>
-      <span><strong id="ratio">0%</strong> of target processed</span>
-      <span><strong id="bytes">0</strong> processed record MB/s</span>
+      <span><strong id="recordsRate">0</strong> records/s</span>
+      <span><strong id="gbps">0</strong> GB/s</span>
+      <span><strong id="packetsRate">0</strong> packets/s</span>
+      <span><strong id="parity">0%</strong> published parity</span>
     </section>
 
-    <section id="previewSection" class="screens">
-      <article>
-        <div class="screen-head"><h2>Source preview</h2><span id="sourceLabel">representative 720p visualization</span></div>
-        <canvas id="source" width="1280" height="720"></canvas>
-      </article>
-      <article>
-        <div class="screen-head"><h2>Receiver preview</h2><span>sampled visualization, not the high-rate feed</span></div>
-        <canvas id="receiver" width="1280" height="720"></canvas>
-      </article>
-    </section>
-
-    <section class="resolution-control">
-      <div class="resolution-head">
+    <section class="controls card">
+      <div class="control-block">
         <div>
-          <strong>Framebuffer resolution</strong>
-          <span id="resolutionHint">Changes the server-side DHMP workload; preview stays lightweight</span>
+          <span class="control-label">DHMP packet payload</span>
+          <strong id="packetLabel">65,520 bytes</strong>
         </div>
-        <output id="resolutionValue">1280×720 · 720p</output>
+        <input id="packetSize" type="range" min="0" max="6" step="1" value="6">
+        <div class="scale seven">
+          <span>16B</span><span>256B</span><span>1KB</span><span>4KB</span><span>16KB</span><span>32KB</span><span>65.5KB</span>
+        </div>
       </div>
-      <input id="resolution" type="range" min="0" max="11" step="1" value="4">
-      <div class="resolution-scale" aria-hidden="true">
-        <span>160p</span><span>240p</span><span>360p</span><span>480p</span><span>720p</span><span>1080p</span><span>1440p</span><span>4K</span><span>8K</span><span>16K</span><span>32K</span><span>64K</span>
+
+      <div class="control-block">
+        <div>
+          <span class="control-label">Parallel workers</span>
+          <strong id="workerLabel">auto</strong>
+        </div>
+        <input id="workers" type="range" min="1" max="8" step="1" value="4">
+        <p class="muted">Independent DHMP client/server paths running concurrently on this host.</p>
       </div>
+    </section>
+
+    <section class="headline-grid">
+      <article class="metric-card">
+        <span>Submitted</span>
+        <strong id="submittedRecords">0</strong>
+        <small>records/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Published</span>
+        <strong id="publishedRecords">0</strong>
+        <small>records/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Payload throughput</span>
+        <strong id="payloadGb">0</strong>
+        <small>GB/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Packet rate</span>
+        <strong id="packetRate">0</strong>
+        <small>packets/s</small>
+      </article>
     </section>
 
     <section class="server-panel">
       <div class="panel-head">
         <div>
-          <p class="eyebrow">SERVER-SIDE DHMP TELEMETRY</p>
-          <h2>Live backend processing</h2>
+          <p class="eyebrow">LIVE SERVER RESULT</p>
+          <h2>End-to-end DHMP API throughput</h2>
         </div>
         <div class="server-totals">
-          <span><strong id="serverOffered">0</strong> offered/s</span>
-          <span><strong id="serverAccepted">0</strong> accepted/s</span>
-          <span><strong id="serverProcessed">0</strong> processed/s</span>
-          <span><strong id="serverDropped">0</strong> dropped/s</span>
-          <span><strong id="serverQueue">0</strong> queue depth</span>
-          <span><strong id="serverMbps">0</strong> processed MB/s</span>
+          <span><strong id="packetBytes">0</strong> bytes/packet</span>
+          <span><strong id="recordsPerPacket">0</strong> records/packet</span>
+          <span><strong id="activeWorkers">0</strong> workers</span>
+          <span><strong id="logicalProcessors">0</strong> logical CPUs</span>
         </div>
       </div>
 
       <div class="charts">
         <article class="chart-card">
-          <div class="chart-title"><strong>Offered vs accepted vs processed</strong><span>server measured</span></div>
-          <canvas id="recordsChart" width="560" height="220"></canvas>
+          <div class="chart-title"><strong>Records per second</strong><span>submitted vs published</span></div>
+          <canvas id="recordsChart"></canvas>
         </article>
         <article class="chart-card">
-          <div class="chart-title"><strong>DHMP record throughput</strong><span>MB/s, 16-byte records</span></div>
-          <canvas id="throughputChart" width="560" height="220"></canvas>
-        </article>
-        <article class="chart-card">
-          <div class="chart-title"><strong>Queue pressure / drops</strong><span>bounded producer-consumer queue</span></div>
-          <canvas id="totalChart" width="560" height="220"></canvas>
+          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of 16-byte application records</span></div>
+          <canvas id="throughputChart"></canvas>
         </article>
       </div>
+
       <div class="profiler-grid">
-        <div><span>Record construction</span><strong id="profileBuild">0%</strong></div>
-        <div><span>DHMP process + publish</span><strong id="profileDhmp">0%</strong></div>
-        <div><span>Build ns/record</span><strong id="profileBuildNs">0</strong></div>
-        <div><span>DHMP ns/record</span><strong id="profileDhmpNs">0</strong></div>
+        <div><span>Client/send path</span><strong id="sendNs">0 ns/packet</strong></div>
+        <div><span>Server process</span><strong id="processNs">0 ns/packet</strong></div>
+        <div><span>Publication parity</span><strong id="publicationParity">0%</strong></div>
+        <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
       </div>
-      <p class="telemetry-note">The producer offers the configured synthetic load into a bounded queue. A separate consumer drains that queue through <code>DhmpServer</code>. The profiler times whole chunks, not individual records, so it adds minimal measurement overhead.</p>
+
+      <p class="telemetry-note">This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
     </section>
 
     <section class="explain">
       <div>
-        <strong>Latest semantics</strong>
-        <p>Each changed pixel becomes one 16-byte application record and is processed through DHMP <code>Latest</code>. No frame reconstruction is required.</p>
+        <strong>Browser stays out of the hot path</strong>
+        <p>Only one JSON snapshot per second crosses HTTPS. The high-rate records never go to the browser.</p>
       </div>
       <div>
-        <strong>Persistent framebuffer</strong>
-        <p>No update means no change. The browser preview is intentionally sampled and local; the real high-rate workload stays on the server so HTTPS and browser rendering cannot throttle the DHMP measurements.</p>
+        <strong>Large packets expose throughput</strong>
+        <p>Each packet contains only fixed 16-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
       </div>
       <div>
-        <strong>What this proves</strong>
-        <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser traffic is limited to occasional workload changes and roughly one telemetry poll per second. The displayed rates and graphs come from the server-side DHMP workload generator and <code>DhmpServer</code> counters.</p>
+        <strong>Published parity matters</strong>
+        <p>Submitted and published record rates should remain aligned. A gap indicates the path is not processing everything submitted.</p>
       </div>
     </section>
 
     <footer>
-      <button id="toggle" type="button">Pause animation</button>
-      <button id="reset" type="button">New pipes scene</button>
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/demo.js"></script>
+  <script src="/stress.js"></script>
 </body>
 </html>
