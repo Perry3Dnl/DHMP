@@ -317,6 +317,31 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void SendBudget_SupportsRatesAboveInt32()
+    {
+        const long pmax = 50_000_000_000L;
+
+        var policy = new DhmpSendPolicy(
+            pmax,
+            maximumPayloadBytes: 65_520);
+
+        var budget = new DhmpPmaxBudget(pmax);
+
+        Assert.Equal(pmax, policy.Pmax);
+        Assert.True(budget.TryConsume(4_095));
+    }
+
+    [Fact]
+    public void PacingSchedule_SupportsRatesAboveInt32()
+    {
+        const long rate = 50_000_000_000L;
+
+        var schedule = new DhmpPacingSchedule(rate);
+
+        Assert.Equal(rate, schedule.MessagesPerSecond);
+    }
+
+    [Fact]
     public void SmoothPacingSchedule_SpacesLogicalMessages()
     {
         var schedule = new DhmpPacingSchedule(1000);
