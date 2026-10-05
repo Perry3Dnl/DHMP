@@ -127,11 +127,26 @@ static int prepare_context(
         return -(errno ? errno : ENODEV);
     }
 
+    /*
+     * Multi-worker AF_XDP benchmarks register one UMEM per worker.
+     * A single context is ~8 MiB with the current frame geometry, so the
+     * former 64 MiB process-wide cap prevented a 16-worker phase from
+     * bringing every socket up concurrently.
+     */
     struct rlimit rlim = {
-        .rlim_cur = 64u * 1024u * 1024u,
-        .rlim_max = 64u * 1024u * 1024u
+        .rlim_cur = 512u * 1024u * 1024u,
+        .rlim_max = 512u * 1024u * 1024u
     };
-    (void)setrlimit(RLIMIT_MEMLOCK, &rlim);
+
+    if (setrlimit(RLIMIT_MEMLOCK, &rlim) != 0) {
+        set_errno_error(
+            error,
+            error_capacity,
+            "AF_XDP could not raise RLIMIT_MEMLOCK",
+            errno);
+        destroy_context(ctx);
+        return -errno;
+    }
 
     const size_t umem_bytes =
         (size_t)DHMP_NUM_FRAMES * DHMP_FRAME_SIZE;
