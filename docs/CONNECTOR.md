@@ -161,6 +161,59 @@ Because the connection identity is derived from the authenticated security sessi
 
 If duplicate resolution is disabled, a second connection from the same source IPv6 is rejected with a clear error. DHMP never silently merges two ambiguous peers.
 
+## BlindFire: registered one-packet telemetry
+
+BlindFire is a separate opt-in path for tiny/intermittent devices that should send one plaintext fixed record without establishing a DHMP connection on every wake.
+
+One-time server registration:
+
+```csharp
+var options = new DhmpConnectorOptions(
+    localAddress,
+    recordSize: 32,
+    schemaId)
+{
+    AllowUnprotectedBlindFire = true,
+    EnableExperimentalProtocolNumbers = true
+};
+
+await using var server = new DhmpConnector(options);
+await server.StartAsync();
+
+DhmpBlindFireRegistration sensor =
+    server.RegisterIoTDevice("2001:db8::42");
+
+sensor.RecordReceived += (registration, record) =>
+{
+    // Process one complete fixed-size plaintext record.
+};
+```
+
+A device that has already been registered can later start a fresh process and send exactly one record without a DHMP HELLO/ACCEPT or security handshake:
+
+```csharp
+var options = new DhmpConnectorOptions(
+    localAddress,
+    recordSize: 32,
+    schemaId)
+{
+    AllowUnprotectedBlindFire = true,
+    EnableExperimentalProtocolNumbers = true
+};
+
+await using var device = new DhmpConnector(options);
+
+await device.BlindFireAsync(
+    serverAddress,
+    temperatureRecord);
+```
+
+The sender does not need to call `StartAsync` or establish a `DhmpConnection`. It opens the raw sender, emits one DHMP V1 data record, and disposes the sender.
+
+**Security boundary:** BlindFire provides no encryption, cryptographic sender authentication, replay protection, handshake confirmation, or delivery confirmation. The server only accepts packets from a pre-registered source IPv6 address and validates them against the already configured fixed-record contract. Source IPv6 and schema/record validation are routing/validation checks, not cryptographic identity.
+
+Use BlindFire only when that tradeoff is acceptable for the application, such as non-sensitive telemetry on a controlled network. Normal protected DHMP connections remain separate and do not become plaintext merely because BlindFire is enabled.
+
 ## Security
 
 The recommended Connector path supplies `PreSharedKey`. The Connector then performs the existing compatibility handshake followed by the authenticated PSK setup and uses the resulting session for protected send and receive traffic.
