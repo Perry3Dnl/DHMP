@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Latest Framebuffer Demo</title>
+  <link rel="stylesheet" href="/site.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">DHMP LIVE DEMO</p>
+      <h1>Send only what changed.</h1>
+      <p class="lead">A 160×90 logical framebuffer is updated as independent fixed-size DHMP records. The receiver keeps every old pixel until a newer value for that pixel arrives.</p>
+    </header>
+    <section class="status">
+      <span id="state" class="pill">connecting…</span>
+      <span><strong id="fps">0</strong> source FPS</span>
+      <span><strong id="updates">0</strong> pixel updates/s</span>
+      <span><strong id="ratio">0%</strong> of full frames sent</span>
+      <span><strong id="bytes">0</strong> DHMP record KB/s</span>
+    </section>
+    <section class="screens">
+      <article>
+        <div class="screen-head"><h2>Source</h2><span>generated locally</span></div>
+        <canvas id="source" width="160" height="90"></canvas>
+      </article>
+      <article>
+        <div class="screen-head"><h2>Receiver</h2><span>only received pixels are changed</span></div>
+        <canvas id="receiver" width="160" height="90"></canvas>
+      </article>
+    </section>
+    <section class="explain">
+      <div>
+        <strong>Latest semantics</strong>
+        <p>Each changed pixel becomes one 16-byte application record and is processed through DHMP <code>Latest</code>. No frame reconstruction is required.</p>
+      </div>
+      <div>
+        <strong>Persistent framebuffer</strong>
+        <p>No update means no change. The receiver leaves the previous pixel on screen until a newer update arrives.</p>
+      </div>
+      <div>
+        <strong>What this proves</strong>
+        <p>This page demonstrates DHMP record/state semantics in the deployed backend. Browser traffic itself uses HTTPS/WebSocket; browsers cannot send raw DHMP IPv6 packets.</p>
+      </div>
+    </section>
+    <footer>
+      <button id="toggle" type="button">Pause animation</button>
+      <button id="reset" type="button">Reset receiver</button>
+      <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
+    </footer>
+  </main>
+  <script src="/demo.js"></script>
+</body>
+</html>
