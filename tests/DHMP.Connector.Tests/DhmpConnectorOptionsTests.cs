@@ -2,6 +2,7 @@ using System.Net;
 using DHMP.Connector;
 using DHMP.Protocol;
 using DHMP.Security;
+using Xunit;
 
 namespace DHMP.Connector.Tests;
 
