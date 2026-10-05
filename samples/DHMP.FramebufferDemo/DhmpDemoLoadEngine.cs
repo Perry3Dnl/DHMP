@@ -34,6 +34,8 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
     private long _processedRecords;
     private long _publishedRecords;
     private long _processedRecordBytes;
+    private long _recordBuildTicks;
+    private long _dhmpProcessTicks;
 
     public DhmpDemoLoadEngine(DhmpServer server)
     {
@@ -78,6 +80,9 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             processed,
             Interlocked.Read(ref _publishedRecords),
             Interlocked.Read(ref _processedRecordBytes),
+            Interlocked.Read(ref _recordBuildTicks),
+            Interlocked.Read(ref _dhmpProcessTicks),
+            Stopwatch.Frequency,
             queueDepth,
             QueueCapacityRecords,
             width,
@@ -261,8 +266,9 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
     private async Task ConsumeAsync(
         CancellationToken stoppingToken)
     {
-        byte[] record =
-            new byte[RecordSize];
+        byte[] records =
+            GC.AllocateUninitializedArray<byte>(
+                ConsumerChunkRecords * RecordSize);
 
         int currentOffset = 0;
 
@@ -298,12 +304,38 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                     remaining,
                     ConsumerChunkRecords);
 
+            long buildStarted =
+                Stopwatch.GetTimestamp();
+
+            BuildRecords(
+                records,
+                batch,
+                currentOffset,
+                chunk);
+
+            long buildTicks =
+                Stopwatch.GetTimestamp() -
+                buildStarted;
+
+            long processStarted =
+                Stopwatch.GetTimestamp();
+
             int published =
-                ProcessRange(
-                    record,
-                    batch,
-                    currentOffset,
+                ProcessRecords(
+                    records,
                     chunk);
+
+            long processTicks =
+                Stopwatch.GetTimestamp() -
+                processStarted;
+
+            Interlocked.Add(
+                ref _recordBuildTicks,
+                buildTicks);
+
+            Interlocked.Add(
+                ref _dhmpProcessTicks,
+                processTicks);
 
             currentOffset += chunk;
 
@@ -332,13 +364,12 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
         }
     }
 
-    private int ProcessRange(
-        byte[] record,
+    private void BuildRecords(
+        byte[] records,
         WorkBatch batch,
         int offset,
         int count)
     {
-        int published = 0;
         long pixelCount =
             (long)batch.Width *
             batch.Height;
@@ -363,7 +394,10 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                 unchecked(
                     (ulong)++_generation);
 
-            Span<byte> span = record;
+            Span<byte> span =
+                records.AsSpan(
+                    index * RecordSize,
+                    RecordSize);
 
             BinaryPrimitives.WriteUInt16BigEndian(
                 span[..2],
@@ -387,9 +421,24 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
                 (byte)(position * 47);
 
             span[15] = 0;
+        }
+    }
+
+    private int ProcessRecords(
+        byte[] records,
+        int count)
+    {
+        int published = 0;
+
+        for (int index = 0; index < count; index++)
+        {
+            ReadOnlySpan<byte> record =
+                records.AsSpan(
+                    index * RecordSize,
+                    RecordSize);
 
             _server.ProcessPacket(
-                span,
+                record,
                 _ => published++);
         }
 
@@ -426,6 +475,9 @@ internal sealed record DhmpDemoSnapshot(
     long ProcessedRecords,
     long PublishedRecords,
     long ProcessedRecordBytes,
+    long RecordBuildTicks,
+    long DhmpProcessTicks,
+    long StopwatchFrequency,
     long QueueDepth,
     int QueueCapacityRecords,
     int Width,
