@@ -23,6 +23,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private long _bytesPublished;
     private long _sendTicks;
     private long _processTicks;
+    private long _workerFaults;
+    private string _lastWorkerError = string.Empty;
 
     public void Configure(int packetBytes, int workers)
     {
@@ -72,10 +74,13 @@ internal sealed class DhmpThroughputLab : BackgroundService
             Environment.ProcessorCount,
             version,
             RecordSize,
-            "Sequential");
+            "Sequential",
+            Interlocked.Read(ref _workerFaults),
+            _lastWorkerError);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(
+        CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -89,22 +94,30 @@ internal sealed class DhmpThroughputLab : BackgroundService
             }
 
             using var linked =
-                CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    stoppingToken);
 
             Task[] tasks = new Task[workers];
 
             for (int index = 0; index < workers; index++)
             {
                 int workerId = index;
-                tasks[index] = RunWorkerAsync(
+
+                tasks[index] = RunWorkerGuardedAsync(
                     workerId,
                     version,
                     linked.Token);
             }
 
-            while (!stoppingToken.IsCancellationRequested)
+            Task allWorkers =
+                Task.WhenAll(tasks);
+
+            while (!stoppingToken.IsCancellationRequested &&
+                   !allWorkers.IsCompleted)
             {
-                await Task.Delay(250, stoppingToken);
+                await Task.Delay(
+                    100,
+                    stoppingToken);
 
                 lock (_configurationGate)
                 {
@@ -119,12 +132,60 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
             try
             {
-                await Task.WhenAll(tasks);
+                await allWorkers;
             }
             catch (OperationCanceledException)
                 when (!stoppingToken.IsCancellationRequested)
             {
             }
+            catch (Exception exception)
+            {
+                Interlocked.Increment(
+                    ref _workerFaults);
+
+                _lastWorkerError =
+                    exception.GetBaseException().Message;
+
+                linked.Cancel();
+
+                try
+                {
+                    await Task.Delay(
+                        250,
+                        stoppingToken);
+                }
+                catch (OperationCanceledException)
+                    when (stoppingToken.IsCancellationRequested)
+                {
+                }
+            }
+        }
+    }
+
+    private async Task RunWorkerGuardedAsync(
+        int workerId,
+        long configurationVersion,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunWorkerAsync(
+                workerId,
+                configurationVersion,
+                cancellationToken);
+        }
+        catch (DhmpProtocolException exception)
+            when (exception.Message.Contains(
+                "send budget exhausted",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Interlocked.Increment(
+                ref _workerFaults);
+
+            _lastWorkerError =
+                "DHMP send budget exhausted during stress run.";
+
+            throw;
         }
     }
 
@@ -350,7 +411,9 @@ internal sealed record DhmpThroughputSnapshot(
     int LogicalProcessors,
     long ConfigurationVersion,
     int RecordSize,
-    string ReceiveMode);
+    string ReceiveMode,
+    long WorkerFaults,
+    string LastWorkerError);
 
 internal sealed record DhmpThroughputRequest(
     int PacketBytes,
