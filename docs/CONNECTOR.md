@@ -128,6 +128,39 @@ Delivery behavior remains explicit policy:
 
 The same vocabulary is used on both sides. There is no client/server reversal: code that calls `Send...` sends, and code that uses `Receive...` receives.
 
+## Duplicate source IPv6 connections
+
+By default, one source IPv6 address maps to one `DhmpConnection`:
+
+```csharp
+DuplicatePeerHandling =
+    DhmpDuplicatePeerHandling.Reject;
+```
+
+This preserves the normal zero-extra-work routing path. If a second logical connection must intentionally share the same source IPv6 address, enable:
+
+```csharp
+DuplicatePeerHandling =
+    DhmpDuplicatePeerHandling.ResolveWithConnectionId;
+
+ConnectionIdField =
+    new DhmpConnectionIdField(offset: 0);
+```
+
+The 8-byte ConnectionId field is part of the application's existing fixed record. It is **not** a DHMP V1 header and does not change packet framing.
+
+When this mode is enabled:
+
+1. the ConnectionId field definition is folded into the schema identity already checked by the DHMP compatibility handshake;
+2. authenticated PSK setup creates a unique session ID shared by both peers;
+3. Connector derives a nonzero 64-bit `DhmpConnection.ConnectionId` from that authenticated session;
+4. Connector stamps that value into the configured application field on send;
+5. normal source-IPv6 routing remains the fast path while only duplicate-source addresses require ConnectionId resolution.
+
+Because the connection identity is derived from the authenticated security session, `ResolveWithConnectionId` requires the PSK profile. A mismatched field layout fails normal schema negotiation instead of being guessed at runtime.
+
+If duplicate resolution is disabled, a second connection from the same source IPv6 is rejected with a clear error. DHMP never silently merges two ambiguous peers.
+
 ## Security
 
 The recommended Connector path supplies `PreSharedKey`. The Connector then performs the existing compatibility handshake followed by the authenticated PSK setup and uses the resulting session for protected send and receive traffic.
