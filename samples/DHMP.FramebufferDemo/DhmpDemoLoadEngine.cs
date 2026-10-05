@@ -87,10 +87,14 @@ internal sealed class DhmpDemoLoadEngine : BackgroundService
             }
 
             long targetPerSecond = CalculateTargetRecordsPerSecond(width, height);
+            long requestedBatch =
+                (targetPerSecond + SlicesPerSecond - 1) /
+                SlicesPerSecond;
+
             int batchSize = (int)Math.Clamp(
-                (targetPerSecond + SlicesPerSecond - 1) / SlicesPerSecond,
+                requestedBatch,
                 1,
-                200_000);
+                10_000_000);
 
             ProcessBatch(width, height, batchSize);
 
