@@ -11,5 +11,6 @@
     <ProjectReference Include="../../src/DHMP.Client/DHMP.Client.csproj" />
     <ProjectReference Include="../../src/DHMP.Server/DHMP.Server.csproj" />
     <ProjectReference Include="../../src/DHMP.AfXdp/DHMP.AfXdp.csproj" />
+    <ProjectReference Include="../../src/DHMP.RawIpv6/DHMP.RawIpv6.csproj" />
   </ItemGroup>
 </Project>
