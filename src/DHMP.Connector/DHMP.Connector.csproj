@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../DHMP.Client/DHMP.Client.csproj" />
+    <ProjectReference Include="../DHMP.Server/DHMP.Server.csproj" />
+    <ProjectReference Include="../DHMP.RawIpv6/DHMP.RawIpv6.csproj" />
+    <ProjectReference Include="../DHMP.Security/DHMP.Security.csproj" />
+  </ItemGroup>
+</Project>
