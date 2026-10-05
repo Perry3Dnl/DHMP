@@ -2,8 +2,8 @@ using System.Buffers.Binary;
 using DHMP.Protocol;
 using DHMP.Server;
 
-const int Width = 160;
-const int Height = 90;
+const int Width = 1280;
+const int Height = 720;
 const int InputRecordSize = 7;
 const int DhmpRecordSize = 16;
 const int MaxUpdatesPerRequest = Width * Height;
