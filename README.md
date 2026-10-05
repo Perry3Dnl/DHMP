@@ -96,6 +96,9 @@ OnReceive(...)      handle a named incoming route
 Delivery behavior stays an option on sending rather than becoming another topology concept: fire-and-forget, application-owned confirmation, or full-record echo. Named routes belong to the application profile above DHMP V1; they do not change the headerless fixed-record transport.
 
 
+Duplicate source IPv6 connections are rejected by default. Applications that intentionally need multiple logical connections from the same source address can opt into `DhmpDuplicatePeerHandling.ResolveWithConnectionId` and reserve an 8-byte application-owned `ConnectionId` field. Its location participates in schema negotiation; the value is derived from the authenticated session and used only when source IPv6 alone is ambiguous. This adds no mandatory DHMP V1 header bytes.
+
+
 ### Current capabilities
 
 | Area | Current DHMP implementation |
