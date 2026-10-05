@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Net.WebSockets;
 using DHMP.Protocol;
 using DHMP.Server;
 
@@ -7,14 +6,20 @@ const int Width = 160;
 const int Height = 90;
 const int InputRecordSize = 7;
 const int DhmpRecordSize = 16;
-const int MaxUpdatesPerMessage = Width * Height;
+const int MaxUpdatesPerRequest = Width * Height;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
+var wire = new DhmpWireContract(DhmpRecordSize);
+var receivePolicy = new DhmpReceivePolicy(
+    DhmpProcessingMode.Latest,
+    maximumPayloadBytes: DhmpRecordSize);
+var server = new DhmpServer(wire, receivePolicy);
+long[] generations = new long[Width * Height];
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
-app.UseWebSockets();
 
 app.MapGet("/health", () => Results.Json(new
 {
@@ -30,98 +35,82 @@ app.MapGet("/version", () => Results.Json(new
     commit = Environment.GetEnvironmentVariable("DHMP_DEMO_COMMIT") ?? "dev"
 }));
 
-app.Map("/ws", async context =>
+app.MapPost("/api/updates", async (
+    HttpRequest request,
+    HttpResponse response,
+    CancellationToken cancellationToken) =>
 {
-    if (!context.WebSockets.IsWebSocketRequest)
+    if (request.ContentLength is > InputRecordSize * MaxUpdatesPerRequest)
     {
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        response.StatusCode = StatusCodes.Status413PayloadTooLarge;
         return;
     }
 
-    using WebSocket socket = await context.WebSockets.AcceptWebSocketAsync();
+    using var inputBuffer = new MemoryStream();
+    await request.Body.CopyToAsync(
+        inputBuffer,
+        cancellationToken);
 
-    var wire = new DhmpWireContract(DhmpRecordSize);
-    var receivePolicy = new DhmpReceivePolicy(
-        DhmpProcessingMode.Latest,
-        maximumPayloadBytes: DhmpRecordSize);
-    var server = new DhmpServer(wire, receivePolicy);
+    byte[] input = inputBuffer.ToArray();
 
-    ulong[] generations = new ulong[Width * Height];
-    byte[] input = new byte[InputRecordSize * MaxUpdatesPerMessage];
-    byte[] output = new byte[DhmpRecordSize * MaxUpdatesPerMessage];
-
-    while (socket.State == WebSocketState.Open &&
-           !context.RequestAborted.IsCancellationRequested)
+    if (input.Length == 0 ||
+        input.Length % InputRecordSize != 0 ||
+        input.Length > InputRecordSize * MaxUpdatesPerRequest)
     {
-        ValueWebSocketReceiveResult received = await socket.ReceiveAsync(
-            input.AsMemory(),
-            context.RequestAborted);
+        response.StatusCode = StatusCodes.Status400BadRequest;
+        return;
+    }
 
-        if (received.MessageType == WebSocketMessageType.Close)
-        {
-            await socket.CloseAsync(
-                WebSocketCloseStatus.NormalClosure,
-                "closed",
-                CancellationToken.None);
-            break;
-        }
+    int updateCount = input.Length / InputRecordSize;
+    byte[] output = GC.AllocateUninitializedArray<byte>(
+        updateCount * DhmpRecordSize);
+    byte[] record = new byte[DhmpRecordSize];
+    int outputOffset = 0;
 
-        if (received.MessageType != WebSocketMessageType.Binary ||
-            !received.EndOfMessage ||
-            received.Count == 0 ||
-            received.Count % InputRecordSize != 0)
-        {
-            await socket.CloseAsync(
-                WebSocketCloseStatus.InvalidPayloadData,
-                "Expected complete 7-byte pixel update records.",
-                CancellationToken.None);
-            break;
-        }
+    for (int index = 0; index < updateCount; index++)
+    {
+        ReadOnlySpan<byte> update =
+            input.AsSpan(index * InputRecordSize, InputRecordSize);
 
-        int updateCount = received.Count / InputRecordSize;
-        int outputOffset = 0;
+        ushort x = BinaryPrimitives.ReadUInt16BigEndian(update[..2]);
+        ushort y = BinaryPrimitives.ReadUInt16BigEndian(update.Slice(2, 2));
 
-        for (int index = 0; index < updateCount; index++)
-        {
-            ReadOnlySpan<byte> update =
-                input.AsSpan(index * InputRecordSize, InputRecordSize);
+        if (x >= Width || y >= Height)
+            continue;
 
-            ushort x = BinaryPrimitives.ReadUInt16BigEndian(update[..2]);
-            ushort y = BinaryPrimitives.ReadUInt16BigEndian(update.Slice(2, 2));
+        int pixelIndex = y * Width + x;
+        ulong generation = unchecked((ulong)Interlocked.Increment(
+            ref generations[pixelIndex]));
 
-            if (x >= Width || y >= Height)
-                continue;
+        Span<byte> recordSpan = record;
+        BinaryPrimitives.WriteUInt16BigEndian(recordSpan[..2], x);
+        BinaryPrimitives.WriteUInt16BigEndian(recordSpan.Slice(2, 2), y);
+        BinaryPrimitives.WriteUInt64BigEndian(
+            recordSpan.Slice(4, 8),
+            generation);
+        update.Slice(4, 3).CopyTo(recordSpan.Slice(12, 3));
+        recordSpan[15] = 0;
 
-            int pixelIndex = y * Width + x;
-            ulong generation = ++generations[pixelIndex];
+        server.ProcessPacket(
+            recordSpan,
+            latest =>
+            {
+                latest.CopyTo(
+                    output.AsSpan(
+                        outputOffset,
+                        DhmpRecordSize));
+                outputOffset += DhmpRecordSize;
+            });
+    }
 
-            Span<byte> record = stackalloc byte[DhmpRecordSize];
-            BinaryPrimitives.WriteUInt16BigEndian(record[..2], x);
-            BinaryPrimitives.WriteUInt16BigEndian(record.Slice(2, 2), y);
-            BinaryPrimitives.WriteUInt64BigEndian(record.Slice(4, 8), generation);
-            update.Slice(4, 3).CopyTo(record.Slice(12, 3));
-            record[15] = 0;
+    response.ContentType = "application/octet-stream";
+    response.ContentLength = outputOffset;
 
-            server.ProcessPacket(
-                record,
-                latest =>
-                {
-                    latest.CopyTo(
-                        output.AsSpan(
-                            outputOffset,
-                            DhmpRecordSize));
-                    outputOffset += DhmpRecordSize;
-                });
-        }
-
-        if (outputOffset > 0)
-        {
-            await socket.SendAsync(
-                output.AsMemory(0, outputOffset),
-                WebSocketMessageType.Binary,
-                endOfMessage: true,
-                context.RequestAborted);
-        }
+    if (outputOffset > 0)
+    {
+        await response.Body.WriteAsync(
+            output.AsMemory(0, outputOffset),
+            cancellationToken);
     }
 });
 
