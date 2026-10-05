@@ -61,9 +61,9 @@ public sealed class DhmpClient
             DhmpRatePolicy.SmoothPacing)
         {
             _pacer = new DhmpPacingSchedule(
-                adaptiveRateController?
-                    .CurrentMessagesPerSecond ??
-                sendPolicy.Pmax);
+                adaptiveRateController is not null
+                    ? adaptiveRateController.CurrentMessagesPerSecond
+                    : sendPolicy.Pmax);
         }
         else
         {
@@ -83,10 +83,10 @@ public sealed class DhmpClient
         AdaptiveRateController =>
             _adaptiveRateController;
 
-    public int CurrentMessagesPerSecond =>
-        _adaptiveRateController?
-            .CurrentMessagesPerSecond ??
-        _sendPolicy.Pmax;
+    public long CurrentMessagesPerSecond =>
+        _adaptiveRateController is not null
+            ? _adaptiveRateController.CurrentMessagesPerSecond
+            : _sendPolicy.Pmax;
 
     /// <summary>
     /// Current whole-record payload ceiling after combining local policy with any
