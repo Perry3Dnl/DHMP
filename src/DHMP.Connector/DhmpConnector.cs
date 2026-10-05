@@ -410,6 +410,11 @@ public sealed class DhmpConnector : IAsyncDisposable
         EnsureStarted();
         ValidateRemoteAddress(remoteAddress);
 
+        if (_options.PreSharedKey is null &&
+            !_options.AllowUnprotectedPayloads)
+            throw new InvalidOperationException(
+                "Established plaintext DHMP connections are disabled. Configure a PreSharedKey or set AllowUnprotectedPayloads=true.");
+
         await _peerGate
             .WaitAsync(cancellationToken)
             .ConfigureAwait(false);
