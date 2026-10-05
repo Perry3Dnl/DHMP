@@ -81,26 +81,14 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
             try
             {
-                DhmpAfXdpProbeResult probe =
-                    DhmpAfXdpHostProbe.Probe(
-                        _interfaceName,
-                        queueId: 0,
-                        preferZeroCopy: true);
-
+                // The benchmark is also the capability check. Avoid opening a
+                // short-lived probe socket immediately before the real socket,
+                // because some AF_XDP/veth combinations keep queue ownership
+                // transiently busy after close.
                 lock (_gate)
                 {
-                    _mode = probe.Supported
-                        ? probe.Mode.ToString()
-                        : "Unavailable";
-                    _detail = probe.Detail;
-                }
-
-                if (!probe.Supported)
-                {
-                    await Task.Delay(
-                        TimeSpan.FromSeconds(5),
-                        stoppingToken);
-                    continue;
+                    _mode = "Probing";
+                    _detail = "Initializing the best available AF_XDP TX mode.";
                 }
 
                 long started = Stopwatch.GetTimestamp();
