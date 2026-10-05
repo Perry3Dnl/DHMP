@@ -16,47 +16,66 @@
 
     <header class="hero">
       <p class="eyebrow">DHMP RAW IPv6 VS AF_XDP</p>
-      <h1>Same server. Same payload. Two Linux network paths.</h1>
-      <p class="lead">Each live sample pair sends the same number of DHMP packets through the normal Linux raw-IPv6 socket path and the experimental AF_XDP fast path on the same isolated veth interface. The order alternates every run to reduce first-run bias.</p>
+      <h1>Same server. Same payload. Same worker count. Two Linux network paths.</h1>
+      <p class="lead">Each live sample pair sends the same DHMP workload through the normal Linux raw-IPv6 path and the experimental AF_XDP fast path. Parallel workers use isolated veth/AF_XDP sockets, and the page reports combined wall-clock throughput across all workers.</p>
     </header>
 
     <section class="status">
       <span id="state" class="pill">starting comparison…</span>
       <span><strong id="mode">—</strong> AF_XDP mode</span>
+      <span><strong id="statusAfPackets">0</strong> AF_XDP packets/s</span>
+      <span><strong id="statusAfGb">0</strong> AF_XDP GB/s</span>
       <span><strong id="speedup">0.00×</strong> packet-rate speedup</span>
-      <span><strong id="payloadSpeedup">0.00×</strong> payload-rate speedup</span>
     </section>
 
     <section class="controls card">
       <div class="control-block">
         <div>
           <span class="control-label">DHMP payload per packet</span>
-          <strong id="payloadLabel">1,200 bytes</strong>
+          <strong id="payloadLabel">1,408 bytes</strong>
         </div>
-        <input id="payloadSize" type="range" min="0" max="4" step="1" value="3">
+        <input id="payloadSize" type="range" min="0" max="4" step="1" value="4">
         <div class="scale five">
           <span>16B</span><span>256B</span><span>1KB</span><span>1.2KB</span><span>1.4KB</span>
         </div>
-        <p class="muted">Both paths use this exact useful DHMP payload size and the same 250,000-packet sample count.</p>
+        <p class="muted">Both paths use the exact same useful DHMP payload size.</p>
       </div>
 
-      <div class="mode-group bypass-mode">
+      <div class="control-block">
+        <div>
+          <span class="control-label">Parallel workers</span>
+          <strong id="workerLabel">auto</strong>
+        </div>
+        <input id="workers" type="range" min="1" max="16" step="1" value="16">
+        <p class="muted">Each worker owns an isolated benchmark veth and AF_XDP socket. Combined throughput is measured by wall-clock time across the whole phase.</p>
+      </div>
+    </section>
+
+    <section class="mode-panel card">
+      <div class="mode-group">
         <span class="control-label">AF_XDP backend selection</span>
         <div class="mode-buttons">
           <button type="button" class="mode-button active" disabled>Prefer ZeroCopy</button>
         </div>
-        <p class="muted">ZeroCopy is requested first. If this server's veth driver cannot provide it, AF_XDP Copy mode is used and labeled explicitly.</p>
+        <p class="muted">ZeroCopy is requested first per worker. Copy mode is used only where the server cannot provide zero-copy.</p>
+      </div>
+      <div class="mode-group">
+        <span class="control-label">Comparison contract</span>
+        <div class="mode-buttons">
+          <button type="button" class="mode-button active" disabled>Paired + alternating order</button>
+        </div>
+        <p class="muted">Raw IPv6 and AF_XDP use the same workers, payload and packet count; which path runs first alternates each pair.</p>
       </div>
     </section>
 
     <section class="headline-grid">
       <article class="metric-card">
-        <span>Raw IPv6</span>
+        <span>Raw IPv6 packet rate</span>
         <strong id="rawPacketRate">0</strong>
         <small>packets/s</small>
       </article>
       <article class="metric-card">
-        <span>AF_XDP</span>
+        <span>AF_XDP packet rate</span>
         <strong id="afxdpPacketRate">0</strong>
         <small>packets/s</small>
       </article>
@@ -68,20 +87,20 @@
       <article class="metric-card">
         <span>Completed sample pairs</span>
         <strong id="runs">0</strong>
-        <small>250K packets per path</small>
+        <small>combined worker phases</small>
       </article>
     </section>
 
     <section class="headline-grid">
       <article class="metric-card">
         <span>Raw useful payload</span>
-        <strong id="rawPayloadGb">0</strong>
-        <small>GB/s</small>
+        <strong id="rawPayloadRate">0</strong>
+        <small id="rawPayloadUnit">GB/s</small>
       </article>
       <article class="metric-card">
         <span>AF_XDP useful payload</span>
-        <strong id="afxdpPayloadGb">0</strong>
-        <small>GB/s</small>
+        <strong id="afxdpPayloadRate">0</strong>
+        <small id="afxdpPayloadUnit">GB/s</small>
       </article>
       <article class="metric-card">
         <span>Raw logical records</span>
@@ -99,19 +118,20 @@
       <div class="panel-head">
         <div>
           <p class="eyebrow">LIVE FAIR COMPARISON</p>
-          <h2>Directional DHMP transmit path</h2>
+          <h2>Combined directional DHMP transmit path</h2>
         </div>
         <div class="server-totals">
           <span><strong id="payloadBytes">0</strong> bytes/packet</span>
           <span><strong id="recordsPerPacket">0</strong> records/packet</span>
-          <span><strong id="packetsPerSample">0</strong> packets/sample</span>
-          <span><strong id="interfaceName">—</strong> interface</span>
+          <span><strong id="packetsPerSample">0</strong> packets/worker/sample</span>
+          <span><strong id="activeWorkers">0</strong> workers</span>
+          <span><strong id="logicalProcessors">0</strong> logical CPUs</span>
         </div>
       </div>
 
       <div class="charts">
         <article class="chart-card">
-          <div class="chart-title"><strong>Packet rate</strong><span>Raw IPv6 vs AF_XDP</span></div>
+          <div class="chart-title"><strong>Packet rate</strong><span>combined Raw IPv6 vs AF_XDP</span></div>
           <canvas id="packetChart"></canvas>
         </article>
         <article class="chart-card">
@@ -123,26 +143,26 @@
       <div class="profiler-grid">
         <div><span>AF_XDP mode</span><strong id="activeMode">—</strong></div>
         <div><span>Raw IPv6 path</span><strong>Linux raw socket</strong></div>
-        <div><span>Sample order</span><strong>Alternates each pair</strong></div>
+        <div><span>Worker interfaces</span><strong id="interfaceRange">—</strong></div>
         <div><span>Failures</span><strong id="failureCount">0</strong></div>
         <div class="wide"><span>Backend detail</span><strong id="detail">starting…</strong></div>
       </div>
 
-      <p class="telemetry-note">This is a directional TX-path comparison, not an end-to-end latency test. Raw IPv6 measures synchronous submission through the normal Linux raw-socket/kernel path onto the benchmark veth. AF_XDP measures TX completion through its UMEM/ring fast path on the same veth. Both use the same payload and packet count. No production network traffic is generated.</p>
+      <p class="telemetry-note">Combined rates are measured from total packets completed across all active workers divided by the wall-clock duration of the whole Raw IPv6 or AF_XDP phase. The page does not sum separately timed worker rates. This remains a directional TX-path comparison rather than an end-to-end latency result.</p>
     </section>
 
     <section class="explain">
       <div>
-        <strong>Same workload</strong>
-        <p>Both paths transmit the same number of packets with the same useful DHMP payload and fixed 16-byte record accounting.</p>
+        <strong>Parallel without queue collisions</strong>
+        <p>Every worker gets its own private veth pair and AF_XDP socket, preserving clear ownership while allowing the fast path to scale across CPU cores.</p>
       </div>
       <div>
-        <strong>Same host and interface</strong>
-        <p>Both benchmarks execute inside the same deployed container against the same isolated benchmark veth, avoiding differences between machines.</p>
+        <strong>Big numbers are real aggregates</strong>
+        <p>The headline packet, record and payload rates are combined wall-clock throughput from the server, not multiplication of a single-worker result.</p>
       </div>
       <div>
-        <strong>Alternating order</strong>
-        <p>Raw IPv6 runs first on one sample pair and AF_XDP first on the next, reducing systematic warm-up and first-run bias.</p>
+        <strong>Fair paired workload</strong>
+        <p>Both implementations get the same worker count, packet count and payload. The run order alternates to reduce systematic first-run bias.</p>
       </div>
     </section>
 
