@@ -1,5 +1,8 @@
 (() => {
-  const INPUT = 7, OUTPUT = 16;
+  const PREVIEW_W = 1280;
+  const PREVIEW_H = 720;
+  const RECEIVER_PREVIEW_FPS = 10;
+
   const RESOLUTIONS = [
     { label: '160p', width: 284, height: 160 },
     { label: '240p', width: 426, height: 240 },
@@ -14,6 +17,9 @@
 
   const source = document.querySelector('#source');
   const receiver = document.querySelector('#receiver');
+  const sctx = source.getContext('2d', { alpha: false });
+  const rctx = receiver.getContext('2d', { alpha: false });
+
   const stateEl = document.querySelector('#state');
   const fpsEl = document.querySelector('#fps');
   const updatesEl = document.querySelector('#updates');
@@ -33,85 +39,37 @@
   const throughputChart = document.querySelector('#throughputChart');
   const totalChart = document.querySelector('#totalChart');
 
-  let W = 1280;
-  let H = 720;
-  let sctx;
-  let rctx;
-  let dirtyRegions = [];
-  let lastSent = new Map();
+  const palette = ['#56d6ff', '#f4c95d', '#ff6b8a', '#7ce38b', '#b78cff', '#ff955c'];
+  const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
   let running = true;
-  let requestInFlight = false;
   let framesThisSecond = 0;
-  let updatesThisSecond = 0;
-  let lastStats = performance.now();
+  let lastPreviewStats = performance.now();
+  let lastReceiverPreview = 0;
+  let selectedResolution = RESOLUTIONS[4];
+  let workloadTimer = 0;
   let pipes = [];
-  let epoch = 0;
 
   let previousServerStats = null;
   const serverHistory = [];
 
-  const palette = ['#56d6ff', '#f4c95d', '#ff6b8a', '#7ce38b', '#b78cff', '#ff955c'];
-  const dirs = [[1, 0], [0, 1], [-1, 0], [0, -1]];
-
-  function configureCanvases(width, height) {
-    W = width;
-    H = height;
-    source.width = W;
-    source.height = H;
-    receiver.width = W;
-    receiver.height = H;
-    sctx = source.getContext('2d', { alpha: false, willReadFrequently: true });
-    rctx = receiver.getContext('2d', { alpha: false, willReadFrequently: true });
-    sctx.fillStyle = '#000';
-    sctx.fillRect(0, 0, W, H);
-    rctx.fillStyle = '#000';
-    rctx.fillRect(0, 0, W, H);
-  }
-
-  function applyResolution(index) {
-    const selected = RESOLUTIONS[index];
-    epoch++;
-    dirtyRegions = [];
-    lastSent = new Map();
-    configureCanvases(selected.width, selected.height);
-    resolutionValue.textContent = selected.width + '×' + selected.height + ' · ' + selected.label;
-    sourceLabel.textContent = selected.label + ' persistent pipes scene';
-    pipes = Array.from({ length: 6 }, (_, pipeIndex) => makePipe(pipeIndex));
-  }
-
-  function markDirty(x0, y0, x1, y1) {
-    x0 = Math.max(0, Math.floor(x0));
-    y0 = Math.max(0, Math.floor(y0));
-    x1 = Math.min(W, Math.ceil(x1));
-    y1 = Math.min(H, Math.ceil(y1));
-    if (x1 > x0 && y1 > y0) dirtyRegions.push([x0, y0, x1, y1]);
-  }
-
   function makePipe(index) {
-    const margin = Math.max(24, Math.round(Math.min(W, H) * 0.08));
-    const availableW = Math.max(1, W - margin * 2);
-    const availableH = Math.max(1, H - margin * 2);
-    const scale = Math.max(0.45, Math.min(3, H / 720));
-
     return {
-      x: margin + Math.floor(Math.random() * availableW),
-      y: margin + Math.floor(Math.random() * availableH),
+      x: 80 + Math.floor(Math.random() * (PREVIEW_W - 160)),
+      y: 80 + Math.floor(Math.random() * (PREVIEW_H - 160)),
       dir: Math.floor(Math.random() * 4),
       remaining: 30 + Math.floor(Math.random() * 90),
       color: palette[index % palette.length],
-      width: Math.max(5, Math.round((18 + (index % 3) * 3) * scale)),
-      step: Math.max(2, Math.round(7 * scale))
+      width: 18 + (index % 3) * 3,
+      step: 7
     };
   }
 
-  function resetScene() {
-    epoch++;
-    dirtyRegions = [];
-    lastSent = new Map();
+  function resetPreview() {
     sctx.fillStyle = '#000';
-    sctx.fillRect(0, 0, W, H);
+    sctx.fillRect(0, 0, PREVIEW_W, PREVIEW_H);
     rctx.fillStyle = '#000';
-    rctx.fillRect(0, 0, W, H);
+    rctx.fillRect(0, 0, PREVIEW_W, PREVIEW_H);
     pipes = Array.from({ length: 6 }, (_, index) => makePipe(index));
   }
 
@@ -139,13 +97,11 @@
     sctx.beginPath();
     sctx.arc(x, y, radius, 0, Math.PI * 2);
     sctx.fill();
-    markDirty(x - radius - 2, y - radius - 2, x + radius + 2, y + radius + 2);
   }
 
   function drawSegment(pipe, x2, y2) {
-    const pad = pipe.width + 10;
-
     sctx.lineCap = 'round';
+
     sctx.strokeStyle = '#0a0e15';
     sctx.lineWidth = pipe.width + 8;
     sctx.beginPath();
@@ -166,22 +122,17 @@
     sctx.moveTo(pipe.x - 2, pipe.y - 2);
     sctx.lineTo(x2 - 2, y2 - 2);
     sctx.stroke();
-
-    markDirty(
-      Math.min(pipe.x, x2) - pad,
-      Math.min(pipe.y, y2) - pad,
-      Math.max(pipe.x, x2) + pad,
-      Math.max(pipe.y, y2) + pad
-    );
   }
 
   function growPipe(pipe) {
     const [dx, dy] = dirs[pipe.dir];
     const x2 = pipe.x + dx * pipe.step;
     const y2 = pipe.y + dy * pipe.step;
-    const edge = Math.max(10, pipe.width * 1.5);
 
-    if (x2 < edge || x2 >= W - edge || y2 < edge || y2 >= H - edge) {
+    if (x2 < 30 ||
+        x2 >= PREVIEW_W - 30 ||
+        y2 < 30 ||
+        y2 >= PREVIEW_H - 30) {
       pipe.dir = (pipe.dir + (Math.random() < 0.5 ? 1 : 3)) % 4;
       pipe.remaining = 30;
       drawJoint(pipe.x, pipe.y, pipe.width, pipe.color);
@@ -196,116 +147,38 @@
     if (pipe.remaining <= 0) chooseTurn(pipe);
   }
 
-  function drawScene() {
+  function drawPreview() {
     for (const pipe of pipes) growPipe(pipe);
   }
 
-  function packRgb(r, g, b) {
-    return (r << 16) | (g << 8) | b;
-  }
-
-  function collectChangedPixels(regions) {
-    const changed = [];
-    const touched = new Set();
-    const patches = [];
-
-    for (const [x0, y0, x1, y1] of regions) {
-      const width = x1 - x0;
-      const height = y1 - y0;
-      const image = sctx.getImageData(x0, y0, width, height);
-      patches.push([x0, y0, image]);
-      const data = image.data;
-
-      for (let localY = 0; localY < height; localY++) {
-        for (let localX = 0; localX < width; localX++) {
-          const x = x0 + localX;
-          const y = y0 + localY;
-          const pixel = y * W + x;
-          if (touched.has(pixel)) continue;
-          touched.add(pixel);
-
-          const local = (localY * width + localX) * 4;
-          const r = data[local];
-          const g = data[local + 1];
-          const b = data[local + 2];
-          const packed = packRgb(r, g, b);
-          const previous = lastSent.get(pixel) || 0;
-
-          if (packed !== previous) {
-            changed.push([pixel, x, y, r, g, b, packed]);
-          }
-        }
-      }
-    }
-
-    return { changed, patches };
-  }
-
-  function applyAcknowledgedPatches(patches, requestEpoch) {
-    if (requestEpoch !== epoch) return;
-    for (const [x, y, image] of patches) {
-      rctx.putImageData(image, x, y);
-    }
-  }
-
-  async function sendChangedPixels() {
-    if (requestInFlight || dirtyRegions.length === 0) return;
-
-    const requestEpoch = epoch;
-    const regions = dirtyRegions;
-    dirtyRegions = [];
-    const batch = collectChangedPixels(regions);
-    const changedPixels = batch.changed;
-    if (changedPixels.length === 0) return;
-
-    const payload = new ArrayBuffer(changedPixels.length * INPUT);
-    const bytes = new Uint8Array(payload);
-    const view = new DataView(payload);
-
-    for (let index = 0; index < changedPixels.length; index++) {
-      const [, x, y, r, g, b] = changedPixels[index];
-      const off = index * INPUT;
-      view.setUint16(off, x, false);
-      view.setUint16(off + 2, y, false);
-      bytes[off + 4] = r;
-      bytes[off + 5] = g;
-      bytes[off + 6] = b;
-    }
-
-    updatesThisSecond += changedPixels.length;
-    requestInFlight = true;
+  async function setServerWorkload(selected) {
+    stateEl.textContent = 'setting server workload…';
+    stateEl.classList.remove('live');
 
     try {
-      const response = await fetch('/api/updates', {
+      const response = await fetch('/api/workload', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream' },
-        body: payload
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(selected)
       });
 
       if (!response.ok) throw new Error('HTTP ' + response.status);
-      const ack = await response.json();
-      if (ack.published !== changedPixels.length) {
-        throw new Error('Server published ' + ack.published + ' of ' + changedPixels.length + ' records');
-      }
 
-      if (requestEpoch === epoch) {
-        for (const [pixel, , , , , , packed] of changedPixels) {
-          if (packed === 0) lastSent.delete(pixel);
-          else lastSent.set(pixel, packed);
-        }
-        applyAcknowledgedPatches(batch.patches, requestEpoch);
-      }
+      selectedResolution = selected;
+      resolutionValue.textContent =
+        selected.width + '×' + selected.height + ' · ' + selected.label;
+      sourceLabel.textContent =
+        selected.label + ' server workload · representative 720p preview';
 
-      stateEl.textContent = 'DHMP demo live';
+      previousServerStats = null;
+      serverHistory.length = 0;
+      renderServerCharts();
+
+      stateEl.textContent = 'server workload live';
       stateEl.classList.add('live');
     } catch {
-      if (requestEpoch === epoch) {
-        for (const [, x, y] of changedPixels) markDirty(x, y, x + 1, y + 1);
-      }
-      stateEl.textContent = 'demo request failed';
+      stateEl.textContent = 'workload update failed';
       stateEl.classList.remove('live');
-    } finally {
-      requestInFlight = false;
     }
   }
 
@@ -314,13 +187,17 @@
     const cssWidth = canvas.clientWidth || 560;
     const cssHeight = canvas.clientHeight || 220;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
     canvas.width = Math.floor(cssWidth * dpr);
     canvas.height = Math.floor(cssHeight * dpr);
-    ctx.scale(dpr, dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const width = cssWidth;
     const height = cssHeight;
-    const left = 48, right = 12, top = 16, bottom = 26;
+    const left = 48;
+    const right = 12;
+    const top = 16;
+    const bottom = 26;
     const plotW = width - left - right;
     const plotH = height - top - bottom;
 
@@ -350,17 +227,22 @@
     }
 
     const colors = ['#69b7ff', '#7ce38b', '#f4c95d'];
+
     series.forEach((values, seriesIndex) => {
       if (values.length < 2) return;
+
       ctx.strokeStyle = colors[seriesIndex % colors.length];
       ctx.lineWidth = 2;
       ctx.beginPath();
+
       values.forEach((value, index) => {
         const x = left + plotW * index / Math.max(1, values.length - 1);
         const y = top + plotH * (1 - value / roundedMax);
+
         if (index === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
+
       ctx.stroke();
     });
 
@@ -389,11 +271,13 @@
       ],
       ['received/s', 'published/s']
     );
+
     drawLineChart(
       throughputChart,
       [serverHistory.map(point => point.mbps)],
       ['record MB/s']
     );
+
     drawLineChart(
       totalChart,
       [serverHistory.map(point => point.total)],
@@ -405,20 +289,39 @@
     try {
       const response = await fetch('/api/stats', { cache: 'no-store' });
       if (!response.ok) throw new Error('HTTP ' + response.status);
+
       const current = await response.json();
 
       if (previousServerStats) {
         const elapsed = Math.max(
           0.001,
-          (current.uptimeMilliseconds - previousServerStats.uptimeMilliseconds) / 1000
+          (current.uptimeMilliseconds -
+            previousServerStats.uptimeMilliseconds) / 1000
         );
-        const rx = Math.max(0, current.receivedRecords - previousServerStats.receivedRecords) / elapsed;
-        const tx = Math.max(0, current.publishedRecords - previousServerStats.publishedRecords) / elapsed;
+
+        const rx =
+          Math.max(
+            0,
+            current.receivedRecords -
+              previousServerStats.receivedRecords
+          ) / elapsed;
+
+        const tx =
+          Math.max(
+            0,
+            current.publishedRecords -
+              previousServerStats.publishedRecords
+          ) / elapsed;
+
         const byteDelta = Math.max(
           0,
-          current.receivedRecordBytes - previousServerStats.receivedRecordBytes
+          current.receivedRecordBytes -
+            previousServerStats.receivedRecordBytes
         );
+
         const mbps = byteDelta / elapsed / 1_000_000;
+        const target = Math.max(1, current.targetRecordsPerSecond);
+        const targetPercent = rx / target * 100;
 
         serverHistory.push({
           rx,
@@ -426,17 +329,31 @@
           mbps,
           total: current.receivedRecords
         });
+
         if (serverHistory.length > 60) serverHistory.shift();
+
+        updatesEl.textContent = Math.round(rx).toLocaleString();
+        ratioEl.textContent = targetPercent.toFixed(1) + '%';
+        bytesEl.textContent = mbps.toFixed(2);
 
         serverRxEl.textContent = Math.round(rx).toLocaleString();
         serverTxEl.textContent = Math.round(tx).toLocaleString();
         serverMbpsEl.textContent = mbps.toFixed(2);
-        serverTotalEl.textContent = Number(current.receivedRecords).toLocaleString();
+        serverTotalEl.textContent =
+          Number(current.receivedRecords).toLocaleString();
+
+        resolutionValue.textContent =
+          current.width + '×' + current.height + ' · ' + current.label;
+
         renderServerCharts();
       }
 
       previousServerStats = current;
+      stateEl.textContent = 'server workload live';
+      stateEl.classList.add('live');
     } catch {
+      stateEl.textContent = 'server telemetry unavailable';
+      stateEl.classList.remove('live');
       serverRxEl.textContent = '—';
       serverTxEl.textContent = '—';
       serverMbpsEl.textContent = '—';
@@ -445,22 +362,21 @@
 
   function animate(now) {
     if (running) {
-      drawScene();
-      void sendChangedPixels();
+      drawPreview();
       framesThisSecond++;
+
+      if (now - lastReceiverPreview >= 1000 / RECEIVER_PREVIEW_FPS) {
+        rctx.drawImage(source, 0, 0);
+        lastReceiverPreview = now;
+      }
     }
 
-    if (now - lastStats >= 1000) {
-      const seconds = (now - lastStats) / 1000;
-      const fps = framesThisSecond / seconds;
-      const ups = updatesThisSecond / seconds;
-      fpsEl.textContent = fps.toFixed(0);
-      updatesEl.textContent = Math.round(ups).toLocaleString();
-      ratioEl.textContent = (ups / (W * H * Math.max(fps, 1)) * 100).toFixed(3) + '%';
-      bytesEl.textContent = (ups * OUTPUT / 1000).toFixed(1);
+    if (now - lastPreviewStats >= 1000) {
+      const seconds = (now - lastPreviewStats) / 1000;
+      fpsEl.textContent =
+        (framesThisSecond / seconds).toFixed(0);
       framesThisSecond = 0;
-      updatesThisSecond = 0;
-      lastStats = now;
+      lastPreviewStats = now;
     }
 
     requestAnimationFrame(animate);
@@ -468,18 +384,38 @@
 
   toggle.addEventListener('click', () => {
     running = !running;
-    toggle.textContent = running ? 'Pause animation' : 'Resume animation';
+    toggle.textContent =
+      running ? 'Pause animation' : 'Resume animation';
   });
 
-  reset.addEventListener('click', resetScene);
+  reset.addEventListener('click', resetPreview);
 
   resolution.addEventListener('input', () => {
-    applyResolution(Number(resolution.value));
+    const selected =
+      RESOLUTIONS[Number(resolution.value)];
+
+    resolutionValue.textContent =
+      selected.width + '×' +
+      selected.height + ' · ' +
+      selected.label;
+
+    clearTimeout(workloadTimer);
+
+    workloadTimer = setTimeout(
+      () => void setServerWorkload(selected),
+      180
+    );
   });
 
   window.addEventListener('resize', renderServerCharts);
 
-  applyResolution(Number(resolution.value));
+  source.width = PREVIEW_W;
+  source.height = PREVIEW_H;
+  receiver.width = PREVIEW_W;
+  receiver.height = PREVIEW_H;
+
+  resetPreview();
+  void setServerWorkload(selectedResolution);
   void pollServerStats();
   setInterval(pollServerStats, 1000);
   requestAnimationFrame(animate);
