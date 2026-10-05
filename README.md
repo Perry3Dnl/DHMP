@@ -84,6 +84,17 @@ await peer.SendAsync(record);
 
 The opposite endpoint currently calls `AcceptAsync(remoteAddress)` with matching protocol/security settings. This explicit address is intentional: the existing DHMP control plane negotiates an already configured peer and does not yet discover arbitrary unknown peers. See [DHMP Connector](docs/CONNECTOR.md).
 
+Connector messaging uses local-perspective verbs only:
+
+```text
+SendAsync(...)      send one message
+SendBurstAsync(...) send many messages at a configured rate
+ReceiveAsync()      wait for the next message
+OnReceive(...)      handle a named incoming route
+```
+
+Delivery behavior stays an option on sending rather than becoming another topology concept: fire-and-forget, application-owned confirmation, or full-record echo. Named routes belong to the application profile above DHMP V1; they do not change the headerless fixed-record transport.
+
 
 ### Current capabilities
 
