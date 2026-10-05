@@ -49,8 +49,16 @@ app.MapPost(
                 new { error = "Unsupported AF_XDP payload size." });
         }
 
+        if (request.Workers <= 0 ||
+            request.Workers > lab.MaxWorkers)
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported AF_XDP worker count." });
+        }
+
         lab.Configure(
-            request.PayloadBytes);
+            request.PayloadBytes,
+            request.Workers);
 
         return Results.Json(
             lab.Snapshot());
