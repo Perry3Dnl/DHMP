@@ -23,6 +23,7 @@ PACK_PROJECTS = [
     ROOT / "src/DHMP.Security/DHMP.Security.csproj",
     ROOT / "src/DHMP.RawIpv6/DHMP.RawIpv6.csproj",
     ROOT / "src/DHMP.AspNetCore/DHMP.AspNetCore.csproj",
+    ROOT / "src/DHMP.Connector/DHMP.Connector.csproj",
 ]
 
 PACKAGE_IDS = [
@@ -33,6 +34,7 @@ PACKAGE_IDS = [
     "DHMP.Security",
     "DHMP.RawIpv6",
     "DHMP.AspNetCore",
+    "DHMP.Connector",
 ]
 
 FORBIDDEN_PAYLOAD_PREFIXES = (
@@ -299,6 +301,56 @@ def create_core_consumer(root: Path, feed: Path, version: str) -> None:
     run("dotnet", "build", "-c", "Release", "--no-restore", cwd=project)
 
 
+def create_connector_consumer(root: Path, feed: Path, version: str) -> None:
+    project = root / "ConnectorConsumer"
+    project.mkdir()
+    write_nuget_config(project / "NuGet.Config", feed)
+
+    (project / "ConnectorConsumer.csproj").write_text(
+        textwrap.dedent(
+            f"""\
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup>
+                <OutputType>Exe</OutputType>
+                <TargetFramework>net10.0</TargetFramework>
+                <ImplicitUsings>enable</ImplicitUsings>
+                <Nullable>enable</Nullable>
+              </PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="DHMP.Connector" Version="{version}" />
+              </ItemGroup>
+            </Project>
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    (project / "Program.cs").write_text(
+        textwrap.dedent(
+            """\
+            using System.Net;
+            using DHMP.Connector;
+
+            var options = new DhmpConnectorOptions(
+                IPAddress.IPv6Loopback,
+                recordSize: 32,
+                schemaId: Guid.NewGuid())
+            {
+                AllowUnprotectedPayloads = true,
+                EnableExperimentalProtocolNumbers = true
+            };
+
+            await using var connector = new DhmpConnector(options);
+            Console.WriteLine($"{connector.LocalAddress}:{connector.RecordSize}");
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    run("dotnet", "restore", "--configfile", "NuGet.Config", cwd=project)
+    run("dotnet", "build", "-c", "Release", "--no-restore", cwd=project)
+
+
 def create_aspnet_consumer(root: Path, feed: Path, version: str) -> None:
     project = root / "AspNetConsumer"
     project.mkdir()
@@ -384,6 +436,7 @@ def main() -> int:
             )
 
         create_core_consumer(workspace, feed, args.version)
+        create_connector_consumer(workspace, feed, args.version)
         create_aspnet_consumer(workspace, feed, args.version)
 
         print(
