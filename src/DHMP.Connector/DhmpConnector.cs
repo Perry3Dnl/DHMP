@@ -1,4 +1,6 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Net;
 using System.Net.Sockets;
 using DHMP.Client;
@@ -19,7 +21,7 @@ public sealed class DhmpConnector : IAsyncDisposable
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpSendPolicy _sendPolicy;
     private readonly DhmpReceivePolicy _receivePolicy;
-    private readonly ConcurrentDictionary<IPAddress, DhmpConnection> _connections = new();
+    private readonly ConcurrentDictionary<ConnectionKey, DhmpConnection> _connections = new();
     private readonly SemaphoreSlim _peerGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
 
@@ -181,16 +183,32 @@ public sealed class DhmpConnector : IAsyncDisposable
                 "The connection belongs to a different DHMP Connector.",
                 nameof(connection));
 
-        if (_connections.TryRemove(
+        var key =
+            new ConnectionKey(
                 connection.RemoteAddress,
+                connection.ConnectionId);
+
+        if (_connections.TryRemove(
+                key,
                 out DhmpConnection? current) &&
             ReferenceEquals(current, connection))
         {
             if (_receiver is not null)
             {
-                await _receiver.Router
-                    .RemoveAsync(connection.RemoteAddress)
-                    .ConfigureAwait(false);
+                if (connection.ConnectionId is ulong connectionId)
+                {
+                    await _receiver.Router
+                        .RemoveAsync(
+                            connection.RemoteAddress,
+                            connectionId)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    await _receiver.Router
+                        .RemoveAsync(connection.RemoteAddress)
+                        .ConfigureAwait(false);
+                }
             }
         }
 
@@ -244,9 +262,17 @@ public sealed class DhmpConnector : IAsyncDisposable
 
         try
         {
-            if (_connections.ContainsKey(remoteAddress))
+            if (_options.DuplicatePeerHandling ==
+                    DhmpDuplicatePeerHandling.Reject &&
+                _connections.Keys.Any(
+                    key =>
+                        key.RemoteAddress.Equals(
+                            remoteAddress)))
+            {
                 throw new InvalidOperationException(
-                    "This DHMP Connector already has a connection for the remote IPv6 address.");
+                    "This DHMP Connector already has a connection for the remote IPv6 address. " +
+                    "Use DuplicatePeerHandling.ResolveWithConnectionId with an application-owned ConnectionId field when multiple logical peers intentionally share one source IPv6 address.");
+            }
 
             DhmpRawIpv6Options rawOptions =
                 CreateRawOptions(remoteAddress);
@@ -258,14 +284,14 @@ public sealed class DhmpConnector : IAsyncDisposable
                         _wireContract,
                         _sendPolicy,
                         _receivePolicy,
-                        _options.SchemaId,
+                        GetNegotiatedSchemaId(),
                         cancellationToken).ConfigureAwait(false)
                     : await DhmpRawIpv6Handshake.RespondOnceAsync(
                         rawOptions,
                         _wireContract,
                         _sendPolicy,
                         _receivePolicy,
-                        _options.SchemaId,
+                        GetNegotiatedSchemaId(),
                         cancellationToken).ConfigureAwait(false);
 
             DhmpPskChaCha20Poly1305Session? session = null;
@@ -321,6 +347,15 @@ public sealed class DhmpConnector : IAsyncDisposable
                         _wireContract,
                         _receivePolicy);
 
+                ulong? connectionId =
+                    GetConnectionId(session);
+
+                DhmpConnectionIdField? connectionIdField =
+                    _options.DuplicatePeerHandling ==
+                        DhmpDuplicatePeerHandling.ResolveWithConnectionId
+                        ? _options.ConnectionIdField
+                        : null;
+
                 var connection =
                     new DhmpConnection(
                         this,
@@ -328,7 +363,9 @@ public sealed class DhmpConnector : IAsyncDisposable
                         client,
                         rawSender,
                         protectedSender,
-                        session);
+                        session,
+                        connectionId,
+                        connectionIdField);
 
                 var binding =
                     new DhmpRawIpv6PeerBinding(
@@ -336,17 +373,35 @@ public sealed class DhmpConnector : IAsyncDisposable
                         server,
                         connection.PublishBatch,
                         session,
-                        _options.AllowUnprotectedPayloads);
+                        _options.AllowUnprotectedPayloads,
+                        connectionId,
+                        connectionIdField?.Offset);
 
                 _receiver!.Router.Register(binding);
 
-                if (!_connections.TryAdd(
+                var connectionKey =
+                    new ConnectionKey(
                         remoteAddress,
+                        connectionId);
+
+                if (!_connections.TryAdd(
+                        connectionKey,
                         connection))
                 {
-                    await _receiver.Router
-                        .RemoveAsync(remoteAddress)
-                        .ConfigureAwait(false);
+                    if (connectionId is ulong duplicateId)
+                    {
+                        await _receiver.Router
+                            .RemoveAsync(
+                                remoteAddress,
+                                duplicateId)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        await _receiver.Router
+                            .RemoveAsync(remoteAddress)
+                            .ConfigureAwait(false);
+                    }
 
                     await connection
                         .DisposeResourcesAsync()
@@ -372,6 +427,79 @@ public sealed class DhmpConnector : IAsyncDisposable
         {
             _peerGate.Release();
         }
+    }
+
+    private Guid GetNegotiatedSchemaId()
+    {
+        if (_options.DuplicatePeerHandling ==
+            DhmpDuplicatePeerHandling.Reject)
+            return _options.SchemaId;
+
+        Span<byte> material =
+            stackalloc byte[25];
+
+        _options.SchemaId.TryWriteBytes(
+            material[..16],
+            bigEndian: true,
+            out _);
+
+        "CID1"u8.CopyTo(
+            material.Slice(16, 4));
+
+        material[20] =
+            (byte)DhmpConnectionIdField.Size;
+
+        BinaryPrimitives.WriteInt32BigEndian(
+            material.Slice(21, 4),
+            _options.ConnectionIdField!.Value.Offset);
+
+        Span<byte> hash =
+            stackalloc byte[32];
+
+        SHA256.HashData(
+            material,
+            hash);
+
+        return new Guid(
+            hash[..16],
+            bigEndian: true);
+    }
+
+    private ulong? GetConnectionId(
+        DhmpPskChaCha20Poly1305Session? session)
+    {
+        if (_options.DuplicatePeerHandling ==
+            DhmpDuplicatePeerHandling.Reject)
+            return null;
+
+        if (session is null)
+            throw new InvalidOperationException(
+                "ResolveWithConnectionId requires an authenticated DHMP session.");
+
+        Span<byte> sessionBytes =
+            stackalloc byte[16];
+
+        session.SessionId.TryWriteBytes(
+            sessionBytes,
+            bigEndian: true,
+            out _);
+
+        ulong connectionId =
+            BinaryPrimitives.ReadUInt64BigEndian(
+                sessionBytes[..8]);
+
+        if (connectionId == 0)
+        {
+            connectionId =
+                BinaryPrimitives.ReadUInt64BigEndian(
+                    sessionBytes[8..]);
+        }
+
+        if (connectionId == 0)
+            throw new InvalidOperationException(
+                "Authenticated session produced an invalid zero ConnectionId.");
+
+        return connectionId;
     }
 
     private DhmpRawIpv6Options CreateRawOptions(
@@ -411,4 +539,8 @@ public sealed class DhmpConnector : IAsyncDisposable
         ObjectDisposedException.ThrowIf(
             Volatile.Read(ref _disposed) != 0,
             this);
+
+    private readonly record struct ConnectionKey(
+        IPAddress RemoteAddress,
+        ulong? ConnectionId);
 }
