@@ -21,6 +21,10 @@ builder.Services.AddSingleton<DhmpDemoLoadEngine>();
 builder.Services.AddHostedService(
     services => services.GetRequiredService<DhmpDemoLoadEngine>());
 
+builder.Services.AddSingleton<DhmpScadaDemoEngine>();
+builder.Services.AddHostedService(
+    services => services.GetRequiredService<DhmpScadaDemoEngine>());
+
 var app = builder.Build();
 
 app.UseDefaultFiles();
@@ -87,6 +91,56 @@ app.MapPost(
         return Results.Json(engine.Snapshot());
     });
 
+
+app.MapGet(
+    "/api/scada/stats",
+    (DhmpScadaDemoEngine engine) =>
+    {
+        DhmpScadaSnapshot snapshot = engine.Snapshot();
+
+        return Results.Json(new
+        {
+            uptimeMilliseconds = snapshot.UptimeMilliseconds,
+            receivedRecords = snapshot.ReceivedRecords,
+            publishedRecords = snapshot.PublishedRecords,
+            receivedRecordBytes = snapshot.ReceivedRecordBytes,
+            publishedRecordBytes = snapshot.PublishedRecordBytes,
+            activeTags = snapshot.ActiveTags,
+            profile = snapshot.Profile,
+            targetRecordsPerSecond = snapshot.TargetRecordsPerSecond,
+            frequencyHz = snapshot.FrequencyHz,
+            northBusKv = snapshot.NorthBusKv,
+            southBusKv = snapshot.SouthBusKv,
+            gridLoadMw = snapshot.GridLoadMw,
+            transformerTempC = snapshot.TransformerTempC,
+            breakerClosed = snapshot.BreakerClosed,
+            alarmCount = snapshot.AlarmCount,
+            recordSize = DhmpScadaDemoEngine.RecordSize,
+            mode = "Latest"
+        });
+    });
+
+app.MapPost(
+    "/api/scada/workload",
+    (
+        DhmpScadaWorkloadRequest request,
+        DhmpScadaDemoEngine engine) =>
+    {
+        if (!IsSupportedScadaWorkload(
+                request.ActiveTags,
+                request.Profile))
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported SCADA workload." });
+        }
+
+        engine.Configure(
+            request.ActiveTags,
+            request.Profile);
+
+        return Results.Json(engine.Snapshot());
+    });
+
 app.Run();
 
 static bool IsSupportedResolution(
@@ -105,6 +159,20 @@ static bool IsSupportedResolution(
         (2560, 1440, "1440p") => true,
         (3840, 2160, "4K") => true,
         (7680, 4320, "8K") => true,
+        _ => false
+    };
+}
+
+static bool IsSupportedScadaWorkload(
+    int activeTags,
+    string profile)
+{
+    return (activeTags, profile) switch
+    {
+        (1_000, "single-site") => true,
+        (10_000, "industrial-site") => true,
+        (100_000, "regional-grid") => true,
+        (1_000_000, "large-grid") => true,
         _ => false
     };
 }
