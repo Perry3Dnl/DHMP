@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Net;
 using DHMP.Client;
 using DHMP.RawIpv6;
@@ -16,6 +17,7 @@ public sealed class DhmpConnection : IAsyncDisposable
     private readonly DhmpRawIpv6PacketSender _rawSender;
     private readonly DhmpProtectedPacketSender? _protectedSender;
     private readonly DhmpPskChaCha20Poly1305Session? _securitySession;
+    private readonly DhmpConnectionIdField? _connectionIdField;
     private int _disposed;
 
     internal DhmpConnection(
@@ -24,7 +26,9 @@ public sealed class DhmpConnection : IAsyncDisposable
         DhmpClient client,
         DhmpRawIpv6PacketSender rawSender,
         DhmpProtectedPacketSender? protectedSender,
-        DhmpPskChaCha20Poly1305Session? securitySession)
+        DhmpPskChaCha20Poly1305Session? securitySession,
+        ulong? connectionId,
+        DhmpConnectionIdField? connectionIdField)
     {
         _owner = owner;
         RemoteAddress = remoteAddress;
@@ -32,9 +36,17 @@ public sealed class DhmpConnection : IAsyncDisposable
         _rawSender = rawSender;
         _protectedSender = protectedSender;
         _securitySession = securitySession;
+        ConnectionId = connectionId;
+        _connectionIdField = connectionIdField;
     }
 
     public IPAddress RemoteAddress { get; }
+
+    /// <summary>
+    /// Optional 64-bit application-routing identity for duplicate-source connections.
+    /// Null when the Connector uses the normal source-IPv6 fast path.
+    /// </summary>
+    public ulong? ConnectionId { get; }
 
     public int RecordSize =>
         _client.WireContract.RecordSize;
@@ -52,7 +64,18 @@ public sealed class DhmpConnection : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        return _client.SendAsync(record, cancellationToken);
+
+        if (_connectionIdField is null)
+            return _client.SendAsync(record, cancellationToken);
+
+        _client.WireContract.ValidateRecord(record.Length);
+
+        byte[] stamped = record.ToArray();
+        BinaryPrimitives.WriteUInt64BigEndian(
+            stamped.AsSpan(_connectionIdField.Value.Offset, DhmpConnectionIdField.Size),
+            ConnectionId!.Value);
+
+        return _client.SendAsync(stamped, cancellationToken);
     }
 
     public ValueTask SendBatchAsync(
@@ -60,7 +83,27 @@ public sealed class DhmpConnection : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        return _client.SendBatchAsync(packet, cancellationToken);
+
+        if (_connectionIdField is null)
+            return _client.SendBatchAsync(packet, cancellationToken);
+
+        _client.WireContract.ValidatePacket(
+            packet.Length,
+            _client.CurrentMaximumPayloadBytes);
+
+        byte[] stamped = packet.ToArray();
+        int recordSize = RecordSize;
+
+        for (int offset = 0; offset < stamped.Length; offset += recordSize)
+        {
+            BinaryPrimitives.WriteUInt64BigEndian(
+                stamped.AsSpan(
+                    offset + _connectionIdField.Value.Offset,
+                    DhmpConnectionIdField.Size),
+                ConnectionId!.Value);
+        }
+
+        return _client.SendBatchAsync(stamped, cancellationToken);
     }
 
     public ValueTask DisposeAsync() =>
