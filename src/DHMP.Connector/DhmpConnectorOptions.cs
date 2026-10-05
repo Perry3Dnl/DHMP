@@ -67,6 +67,15 @@ public sealed class DhmpConnectorOptions
     public bool AllowWildcardLocalAddress { get; init; }
     public bool AllowUnprotectedPayloads { get; init; }
 
+    public DhmpDuplicatePeerHandling DuplicatePeerHandling { get; init; } =
+        DhmpDuplicatePeerHandling.Reject;
+
+    /// <summary>
+    /// Application-owned 64-bit field used only when duplicate-source routing is enabled.
+    /// The field definition participates in Connector schema negotiation.
+    /// </summary>
+    public DhmpConnectionIdField? ConnectionIdField { get; init; }
+
     internal void Validate()
     {
         var wire = new DhmpWireContract(RecordSize);
@@ -100,5 +109,27 @@ public sealed class DhmpConnectorOptions
             throw new InvalidOperationException(
                 "DHMP Connector requires either a pre-shared key or explicit AllowUnprotectedPayloads=true. " +
                 "Plaintext DHMP V1 has no protocol-owned end-to-end authentication/integrity check.");
+
+        if (!Enum.IsDefined(DuplicatePeerHandling))
+            throw new ArgumentOutOfRangeException(nameof(DuplicatePeerHandling));
+
+        if (DuplicatePeerHandling ==
+            DhmpDuplicatePeerHandling.ResolveWithConnectionId)
+        {
+            if (PreSharedKey is null)
+                throw new InvalidOperationException(
+                    "ResolveWithConnectionId requires the authenticated PSK profile so both peers derive the same per-session ConnectionId.");
+
+            if (ConnectionIdField is null)
+                throw new InvalidOperationException(
+                    "ResolveWithConnectionId requires a ConnectionIdField inside the application record.");
+
+            ConnectionIdField.Value.Validate(RecordSize);
+        }
+        else if (ConnectionIdField is not null)
+        {
+            throw new InvalidOperationException(
+                "ConnectionIdField is only valid when DuplicatePeerHandling is ResolveWithConnectionId.");
+        }
     }
 }
