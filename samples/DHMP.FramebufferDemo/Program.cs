@@ -4,6 +4,10 @@ builder.Services.AddSingleton<DhmpThroughputLab>();
 builder.Services.AddHostedService(
     services => services.GetRequiredService<DhmpThroughputLab>());
 
+builder.Services.AddSingleton<DhmpAfXdpLiveLab>();
+builder.Services.AddHostedService(
+    services => services.GetRequiredService<DhmpAfXdpLiveLab>());
+
 var app = builder.Build();
 
 app.UseDefaultFiles();
@@ -26,6 +30,31 @@ app.MapGet(
     "/api/stress/stats",
     (DhmpThroughputLab lab) =>
         Results.Json(lab.Snapshot()));
+
+app.MapGet(
+    "/api/afxdp/stats",
+    (DhmpAfXdpLiveLab lab) =>
+        Results.Json(lab.Snapshot()));
+
+app.MapPost(
+    "/api/afxdp/configure",
+    (
+        DhmpAfXdpConfigureRequest request,
+        DhmpAfXdpLiveLab lab) =>
+    {
+        if (!IsSupportedAfXdpPayloadSize(
+                request.PayloadBytes))
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported AF_XDP payload size." });
+        }
+
+        lab.Configure(
+            request.PayloadBytes);
+
+        return Results.Json(
+            lab.Snapshot());
+    });
 
 app.MapPost(
     "/api/stress/configure",
@@ -88,3 +117,12 @@ static bool IsSupportedPacketSize(int packetBytes) =>
         16384 or
         32768 or
         65520;
+
+
+static bool IsSupportedAfXdpPayloadSize(int payloadBytes) =>
+    payloadBytes is
+        16 or
+        256 or
+        1024 or
+        1200 or
+        1408;
