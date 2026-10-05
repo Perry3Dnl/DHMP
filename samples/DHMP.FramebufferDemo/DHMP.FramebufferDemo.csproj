@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/DHMP.Protocol/DHMP.Protocol.csproj" />
+    <ProjectReference Include="../../src/DHMP.Client/DHMP.Client.csproj" />
     <ProjectReference Include="../../src/DHMP.Server/DHMP.Server.csproj" />
   </ItemGroup>
 </Project>
