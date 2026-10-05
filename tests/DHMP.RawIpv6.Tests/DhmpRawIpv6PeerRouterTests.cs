@@ -91,6 +91,129 @@ public sealed class DhmpRawIpv6PeerRouterTests
     }
 
     [Fact]
+    public void DuplicateSourceAddress_WithConnectionIds_RoutesToMatchingSession()
+    {
+        var router =
+            new DhmpRawIpv6PeerRouter(
+                maximumPeers: 4,
+                maximumNetworkPayloadBytes: 128);
+
+        var address =
+            IPAddress.Parse("2001:db8::1");
+
+        byte[]? receivedA = null;
+        byte[]? receivedB = null;
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                address,
+                new DhmpServer(
+                    new DhmpWireContract(16),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
+                span => receivedA = span.ToArray(),
+                new PrefixDecoder(0xa1),
+                connectionId: 101,
+                connectionIdOffset: 0));
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                address,
+                new DhmpServer(
+                    new DhmpWireContract(16),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
+                span => receivedB = span.ToArray(),
+                new PrefixDecoder(0xb2),
+                connectionId: 202,
+                connectionIdOffset: 0));
+
+        byte[] payload =
+            new byte[17];
+
+        payload[0] = 0xb2;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt64BigEndian(
+            payload.AsSpan(1, 8),
+            202);
+
+        payload[9] = 9;
+
+        Assert.True(
+            router.TryRoute(
+                address,
+                payload,
+                new byte[128]));
+
+        Assert.Null(receivedA);
+        Assert.NotNull(receivedB);
+        Assert.Equal(
+            202ul,
+            System.Buffers.Binary.BinaryPrimitives.ReadUInt64BigEndian(
+                receivedB!.AsSpan(0, 8)));
+        Assert.Equal(2, router.PeerCount);
+    }
+
+    [Fact]
+    public async Task DuplicateSourceAddress_RemoveOneConnectionId_LeavesOtherSession()
+    {
+        var router =
+            new DhmpRawIpv6PeerRouter(4, 128);
+
+        var address =
+            IPAddress.Parse("2001:db8::1");
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                address,
+                new DhmpServer(
+                    new DhmpWireContract(16),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
+                _ => { },
+                allowUnprotectedPayloads: true,
+                connectionId: 101,
+                connectionIdOffset: 0));
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                address,
+                new DhmpServer(
+                    new DhmpWireContract(16),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
+                _ => { },
+                allowUnprotectedPayloads: true,
+                connectionId: 202,
+                connectionIdOffset: 0));
+
+        Assert.NotNull(
+            await router.RemoveAsync(
+                address,
+                101));
+
+        Assert.Equal(
+            1,
+            router.PeerCount);
+
+        byte[] record =
+            new byte[16];
+
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt64BigEndian(
+            record.AsSpan(0, 8),
+            202);
+
+        Assert.True(
+            router.TryRoute(
+                address,
+                record,
+                new byte[128]));
+    }
+
+    [Fact]
     public void PeerLimit_IsBounded()
     {
         var router =
@@ -341,6 +464,14 @@ public sealed class DhmpRawIpv6PeerRouterTests
     private sealed class PrefixDecoder :
         IDhmpPacketDecoder
     {
+        private readonly byte _prefix;
+
+        public PrefixDecoder(
+            byte prefix = 0xa5)
+        {
+            _prefix = prefix;
+        }
+
         public int OverheadBytes => 1;
 
         public bool TryDecode(
@@ -351,7 +482,7 @@ public sealed class DhmpRawIpv6PeerRouterTests
             plaintextBytes = 0;
 
             if (packet.Length <= 1 ||
-                packet[0] != 0xa5)
+                packet[0] != _prefix)
                 return false;
 
             int length = packet.Length - 1;
