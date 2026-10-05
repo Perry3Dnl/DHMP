@@ -26,6 +26,7 @@ COPY samples/DHMP.FramebufferDemo/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 ENV ASPNETCORE_URLS=http://+:8080
 ENV LD_LIBRARY_PATH=/app/native
-ENV DHMP_AFXDP_INTERFACE=dhmpxdp0
+ENV DHMP_AFXDP_INTERFACE_PREFIX=dhmpxdp
+ENV DHMP_AFXDP_MAX_WORKERS=16
 EXPOSE 8080
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
