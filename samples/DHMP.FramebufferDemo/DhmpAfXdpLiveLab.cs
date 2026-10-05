@@ -120,8 +120,12 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                 workers = _workers;
                 version = _configurationVersion;
                 _isRunning = true;
-                _detail =
-                    $"Running paired Raw IPv6 and AF_XDP phases with {workers} parallel workers.";
+
+                if (_runs == 0 && _failures == 0)
+                {
+                    _detail =
+                        $"Running first paired Raw IPv6 and AF_XDP phases with {workers} parallel workers.";
+                }
             }
 
             runNumber = Interlocked.Read(ref _runs);
@@ -210,7 +214,8 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                 lock (_gate)
                 {
                     _isRunning = false;
-                    _detail = exception.GetBaseException().Message;
+                    _detail =
+                        $"Worker phase failed: {exception.GetBaseException().Message}";
                 }
 
                 await Task.Delay(
