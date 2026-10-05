@@ -47,6 +47,44 @@ Latest → publish #842
 
 The protocol does **not** silently turn that into a reliable ordered byte stream.
 
+### Application-facing API: DHMP.Connector
+
+The intended normal .NET entry point is now **`DHMP.Connector`**. Applications do not need to model themselves as a DHMP client or server: every connector can send and receive.
+
+```text
+application
+    |
+DhmpConnector
+    |
+    +-- DhmpConnection -> remote IPv6 peer
+    +-- DhmpConnection -> remote IPv6 peer
+```
+
+`DhmpConnector` owns local networking and connection lifetime. `DhmpConnection` represents one remote DHMP peer and is bidirectional.
+
+```csharp
+var options = new DhmpConnectorOptions(
+    localAddress,
+    recordSize: 32,
+    schemaId);
+
+await using var dhmp = new DhmpConnector(options);
+await dhmp.StartAsync();
+
+DhmpConnection peer =
+    await dhmp.ConnectAsync(remoteAddress);
+
+peer.RecordReceived += (connection, record) =>
+{
+    // one complete fixed-size record
+};
+
+await peer.SendAsync(record);
+```
+
+The opposite endpoint currently calls `AcceptAsync(remoteAddress)` with matching protocol/security settings. This explicit address is intentional: the existing DHMP control plane negotiates an already configured peer and does not yet discover arbitrary unknown peers. See [DHMP Connector](docs/CONNECTOR.md).
+
+
 ### Current capabilities
 
 | Area | Current DHMP implementation |
@@ -60,7 +98,7 @@ The protocol does **not** silently turn that into a reliable ordered byte stream
 | Freshness | Optional application-owned generation filter |
 | Confirmation | None, lightweight application-owned confirmation, or full-record echo |
 | Multi-peer | Bounded source-IPv6 routing |
-| Application integration | Experimental ASP.NET server-to-server profile |
+| Application integration | `DHMP.Connector` bidirectional peer API + experimental ASP.NET profile |
 | Testing | Linux/Windows managed CI, raw IPv6 namespace rehearsal and reproducible benchmark suite |
 
 ### Where DHMP fits best today
@@ -237,6 +275,7 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 
 | Project | Responsibility |
 | --- | --- |
+| DHMP.Connector | Application-facing networking runtime; one connector owns local networking and exposes bidirectional `DhmpConnection` peers |
 | DHMP.Protocol | Wire contract, local policies, packet processor, control codec/negotiation, budget and direct-IP sender boundary |
 | DHMP.Client | Per-session sending facade |
 | DHMP.Server | Per-session receiving facade and typed/buffer ownership building blocks |
@@ -247,7 +286,7 @@ All active projects target .NET 10 and use the canonical `DHMP.*` spelling.
 
 `AddDHMP(applicationId, licenseKey, publicVerificationKey)` configures the license gate. It does not bind an endpoint or create a hidden transport.
 
-A `DhmpWireContract`, `DhmpSendPolicy` and an `IDhmpPacketSender` are required for a client. A server uses the same wire contract with its own `DhmpReceivePolicy`. `DhmpRawIpv6PacketSender` is the first concrete sender implementation. The optional `DHMP.Security` profile can wrap that sender and decode before the server; it adds 24 bytes per protected data packet. Creating raw IPv6 sockets on Linux requires appropriate raw-socket privileges/capabilities.
+Normal applications should prefer `DHMP.Connector`: create one `DhmpConnector`, start it, and establish one `DhmpConnection` per explicitly addressed peer. The lower-level Client, Server, Protocol, RawIpv6 and Security projects remain available as implementation/advanced boundaries. `DhmpRawIpv6PacketSender` is the current native sender implementation, and protected Connector connections reuse the existing PSK security profile. Creating raw IPv6 sockets on Linux still requires appropriate raw-socket privileges/capabilities.
 
 ## Validation
 
@@ -258,6 +297,7 @@ dotnet test tests/DHMP.AspNetCore.Tests -c Release
 dotnet test tests/DHMP.Licensing.Tests -c Release
 dotnet test tests/DHMP.RawIpv6.Tests -c Release
 dotnet test tests/DHMP.Security.Tests -c Release
+dotnet test tests/DHMP.Connector.Tests -c Release
 ```
 
 CI guards the architecture, unit/integration tests and compilation of the direct-IP backend. Physical two-host measurements and privileged raw-socket validation remain separate. The [first two-host smoke run](docs/TWO_HOST_SMOKE.md) provides a low-rate real-backend runner and acceptance criteria. See [session shutdown](docs/SESSION_SHUTDOWN.md) for outgoing/control resource ownership.
@@ -270,6 +310,7 @@ Earlier stream-framing and compatibility results remain in [git history](https:/
 
 ## Documentation
 
+- [DHMP Connector application API](docs/CONNECTOR.md)
 - [DHMP wire contract V1](docs/WIRE_CONTRACT_V1.md)
 - [DHMP control plane V1](docs/CONTROL_PLANE_V1.md)
 - [DHMP PSK security setup V2](docs/SECURITY_PSK_V2.md)
