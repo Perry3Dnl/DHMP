@@ -32,7 +32,7 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         _server = new DhmpServer(
             _wireContract,
             new DhmpReceivePolicy(
-                DhmpProcessingMode.Sequential,
+                DhmpProcessingMode.Latest,
                 MaximumPayloadBytes));
     }
 
