@@ -291,6 +291,45 @@ public sealed class DhmpRawIpv6PeerRouterTests
     }
 
     [Fact]
+    public void PartialTail_IsIgnoredAfterAtLeastOneCompleteRecord()
+    {
+        var router =
+            new DhmpRawIpv6PeerRouter(
+                maximumPeers: 4,
+                maximumNetworkPayloadBytes: 128);
+
+        var peer =
+            IPAddress.Parse("2001:db8::1");
+
+        byte[]? received = null;
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                peer,
+                new DhmpServer(
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        64)),
+                span => received = span.ToArray(),
+                allowUnprotectedPayloads: true));
+
+        Assert.True(
+            router.TryRoute(
+                peer,
+                new byte[] { 1, 2, 3, 4, 9, 9 },
+                new byte[128]));
+
+        Assert.Equal(
+            new byte[] { 1, 2, 3, 4 },
+            received);
+
+        Assert.Equal(
+            1,
+            router.AcceptedPackets);
+    }
+
+    [Fact]
     public void DecoderFailure_IsTrackedSeparately()
     {
         var router =
