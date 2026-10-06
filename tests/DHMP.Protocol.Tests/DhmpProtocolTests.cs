@@ -144,6 +144,69 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void Latest_IgnoresIncompleteTailAndPublishesNewestCompleteRecord()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16));
+
+        byte[]? actual = null;
+
+        processor.Process(
+            new byte[] { 1, 2, 3, 4, 9 },
+            span => actual = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 3, 4 },
+            actual);
+    }
+
+    [Fact]
+    public void Sequential_IgnoresIncompleteTail()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    maximumPayloadBytes: 16));
+
+        byte[]? actual = null;
+
+        processor.Process(
+            new byte[] { 1, 2, 3, 4, 9 },
+            span => actual = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 1, 2, 3, 4 },
+            actual);
+    }
+
+    [Fact]
+    public void ReceiveFastPath_DropsInputWithoutOneCompleteRecord()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16));
+
+        int callbacks = 0;
+
+        processor.Process(
+            new byte[] { 1, 2, 3 },
+            _ => callbacks++);
+
+        Assert.Equal(
+            0,
+            callbacks);
+    }
+
+    [Fact]
     public void PublicationBorrowsOriginalStorage()
     {
         byte[] input = [1, 2, 3, 4];
