@@ -7,7 +7,7 @@
   const SPEED = 5;
   const SEND_INTERVAL_MS = 50;
   const RECEIVE_INTERVAL_MS = 100;
-  const INTERPOLATION_DELAY_MS = 150;
+  const INTERPOLATION_DELAY_MS = 100;
   const MAX_REMOTE_SAMPLES = 24;
   const STATS_INTERVAL_MS = 1000;
   const keys = new Set();
