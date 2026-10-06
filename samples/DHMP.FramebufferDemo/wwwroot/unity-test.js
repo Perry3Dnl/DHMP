@@ -6,12 +6,16 @@
   const WORLD_H = 25;
   const SPEED = 5;
   const SEND_INTERVAL_MS = 50;
+  const RECEIVE_INTERVAL_MS = 50;
+  const STATS_INTERVAL_MS = 1000;
+  const SMOOTHING_RATE = 14;
   const keys = new Set();
   const touch = new Set();
 
   let playerId = Number(localStorage.getItem('dhmpUnityPlayerId')) || null;
   let player = { x: 0, y: 0, z: 0, rotationY: 0 };
   let serverPlayers = [];
+  const renderedPlayers = new Map();
   let lastFrame = performance.now();
   let lastSend = 0;
   let sendInFlight = false;
@@ -124,12 +128,41 @@
   async function players() {
     try {
       serverPlayers = await request('/api/unity/players');
-      const mine = serverPlayers.find(p => p.playerId === playerId);
-      if (mine && !isMoving()) {
-        player.x = mine.x;
-        player.y = mine.y;
-        player.z = mine.z;
+      const present = new Set();
+
+      for (const snapshot of serverPlayers) {
+        present.add(snapshot.playerId);
+
+        if (snapshot.playerId === playerId) {
+          if (!isMoving() && !autoMove) {
+            player.x = snapshot.x;
+            player.y = snapshot.y;
+            player.z = snapshot.z;
+          }
+          continue;
+        }
+
+        const existing = renderedPlayers.get(snapshot.playerId);
+        if (!existing) {
+          renderedPlayers.set(snapshot.playerId, {
+            playerId: snapshot.playerId,
+            x: snapshot.x,
+            z: snapshot.z,
+            targetX: snapshot.x,
+            targetZ: snapshot.z,
+            sequence: snapshot.sequence
+          });
+        } else if (snapshot.sequence >= existing.sequence) {
+          existing.targetX = snapshot.x;
+          existing.targetZ = snapshot.z;
+          existing.sequence = snapshot.sequence;
+        }
       }
+
+      for (const id of renderedPlayers.keys()) {
+        if (!present.has(id)) renderedPlayers.delete(id);
+      }
+
       renderPlayersTable();
     } catch {
     }
@@ -137,6 +170,14 @@
 
   async function refreshAll() {
     await Promise.all([stats(), players()]);
+  }
+
+  function smoothRemotePlayers(dt) {
+    const alpha = 1 - Math.exp(-SMOOTHING_RATE * dt);
+    for (const remote of renderedPlayers.values()) {
+      remote.x += (remote.targetX - remote.x) * alpha;
+      remote.z += (remote.targetZ - remote.z) * alpha;
+    }
   }
 
   function isMoving() {
@@ -222,15 +263,15 @@
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, width - 2, height - 2);
 
-    const playersToDraw = serverPlayers.slice();
-    if (playerId && !playersToDraw.some(p => p.playerId === playerId)) {
+    const playersToDraw = Array.from(renderedPlayers.values());
+    if (playerId) {
       playersToDraw.push({ playerId, x: player.x, z: player.z, sequence: 0 });
     }
 
     for (const p of playersToDraw) {
       const isYou = p.playerId === playerId;
-      const px = isYou ? player.x : p.x;
-      const pz = isYou ? player.z : p.z;
+      const px = p.x;
+      const pz = p.z;
       const sx = ((px + WORLD_W / 2) / WORLD_W) * width;
       const sy = ((pz + WORLD_H / 2) / WORLD_H) * height;
 
@@ -278,6 +319,7 @@
     const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
     updateMovement(dt, now);
+    smoothRemotePlayers(dt);
     drawArena();
     requestAnimationFrame(frame);
   }
@@ -372,6 +414,7 @@
   setConnected(Boolean(playerId));
   updateAutoDirectionLabel();
   refreshAll();
-  setInterval(refreshAll, 250);
+  setInterval(players, RECEIVE_INTERVAL_MS);
+  setInterval(stats, STATS_INTERVAL_MS);
   requestAnimationFrame(frame);
 })();
