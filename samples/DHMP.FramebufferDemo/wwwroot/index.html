@@ -139,7 +139,8 @@
 
       <div class="profiler-grid">
         <div><span>Client/send path</span><strong id="sendNs">0 ns/packet</strong></div>
-        <div><span>Server process</span><strong id="processNs">0 ns/packet</strong></div>
+        <div><span>Instrumented server path</span><strong id="processNs">0 ns/packet</strong></div>
+        <div><span>Core processor ceiling</span><strong id="coreProcessNs">0 ns/packet</strong></div>
         <div><span>Publication correctness</span><strong id="publicationParity">0%</strong></div>
         <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
         <div><span>Native smoothing</span><strong id="nativeSmoothing">OFF</strong></div>
@@ -150,7 +151,7 @@
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
-      <p class="telemetry-note">This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
+      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
     </section>
 
     <section class="explain">
