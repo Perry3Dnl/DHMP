@@ -17,6 +17,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.Unlimited;
     private bool _nativeSmoothing;
     private DhmpStressConfirmationMode _confirmationMode = DhmpStressConfirmationMode.None;
+    private long _packetRateCap;
     private long _configurationVersion;
     private bool _enabled = true;
 
@@ -44,7 +45,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
         DhmpProcessingMode receiveMode,
         DhmpRatePolicy ratePolicy,
         bool nativeSmoothing,
-        DhmpStressConfirmationMode confirmationMode)
+        DhmpStressConfirmationMode confirmationMode,
+        long packetRateCap)
     {
         if (packetBytes < RecordSize ||
             packetBytes > MaximumPayloadBytes ||
@@ -72,6 +74,9 @@ internal sealed class DhmpThroughputLab : BackgroundService
         if (!Enum.IsDefined(confirmationMode))
             throw new ArgumentOutOfRangeException(nameof(confirmationMode));
 
+        if (packetRateCap < 0)
+            throw new ArgumentOutOfRangeException(nameof(packetRateCap));
+
         if (confirmationMode != DhmpStressConfirmationMode.None &&
             (receiveMode != DhmpProcessingMode.Sequential || nativeSmoothing))
             throw new ArgumentException(
@@ -87,6 +92,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             _ratePolicy = ratePolicy;
             _nativeSmoothing = nativeSmoothing;
             _confirmationMode = confirmationMode;
+            _packetRateCap = packetRateCap;
             _configurationVersion++;
         }
     }
@@ -99,6 +105,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         DhmpRatePolicy ratePolicy;
         bool nativeSmoothing;
         DhmpStressConfirmationMode confirmationMode;
+        long packetRateCap;
         long version;
         double coreProcessNanosecondsPerPacket;
         AllocationBreakdown allocationBreakdown;
@@ -111,6 +118,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             ratePolicy = _ratePolicy;
             nativeSmoothing = _nativeSmoothing;
             confirmationMode = _confirmationMode;
+            packetRateCap = _packetRateCap;
             version = _configurationVersion;
             coreProcessNanosecondsPerPacket =
                 _coreProcessNanosecondsPerPacket;
@@ -176,6 +184,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             ratePolicy.ToString(),
             nativeSmoothing,
             confirmationMode.ToString(),
+            packetRateCap,
             confirmationRecordsReturned,
             confirmationBytesReturned,
             receiveMode == DhmpProcessingMode.Latest
@@ -355,6 +364,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
         DhmpRatePolicy ratePolicy;
         bool nativeSmoothing;
         DhmpStressConfirmationMode confirmationMode;
+        long packetRateCap;
+        int configuredWorkers;
 
         lock (_configurationGate)
         {
@@ -363,6 +374,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             ratePolicy = _ratePolicy;
             nativeSmoothing = _nativeSmoothing;
             confirmationMode = _confirmationMode;
+            packetRateCap = _packetRateCap;
+            configuredWorkers = _workers;
         }
 
         var wire = new DhmpWireContract(RecordSize);
@@ -404,6 +417,42 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         int packetsSinceConfigurationCheck = 0;
 
+        const int PaceBatchPackets = 256;
+        int packetsUntilPace = PaceBatchPackets;
+        long workerPacketRateCap = 0;
+        long paceIntervalTicks = 0;
+        long nextPaceTimestamp = 0;
+
+        if (packetRateCap > 0)
+        {
+            long baseRate =
+                packetRateCap /
+                configuredWorkers;
+
+            long remainder =
+                packetRateCap %
+                configuredWorkers;
+
+            workerPacketRateCap =
+                baseRate +
+                (workerId < remainder ? 1 : 0);
+
+            if (workerPacketRateCap > 0)
+            {
+                paceIntervalTicks =
+                    Math.Max(
+                        1,
+                        (long)Math.Round(
+                            (double)Stopwatch.Frequency *
+                            PaceBatchPackets /
+                            workerPacketRateCap));
+
+                nextPaceTimestamp =
+                    Stopwatch.GetTimestamp() +
+                    paceIntervalTicks;
+            }
+        }
+
         while (!cancellationToken.IsCancellationRequested)
         {
             long started = Stopwatch.GetTimestamp();
@@ -423,6 +472,34 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
             packetsSinceConfigurationCheck++;
 
+            if (workerPacketRateCap > 0)
+            {
+                packetsUntilPace--;
+
+                if (packetsUntilPace == 0)
+                {
+                    WaitUntil(
+                        nextPaceTimestamp,
+                        cancellationToken);
+
+                    nextPaceTimestamp +=
+                        paceIntervalTicks;
+
+                    long now =
+                        Stopwatch.GetTimestamp();
+
+                    if (nextPaceTimestamp < now)
+                    {
+                        nextPaceTimestamp =
+                            now +
+                            paceIntervalTicks;
+                    }
+
+                    packetsUntilPace =
+                        PaceBatchPackets;
+                }
+            }
+
             if ((packetsSinceConfigurationCheck &
                  ConfigurationCheckMask) == 0)
             {
@@ -432,6 +509,42 @@ internal sealed class DhmpThroughputLab : BackgroundService
                         break;
                 }
             }
+        }
+    }
+
+    private static void WaitUntil(
+        long targetTimestamp,
+        CancellationToken cancellationToken)
+    {
+        long frequency =
+            Stopwatch.Frequency;
+
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            long remaining =
+                targetTimestamp -
+                Stopwatch.GetTimestamp();
+
+            if (remaining <= 0)
+                return;
+
+            if (remaining >
+                frequency / 500)
+            {
+                Thread.Sleep(1);
+                continue;
+            }
+
+            if (remaining >
+                frequency / 5_000)
+            {
+                Thread.Yield();
+                continue;
+            }
+
+            Thread.SpinWait(32);
         }
     }
 
@@ -903,6 +1016,7 @@ internal sealed record DhmpThroughputSnapshot(
     string RatePolicy,
     bool NativeSmoothing,
     string ConfirmationMode,
+    long PacketRateCap,
     long ConfirmationRecordsReturned,
     long ConfirmationBytesReturned,
     int ExpectedPublishedRecordsPerPacket,
@@ -921,7 +1035,8 @@ internal sealed record DhmpThroughputRequest(
     string ReceiveMode,
     string RatePolicy,
     bool NativeSmoothing,
-    string ConfirmationMode);
+    string ConfirmationMode,
+    long PacketRateCap);
 
 
 internal enum DhmpStressConfirmationMode

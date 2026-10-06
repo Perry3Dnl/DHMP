@@ -3,6 +3,9 @@
   const $=id=>document.getElementById(id);
   const packetSlider=$('packetSize');
   const workerSlider=$('workers');
+  const packetRateCapSlider=$('packetRateCap');
+  const packetRateCapLabel=$('packetRateCapLabel');
+  const PACKET_RATE_CAPS=[0,1e6,2e6,5e6,10e6,20e6,30e6,40e6,50e6,75e6,100e6];
   const packetLabel=$('packetLabel');
   const workerLabel=$('workerLabel');
   const state=$('state');
@@ -19,6 +22,7 @@
   let selectedNativeSmoothing=false;
   let selectedRatePolicy='Unlimited';
   let selectedConfirmationMode='None';
+  let selectedPacketRateCap=0;
 
   function compact(v){
     if(v>=1e9)return (v/1e9).toFixed(2)+'B';
@@ -52,6 +56,7 @@
 
     const packetBytes=PACKETS[Number(packetSlider.value)];
     const workers=Number(workerSlider.value);
+    const packetRateCap=PACKET_RATE_CAPS[Number(packetRateCapSlider.value)];
     const receiveMode=selectedReceiveMode;
     const ratePolicy=selectedRatePolicy;
     const nativeSmoothing=selectedNativeSmoothing;
@@ -71,7 +76,8 @@
           receiveMode,
           ratePolicy,
           nativeSmoothing,
-          confirmationMode
+          confirmationMode,
+          packetRateCap
         })
       });
 
@@ -100,11 +106,18 @@
       $('nativeSmoothing').textContent=cur.nativeSmoothing?'Ring-3 ON':'OFF';
       $('ratePolicy').textContent=cur.ratePolicy;
       $('confirmationMode').textContent=cur.confirmationMode;
+      $('packetRateCapOut').textContent=cur.packetRateCap>0?compact(cur.packetRateCap)+'/s':'Unlimited';
       if(!configurationPending && configurationInFlight===0){
         selectedReceiveMode=cur.receiveMode;
         selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
         selectedRatePolicy=cur.ratePolicy;
         selectedConfirmationMode=cur.confirmationMode;
+        selectedPacketRateCap=Number(cur.packetRateCap||0);
+        const capIndex=PACKET_RATE_CAPS.indexOf(selectedPacketRateCap);
+        if(capIndex>=0){
+          packetRateCapSlider.value=String(capIndex);
+          packetRateCapLabel.textContent=selectedPacketRateCap>0?compact(selectedPacketRateCap)+'/s':'Unlimited';
+        }
 
         receiveButtons.forEach(button=>{
           const smoothing=button.dataset.nativeSmoothing==='true';
@@ -207,6 +220,11 @@
 
   packetSlider.addEventListener('input',()=>{packetLabel.textContent=PACKETS[Number(packetSlider.value)].toLocaleString()+' bytes';queueConfigure()});
   workerSlider.addEventListener('input',()=>{workerLabel.textContent=workerSlider.value;queueConfigure()});
+  packetRateCapSlider.addEventListener('input',()=>{
+    selectedPacketRateCap=PACKET_RATE_CAPS[Number(packetRateCapSlider.value)];
+    packetRateCapLabel.textContent=selectedPacketRateCap>0?compact(selectedPacketRateCap)+'/s':'Unlimited';
+    queueConfigure();
+  });
   receiveButtons.forEach(button=>button.addEventListener('click',()=>{
     selectedReceiveMode=button.dataset.receiveMode;
     selectedNativeSmoothing=button.dataset.nativeSmoothing==='true';

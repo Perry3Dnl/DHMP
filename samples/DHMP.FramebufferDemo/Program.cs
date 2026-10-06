@@ -174,13 +174,21 @@ app.MapPost(
 
         afXdpLab.Pause();
 
+        if (!IsSupportedPacketRateCap(
+                request.PacketRateCap))
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported packet-rate cap." });
+        }
+
         lab.Configure(
             request.PacketBytes,
             request.Workers,
             receiveMode,
             ratePolicy,
             request.NativeSmoothing,
-            confirmationMode);
+            confirmationMode,
+            request.PacketRateCap);
 
         return Results.Json(lab.Snapshot());
     });
@@ -197,6 +205,20 @@ static bool IsSupportedPacketSize(int packetBytes) =>
         32768 or
         65520;
 
+
+static bool IsSupportedPacketRateCap(long packetRateCap) =>
+    packetRateCap is
+        0 or
+        1_000_000 or
+        2_000_000 or
+        5_000_000 or
+        10_000_000 or
+        20_000_000 or
+        30_000_000 or
+        40_000_000 or
+        50_000_000 or
+        75_000_000 or
+        100_000_000;
 
 static bool IsSupportedAfXdpPayloadSize(int payloadBytes) =>
     payloadBytes is
