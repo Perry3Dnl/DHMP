@@ -19,16 +19,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private DhmpStressConfirmationMode _confirmationMode = DhmpStressConfirmationMode.None;
     private long _configurationVersion;
 
-    private long _packetsSubmitted;
-    private long _packetsAccepted;
-    private long _recordsSubmitted;
-    private long _recordsPublished;
-    private long _bytesSubmitted;
-    private long _bytesPublished;
-    private long _sendTicks;
-    private long _processTicks;
-    private long _confirmationRecordsReturned;
-    private long _confirmationBytesReturned;
+    private WorkerMetrics[] _workerMetrics = [];
     private long _workerFaults;
     private string _lastWorkerError = string.Empty;
 
@@ -104,16 +95,44 @@ internal sealed class DhmpThroughputLab : BackgroundService
             version = _configurationVersion;
         }
 
+        WorkerMetrics[] metrics =
+            Volatile.Read(ref _workerMetrics);
+
+        long packetsSubmitted = 0;
+        long packetsAccepted = 0;
+        long recordsSubmitted = 0;
+        long recordsPublished = 0;
+        long bytesSubmitted = 0;
+        long bytesPublished = 0;
+        long sendTicks = 0;
+        long processTicks = 0;
+        long confirmationRecordsReturned = 0;
+        long confirmationBytesReturned = 0;
+
+        foreach (WorkerMetrics worker in metrics)
+        {
+            packetsSubmitted += Volatile.Read(ref worker.PacketsSubmitted);
+            packetsAccepted += Volatile.Read(ref worker.PacketsAccepted);
+            recordsSubmitted += Volatile.Read(ref worker.RecordsSubmitted);
+            recordsPublished += Volatile.Read(ref worker.RecordsPublished);
+            bytesSubmitted += Volatile.Read(ref worker.BytesSubmitted);
+            bytesPublished += Volatile.Read(ref worker.BytesPublished);
+            sendTicks += Volatile.Read(ref worker.SendTicks);
+            processTicks += Volatile.Read(ref worker.ProcessTicks);
+            confirmationRecordsReturned += Volatile.Read(ref worker.ConfirmationRecordsReturned);
+            confirmationBytesReturned += Volatile.Read(ref worker.ConfirmationBytesReturned);
+        }
+
         return new DhmpThroughputSnapshot(
             _uptime.ElapsedMilliseconds,
-            Interlocked.Read(ref _packetsSubmitted),
-            Interlocked.Read(ref _packetsAccepted),
-            Interlocked.Read(ref _recordsSubmitted),
-            Interlocked.Read(ref _recordsPublished),
-            Interlocked.Read(ref _bytesSubmitted),
-            Interlocked.Read(ref _bytesPublished),
-            Interlocked.Read(ref _sendTicks),
-            Interlocked.Read(ref _processTicks),
+            packetsSubmitted,
+            packetsAccepted,
+            recordsSubmitted,
+            recordsPublished,
+            bytesSubmitted,
+            bytesPublished,
+            sendTicks,
+            processTicks,
             Stopwatch.Frequency,
             packetBytes,
             packetBytes / RecordSize,
@@ -125,8 +144,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             ratePolicy.ToString(),
             nativeSmoothing,
             confirmationMode.ToString(),
-            Interlocked.Read(ref _confirmationRecordsReturned),
-            Interlocked.Read(ref _confirmationBytesReturned),
+            confirmationRecordsReturned,
+            confirmationBytesReturned,
             receiveMode == DhmpProcessingMode.Latest
                 ? 1
                 : packetBytes / RecordSize,
@@ -153,14 +172,26 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     stoppingToken);
 
             Task[] tasks = new Task[workers];
+            var metrics = new WorkerMetrics[workers];
+
+            for (int index = 0; index < workers; index++)
+                metrics[index] = new WorkerMetrics();
+
+            Volatile.Write(
+                ref _workerMetrics,
+                metrics);
 
             for (int index = 0; index < workers; index++)
             {
                 int workerId = index;
+                WorkerMetrics workerMetrics = metrics[index];
 
-                tasks[index] = RunWorkerGuardedAsync(
-                    workerId,
-                    version,
+                tasks[index] = Task.Run(
+                    () => RunWorkerGuardedAsync(
+                        workerId,
+                        version,
+                        workerMetrics,
+                        linked.Token),
                     linked.Token);
             }
 
@@ -220,6 +251,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private async Task RunWorkerGuardedAsync(
         int workerId,
         long configurationVersion,
+        WorkerMetrics metrics,
         CancellationToken cancellationToken)
     {
         try
@@ -227,6 +259,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             await RunWorkerAsync(
                 workerId,
                 configurationVersion,
+                metrics,
                 cancellationToken);
         }
         catch (DhmpProtocolException exception)
@@ -247,6 +280,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private async Task RunWorkerAsync(
         int workerId,
         long configurationVersion,
+        WorkerMetrics metrics,
         CancellationToken cancellationToken)
     {
         int packetBytes;
@@ -278,7 +312,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             server,
             RecordSize,
             confirmationMode,
-            AddAccepted);
+            metrics);
 
         var sendPolicy = new DhmpSendPolicy(
             long.MaxValue,
@@ -298,12 +332,10 @@ internal sealed class DhmpThroughputLab : BackgroundService
         int recordsPerPacket =
             packetBytes / RecordSize;
 
-        long localPackets = 0;
-        long localRecords = 0;
-        long localBytes = 0;
-        long localSendTicks = 0;
+        const int ConfigurationCheckMask =
+            4096 - 1;
 
-        const int FlushPackets = 256;
+        int packetsSinceConfigurationCheck = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -313,89 +345,27 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 packet,
                 cancellationToken);
 
-            localSendTicks +=
+            metrics.SendTicks +=
                 Stopwatch.GetTimestamp() - started;
 
-            localPackets++;
-            localRecords += recordsPerPacket;
-            localBytes += packetBytes;
+            metrics.PacketsSubmitted++;
+            metrics.RecordsSubmitted +=
+                recordsPerPacket;
+            metrics.BytesSubmitted +=
+                packetBytes;
 
-            if (localPackets >= FlushPackets)
+            packetsSinceConfigurationCheck++;
+
+            if ((packetsSinceConfigurationCheck &
+                 ConfigurationCheckMask) == 0)
             {
-                FlushSubmitted(
-                    localPackets,
-                    localRecords,
-                    localBytes,
-                    localSendTicks);
-
-                localPackets = 0;
-                localRecords = 0;
-                localBytes = 0;
-                localSendTicks = 0;
-
                 lock (_configurationGate)
                 {
                     if (_configurationVersion != configurationVersion)
                         break;
                 }
-
-                await Task.Yield();
             }
         }
-
-        FlushSubmitted(
-            localPackets,
-            localRecords,
-            localBytes,
-            localSendTicks);
-    }
-
-    private void AddAccepted(
-        int packetBytes,
-        int publishedRecords,
-        long processingTicks,
-        int confirmationRecordsReturned,
-        int confirmationBytesReturned)
-    {
-        Interlocked.Increment(ref _packetsAccepted);
-        Interlocked.Add(
-            ref _recordsPublished,
-            publishedRecords);
-        Interlocked.Add(
-            ref _bytesPublished,
-            (long)publishedRecords * RecordSize);
-        Interlocked.Add(
-            ref _processTicks,
-            processingTicks);
-        Interlocked.Add(
-            ref _confirmationRecordsReturned,
-            confirmationRecordsReturned);
-        Interlocked.Add(
-            ref _confirmationBytesReturned,
-            confirmationBytesReturned);
-    }
-
-    private void FlushSubmitted(
-        long packets,
-        long records,
-        long bytes,
-        long ticks)
-    {
-        if (packets == 0)
-            return;
-
-        Interlocked.Add(
-            ref _packetsSubmitted,
-            packets);
-        Interlocked.Add(
-            ref _recordsSubmitted,
-            records);
-        Interlocked.Add(
-            ref _bytesSubmitted,
-            bytes);
-        Interlocked.Add(
-            ref _sendTicks,
-            ticks);
     }
 
     private static void FillPacket(
@@ -426,13 +396,13 @@ internal sealed class DhmpThroughputLab : BackgroundService
         private readonly DhmpServer _returnServer;
         private readonly byte[] _confirmationScratch =
             new byte[DhmpThroughputLab.MaximumPayloadBytes];
-        private readonly Action<int, int, long, int, int> _accepted;
+        private readonly WorkerMetrics _metrics;
 
         public InMemoryPacketSender(
             DhmpServer server,
             int recordSize,
             DhmpStressConfirmationMode confirmationMode,
-            Action<int, int, long, int, int> accepted)
+            WorkerMetrics metrics)
         {
             _server = server;
             _recordSize = recordSize;
@@ -443,7 +413,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     new DhmpReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         DhmpThroughputLab.MaximumPayloadBytes));
-            _accepted = accepted;
+            _metrics = metrics;
         }
 
         public int MaximumPayloadBytes =>
@@ -564,15 +534,34 @@ internal sealed class DhmpThroughputLab : BackgroundService
             long ticks =
                 Stopwatch.GetTimestamp() - started;
 
-            _accepted(
-                payload.Length,
-                publishedRecords,
-                ticks,
-                confirmationRecordsReturned,
-                confirmationBytesReturned);
+            _metrics.PacketsAccepted++;
+            _metrics.RecordsPublished +=
+                publishedRecords;
+            _metrics.BytesPublished +=
+                (long)publishedRecords *
+                _recordSize;
+            _metrics.ProcessTicks +=
+                ticks;
+            _metrics.ConfirmationRecordsReturned +=
+                confirmationRecordsReturned;
+            _metrics.ConfirmationBytesReturned +=
+                confirmationBytesReturned;
 
             return ValueTask.CompletedTask;
         }
+    }
+    private sealed class WorkerMetrics
+    {
+        public long PacketsSubmitted;
+        public long PacketsAccepted;
+        public long RecordsSubmitted;
+        public long RecordsPublished;
+        public long BytesSubmitted;
+        public long BytesPublished;
+        public long SendTicks;
+        public long ProcessTicks;
+        public long ConfirmationRecordsReturned;
+        public long ConfirmationBytesReturned;
     }
 }
 
