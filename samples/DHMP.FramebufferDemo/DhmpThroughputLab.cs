@@ -5,13 +5,13 @@ using DHMP.Server;
 
 internal sealed class DhmpThroughputLab : BackgroundService
 {
-    public const int RecordSize = 64;
-    public const int MaximumPayloadBytes = 65_472;
+    public const int RecordSize = 16;
+    public const int MaximumPayloadBytes = 65_520;
 
     private readonly object _configurationGate = new();
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
 
-    private int _packetBytes = 65_472;
+    private int _packetBytes = 65_520;
     private int _workers = Math.Max(1, Environment.ProcessorCount);
     private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
     private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.RejectWindow;
@@ -486,7 +486,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     _recordSize;
 
                 int returnRecords =
-                    (ids + 7) / 8;
+                    (ids + 1) / 2;
 
                 int returnBytes =
                     returnRecords *
