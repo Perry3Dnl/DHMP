@@ -1,5 +1,31 @@
 # Host your own Demo Arena
 
+## Small standalone server for the first connection
+
+The arena simulation is plain C#, so this example can also run in a small .NET 10 server process. The included `DHMP.UnityArenaHost~` directory contains its source, project and Dockerfile. This has the same simulation and record schema as the Unity server build. The trailing `~` keeps .NET-host code out of Unity's script importer.
+
+From an unpacked package root:
+
+```sh
+dotnet build 'Samples~/DemoArena/Hosting/DHMP.UnityArenaHost~/DHMP.UnityArenaHost.csproj' -c Debug
+dotnet 'Samples~/DemoArena/Hosting/DHMP.UnityArenaHost~/bin/Debug/net10.0/DHMP.UnityArenaHost.dll' serve --bind ::1 --experimental-plaintext --development
+```
+
+In another terminal, use the same DLL with `connect --bind ::1 --server ::1 --experimental-plaintext --development`. Both processes need raw-socket permission. The client prints `connection_verified` only after a guest join and an authoritative state reply acknowledging input, then disconnects. This verifies a real DHMP connection below Unity; it does not launch a Unity client.
+
+After importing the sample into a Unity project, its host folder has moved. Pass `-p:DhmpPackageRoot=<absolute-path-to-the-installed-com.dhmp.networking-package>` to `dotnet build` so the host can find the exact shared runtime source.
+
+Docker alternative, from the package root:
+
+```sh
+docker build --build-arg CONFIGURATION=Debug -t dhmp-arena-lab -f 'Samples~/DemoArena/Hosting/DHMP.UnityArenaHost~/Dockerfile' .
+docker run --rm --network host --cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges --read-only --tmpfs /tmp dhmp-arena-lab serve --bind ::1 --experimental-plaintext --development
+```
+
+For a remote controlled test, replace the bind address with the server's native IPv6 and add `--allow-client <your-client-source-IPv6>`. Configure that client source address in the Unity settings asset. Every permitted source must be explicitly listed; source filtering does not encrypt or authenticate the connection. Release builds refuse `--development` and require `DHMP_APPLICATION_ID`, `DHMP_LICENSE_KEY` and `DHMP_LICENSE_PUBLIC_KEY` instead. The public verification key is base64 SubjectPublicKeyInfo.
+
+## Unity Dedicated Server build
+
 Build the imported scene with **DHMP > Build Demo > Linux Server (Development)**. Install Unity's Linux Dedicated Server build module first. Copy the entire output directory, including the executable, its data directory and shared libraries, to the host.
 
 For a controlled development test:

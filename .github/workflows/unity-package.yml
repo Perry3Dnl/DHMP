@@ -27,6 +27,10 @@ jobs:
         run: dotnet run --project tests/DHMP.Unity.Tests/DHMP.Unity.Tests.csproj --configuration Release
       - name: Package layout, GUIDs, sample and forbidden-transport checks
         run: python tools/check_unity_package.py
+      - name: Build standalone host and independently bundled host project
+        run: |
+          dotnet build samples/DHMP.UnityArenaHost/DHMP.UnityArenaHost.csproj -c Debug
+          dotnet build "Packages/com.dhmp.networking/Samples~/DemoArena/Hosting/DHMP.UnityArenaHost~/DHMP.UnityArenaHost.csproj" -c Release
       - name: Exercise real Linux raw IPv6 sockets
         if: runner.os == 'Linux'
         shell: bash
@@ -34,6 +38,13 @@ jobs:
       - name: Exercise real Windows raw IPv6 sockets
         if: runner.os == 'Windows'
         run: dotnet tests/DHMP.Unity.Tests/bin/Release/net10.0/DHMP.Unity.Tests.dll --raw-smoke
+      - name: Connect two standalone processes on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: sudo python3 tools/test_unity_host.py "$(command -v dotnet)"
+      - name: Connect two standalone processes on Windows
+        if: runner.os == 'Windows'
+        run: python tools/test_unity_host.py
       - name: Build importable archive including demo and hosting files
         if: runner.os == 'Linux'
         run: python3 tools/package_unity.py

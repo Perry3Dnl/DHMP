@@ -1,6 +1,6 @@
 {
   "name": "com.dhmp.networking",
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "displayName": "DHMP Networking 1",
   "description": "Experimental direct IPv6 networking for Unity, with the complete Demo Arena and self-hosted server example included.",
   "unity": "6000.0",

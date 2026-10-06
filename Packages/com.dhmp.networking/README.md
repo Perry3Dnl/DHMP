@@ -2,7 +2,7 @@
 
 The package includes the **complete Demo Arena**: a third-person player, walking and jumping, shared movement simulation, client prediction and reconciliation, remote-player interpolation, a connection screen, and the same self-hostable server implementation used by the example.
 
-Version `0.1.0-preview.1` is an implementation preview, not a sale-ready release. The publisher's arena endpoint is deliberately empty until an actual server has been provisioned and tested. This repository change does not deploy that server.
+Version `0.1.0-preview.2` is an implementation preview, not a sale-ready release. The publisher's arena endpoint is deliberately empty until an actual server has been provisioned and tested. This repository change does not deploy that server.
 
 ## Open the included demo
 
@@ -22,6 +22,8 @@ The desktop raw-socket process needs the relevant operating-system permission: L
 Install Unity's Windows build support and Linux Dedicated Server build support as needed. Use **DHMP > Build Demo > Windows Client (Development)** or **Linux Server (Development)**. A build compiles the imported sample into `Builds/DHMP-Client` or `Builds/DHMP-Server`. The menu checks configuration before building and does not change your project's input settings.
 
 The sample includes [hosting instructions](Samples~/DemoArena/Hosting/README.md), a launch script and a systemd service example. Buyers can run the same example on their own infrastructure. Only the demonstration endpoint is publisher-operated.
+
+For the supplied arena, a lightweight **standalone .NET server** is also included. It runs the exact same C# arena simulation without a Unity installation and provides a `connect` command to verify joining and receiving an applied-input snapshot. Both server forms speak the same application schema. The Unity Dedicated Server build remains useful when your own game needs Unity-specific simulation.
 
 ## Architecture and current boundary
 

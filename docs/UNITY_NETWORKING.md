@@ -6,7 +6,9 @@ The first implementation is under [Packages/com.dhmp.networking](../Packages/com
 
 It preserves the [headerless V1 contract](WIRE_CONTRACT_V1.md). The separately specified [DUNA/1 application schema](../Packages/com.dhmp.networking/Documentation~/arena-profile.md) contains the game state and input acknowledgements. No legacy transport fallback is added and the existing .NET 10 projects retain their current targets.
 
-This is `0.1.0-preview.1`, not a published product. The publisher's arena address is not configured, and no server is deployed by this change. The [validation checklist](../Packages/com.dhmp.networking/Documentation~/validation.md) distinguishes portable-runtime/raw-loopback evidence from the still-required Unity player/platform and real Internet tests. Public-service security integration and commercial release qualification remain open.
+The current package is `0.1.0-preview.2`, not a published product. The publisher's arena address is not configured, and no server is deployed by this change. The [validation checklist](../Packages/com.dhmp.networking/Documentation~/validation.md) distinguishes portable-runtime/raw-loopback evidence from the still-required Unity player/platform and real Internet tests. Public-service security integration and commercial release qualification remain open.
+
+The [standalone arena host](../samples/DHMP.UnityArenaHost/README.md) runs the same simulation as an ordinary .NET process and includes a real connection-test command. This allows the first server connection without a Unity server build. A manual deployment workflow uses the existing server's deployment account and pinned host key, starts a separate restricted-source container, and leaves the web proxy unchanged. It requires the actual server/client IPv6 addresses; a local preflight is not an external connection result.
 
 Commands from the repository root:
 

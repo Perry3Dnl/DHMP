@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-preview.2 — 2026-10-06
+
+- Included a standalone .NET arena server and connection-test command, sharing the Unity demo's simulation and wire schema.
+- Included a Dockerfile and instructions for a restricted connection lab on an existing Linux host.
+- Added separate-process native connection checks on Linux and Windows, and an explicitly manual server deployment workflow.
+
 ## 0.1.0-preview.1 — 2026-10-06
 
 - Added a Unity Package Manager package with Demo Arena source and scene included as an importable sample.
