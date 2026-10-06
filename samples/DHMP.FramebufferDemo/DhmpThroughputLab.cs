@@ -365,6 +365,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         bool nativeSmoothing;
         DhmpStressConfirmationMode confirmationMode;
         long packetRateCap;
+        int configuredWorkers;
 
         lock (_configurationGate)
         {
@@ -374,6 +375,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             nativeSmoothing = _nativeSmoothing;
             confirmationMode = _confirmationMode;
             packetRateCap = _packetRateCap;
+            configuredWorkers = _workers;
         }
 
         var wire = new DhmpWireContract(RecordSize);
@@ -425,11 +427,11 @@ internal sealed class DhmpThroughputLab : BackgroundService
         {
             long baseRate =
                 packetRateCap /
-                _workers;
+                configuredWorkers;
 
             long remainder =
                 packetRateCap %
-                _workers;
+                configuredWorkers;
 
             workerPacketRateCap =
                 baseRate +
