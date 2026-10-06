@@ -8,8 +8,7 @@
   const SEND_INTERVAL_MS = 50;
   const RECEIVE_INTERVAL_MS = 50;
   const STATS_INTERVAL_MS = 1000;
-  const SMOOTHING_RATE = 14;
-  const PREDICTION_SECONDS = 0.05;
+  const SMOOTHING_INTERVAL_MS = 50;
   const keys = new Set();
   const touch = new Set();
 
@@ -144,25 +143,39 @@
         }
 
         const nativeHistory = Array.isArray(snapshot.nativeHistory)
-          ? snapshot.nativeHistory
+          ? snapshot.nativeHistory.slice().sort((a, b) => a.sequence - b.sequence)
           : [];
-        const motion = deriveNativeMotion(nativeHistory, snapshot);
-        const targetX = snapshot.x + motion.vx * PREDICTION_SECONDS;
-        const targetZ = snapshot.z + motion.vz * PREDICTION_SECONDS;
+
+        const latest = nativeHistory.length
+          ? nativeHistory[nativeHistory.length - 1]
+          : snapshot;
+        const previous = nativeHistory.length >= 2
+          ? nativeHistory[nativeHistory.length - 2]
+          : latest;
 
         const existing = renderedPlayers.get(snapshot.playerId);
         if (!existing) {
           renderedPlayers.set(snapshot.playerId, {
             playerId: snapshot.playerId,
-            x: snapshot.x,
-            z: snapshot.z,
-            targetX,
-            targetZ,
-            velocityX: motion.vx,
-            velocityZ: motion.vz,
-            historyFrames: nativeHistory.length,
-            sequence: snapshot.sequence
+            x: previous.x,
+            z: previous.z,
+            startX: previous.x,
+            startZ: previous.z,
+            targetX: latest.x,
+            targetZ: latest.z,
+            progress: 0,
+            sequence: latest.sequence,
+            historyFrames: nativeHistory.length
           });
+        } else if (latest.sequence > existing.sequence) {
+          existing.startX = previous.x;
+          existing.startZ = previous.z;
+          existing.targetX = latest.x;
+          existing.targetZ = latest.z;
+          existing.progress = 0;
+          existing.sequence = latest.sequence;
+          existing.historyFrames = nativeHistory.length;
+        });
         } else if (snapshot.sequence >= existing.sequence) {
           existing.targetX = targetX;
           existing.targetZ = targetZ;
@@ -187,31 +200,21 @@
   }
 
   function smoothRemotePlayers(dt) {
-    const alpha = 1 - Math.exp(-SMOOTHING_RATE * dt);
     for (const remote of renderedPlayers.values()) {
-      remote.x += (remote.targetX - remote.x) * alpha;
-      remote.z += (remote.targetZ - remote.z) * alpha;
+      remote.progress = Math.min(
+        1,
+        remote.progress + dt * 1000 / SMOOTHING_INTERVAL_MS);
+
+      remote.x =
+        remote.startX +
+        (remote.targetX - remote.startX) *
+        remote.progress;
+
+      remote.z =
+        remote.startZ +
+        (remote.targetZ - remote.startZ) *
+        remote.progress;
     }
-  }
-
-  function deriveNativeMotion(history, latest) {
-    const frames = history
-      .filter(frame => frame && Number.isFinite(frame.x) && Number.isFinite(frame.z))
-      .sort((a, b) => a.sequence - b.sequence);
-
-    if (frames.length < 2) return { vx: 0, vz: 0 };
-
-    const previous = frames[frames.length - 2];
-    const current = frames[frames.length - 1];
-    const deltaMs = current.sentAtUnixMilliseconds - previous.sentAtUnixMilliseconds;
-
-    if (!(deltaMs > 0)) return { vx: 0, vz: 0 };
-
-    const deltaSeconds = deltaMs / 1000;
-    return {
-      vx: (current.x - previous.x) / deltaSeconds,
-      vz: (current.z - previous.z) / deltaSeconds
-    };
   }
 
   function isMoving() {
