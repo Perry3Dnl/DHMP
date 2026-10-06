@@ -111,6 +111,82 @@
     });
   }
 
+  function drawZeroAwareAllocationChart(canvasId, rows) {
+    const canvas = $(canvasId);
+    if (!canvas || !rows.length) return;
+
+    const values = rows.map(row => Number(row.fullPathBytesPerCall || 0));
+    const allZero = values.every(value => Math.abs(value) < 1e-12);
+
+    if (!allZero) {
+      drawGroupedBarChart(
+        canvasId,
+        rows.map(row => row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : '')),
+        [{
+          label: 'Full path B/call',
+          values
+        }],
+        value => fullDecimal(value, 3));
+      return;
+    }
+
+    const { ctx, width, height } = prepareCanvas(canvas);
+    const left = 72;
+    const right = 24;
+    const top = 54;
+    const bottom = 72;
+    const plotWidth = width - left - right;
+    const baselineY = height - bottom;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#0b1220';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = '#71e6a1';
+    ctx.font = '700 18px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('ZERO STEADY-STATE ALLOCATION', width / 2, 24);
+
+    ctx.fillStyle = '#8fa3bd';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText('All measured full-path receive modes allocated 0.000 B/call', width / 2, 44);
+
+    ctx.strokeStyle = '#263244';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(left, baselineY);
+    ctx.lineTo(width - right, baselineY);
+    ctx.stroke();
+
+    rows.forEach((row, index) => {
+      const x = rows.length === 1
+        ? left + plotWidth / 2
+        : left + plotWidth * index / (rows.length - 1);
+
+      ctx.fillStyle = '#71e6a1';
+      ctx.beginPath();
+      ctx.arc(x, baselineY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#e6edf7';
+      ctx.font = '700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('0.000 B/call', x, baselineY - 22);
+
+      ctx.save();
+      ctx.translate(x, baselineY + 18);
+      ctx.rotate(-0.32);
+      ctx.fillStyle = '#8fa3bd';
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(
+        row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : ''),
+        0,
+        0);
+      ctx.restore();
+    });
+  }
+
   function drawLineChart(canvasId, categories, values, label, valueFormatter = fullInteger) {
     const canvas = $(canvasId);
     if (!canvas || !categories.length) return;
@@ -214,11 +290,9 @@
       [{ label: 'Transactions/s', values: report.confirmationModes.map(r => Number(r.packetRate)) }],
       fullInteger);
 
-    drawGroupedBarChart(
+    drawZeroAwareAllocationChart(
       'allocationChart',
-      report.allocations.map(r => r.receiveMode + (r.nativeSmoothing ? ' + Ring-3' : '')),
-      [{ label: 'Full path B/call', values: report.allocations.map(r => Number(r.fullPathBytesPerCall)) }],
-      value => fullDecimal(value, 3));
+      report.allocations);
   }
 
   function metric(label, value, unit = '') {
