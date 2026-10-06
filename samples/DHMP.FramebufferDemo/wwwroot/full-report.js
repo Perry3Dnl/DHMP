@@ -19,45 +19,6 @@
 
   const chartPalette = ['#69b7ff', '#71e6a1', '#f5c66f', '#d79cff', '#ff8c8c'];
 
-  const protocolComparisonPayloadBytes = 1408;
-  const protocolComparisons = [
-    {
-      label: 'HTTP/1.1 + TCP/IPv6',
-      overheadBytes: 60,
-      kernelBypass: 0,
-      note: '60 B is only the IPv6 + minimum TCP baseline; HTTP headers are additional and variable.'
-    },
-    {
-      label: 'TCP/IPv6',
-      overheadBytes: 60,
-      kernelBypass: 0,
-      note: 'Minimum IPv6 + TCP header size; options and lower-layer framing are excluded.'
-    },
-    {
-      label: 'UDP/IPv6',
-      overheadBytes: 48,
-      kernelBypass: 0,
-      note: '40 B IPv6 + 8 B UDP; lower-layer framing is excluded.'
-    },
-    {
-      label: 'DHMP Raw IPv6',
-      overheadBytes: 40,
-      kernelBypass: 0,
-      note: 'Headerless DHMP V1 data payload over IPv6; normal raw-socket kernel path.'
-    },
-    {
-      label: 'DHMP + AF_XDP',
-      overheadBytes: 40,
-      kernelBypass: 1,
-      note: 'Same headerless DHMP wire payload; AF_XDP shortens the host data path.'
-    }
-  ];
-
-  function protocolEfficiency(overheadBytes) {
-    return protocolComparisonPayloadBytes /
-      (protocolComparisonPayloadBytes + overheadBytes) * 100;
-  }
-
   function prepareCanvas(canvas) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.max(320, canvas.clientWidth || 640);
@@ -267,45 +228,44 @@
   }
 
 
-  function renderProtocolComparison() {
-    const labels = protocolComparisons.map(row => row.label);
+  function renderProtocolComparison(report) {
+    const rows = Array.isArray(report.protocolComparisons)
+      ? report.protocolComparisons
+      : [];
+
+    if (!rows.length) return;
+
+    const labels = rows.map(row => row.protocol);
 
     drawGroupedBarChart(
-      'protocolOverheadChart',
+      'protocolPacketRateChart',
       labels,
       [{
-        label: 'Fixed bytes',
-        values: protocolComparisons.map(row => row.overheadBytes)
+        label: 'Packets / transactions per second',
+        values: rows.map(row => Number(row.packetRate || 0))
       }],
       fullInteger);
 
     drawGroupedBarChart(
-      'protocolEfficiencyChart',
+      'protocolThroughputChart',
       labels,
       [{
-        label: 'Payload efficiency %',
-        values: protocolComparisons.map(row => protocolEfficiency(row.overheadBytes))
+        label: 'Application payload GB/s',
+        values: rows.map(row => Number(row.payloadGigabytesPerSecond || 0))
       }],
-      value => fullDecimal(value, 2) + '%');
-
-    drawGroupedBarChart(
-      'kernelBypassChart',
-      labels,
-      [{
-        label: 'AF_XDP fast path',
-        values: protocolComparisons.map(row => row.kernelBypass)
-      }],
-      value => Number(value) >= 0.5 ? 'Yes' : 'No');
+      value => fullDecimal(value, 2));
 
     const body = $('protocolComparisonBody');
     if (body) {
-      body.innerHTML = protocolComparisons.map(row =>
+      body.innerHTML = rows.map(row =>
         '<tr>' +
-        '<td>' + row.label + '</td>' +
-        '<td>' + fullInteger(row.overheadBytes) + '</td>' +
-        '<td>' + fullDecimal(protocolEfficiency(row.overheadBytes), 2) + '%</td>' +
+        '<td>' + row.protocol + '</td>' +
+        '<td style="text-align:left;white-space:normal;min-width:220px">' + row.scope + '</td>' +
+        '<td>' + fullInteger(row.packetBytes) + ' B</td>' +
+        '<td>' + fullInteger(row.packetRate) + '</td>' +
+        '<td>' + fullDecimal(row.payloadGigabytesPerSecond, 3) + '</td>' +
         '<td>' + (row.kernelBypass ? 'Yes — AF_XDP' : 'No') + '</td>' +
-        '<td style="text-align:left;white-space:normal;min-width:280px">' + row.note + '</td>' +
+        '<td style="text-align:left;white-space:normal;min-width:300px">' + row.detail + '</td>' +
         '</tr>').join('');
     }
   }
@@ -377,7 +337,7 @@
       'allocationChart',
       report.allocations);
 
-    renderProtocolComparison();
+    renderProtocolComparison(report);
   }
 
   function metric(label, value, unit = '') {
