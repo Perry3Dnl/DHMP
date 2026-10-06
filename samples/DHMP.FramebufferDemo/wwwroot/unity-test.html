@@ -62,8 +62,9 @@
     <div class="unity-actions">
       <button id="connectButton">Connect player</button>
       <button id="disconnectButton" disabled>Disconnect</button>
+      <button id="autoMoveButton" disabled>Auto movement: ON</button>
     </div>
-    <p class="muted">The player remains connected and the server continues its 20 Hz DHMP state stream until Disconnect.</p>
+    <p class="muted">Auto movement starts when you connect. The simulated player continuously wanders around the world and sends updated DHMP state at 20 Hz. WASD, arrow keys, or touch temporarily override the automatic direction.</p>
   </section>
 
   <section class="server-panel">
@@ -89,8 +90,9 @@
       </div>
 
       <div class="sim-side">
-        <div class="sim-stat"><span>Movement</span><strong>WASD / arrows</strong></div>
+        <div class="sim-stat"><span>Movement</span><strong id="movementMode">Automatic</strong></div>
         <div class="sim-stat"><span>Speed</span><strong>5 units/s</strong></div>
+        <div class="sim-stat"><span>Auto direction</span><strong id="autoDirection">—</strong></div>
         <div class="sim-stat"><span>World</span><strong>40 × 25</strong></div>
         <div class="sim-stat"><span>Server uptime</span><strong id="uptime">0s</strong></div>
         <div class="sim-stat control-card">
