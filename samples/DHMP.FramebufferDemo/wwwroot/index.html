@@ -53,11 +53,11 @@
           <span class="control-label">Aggregate packet-rate cap</span>
           <strong id="packetRateCapLabel">Unlimited</strong>
         </div>
-        <input id="packetRateCap" type="range" min="0" max="10" step="1" value="0">
+        <input id="packetRateCap" type="range" min="0" max="10" step="1" value="0" autocomplete="off">
         <div class="scale eleven">
           <span>∞</span><span>1M</span><span>2M</span><span>5M</span><span>10M</span><span>20M</span><span>30M</span><span>40M</span><span>50M</span><span>75M</span><span>100M</span>
         </div>
-        <p class="muted">Caps aggregate submitted packets/s across all workers. Pacing happens in small fixed batches so the DHMP packet hot path stays allocation-free.</p>
+        <p class="muted">Caps aggregate submitted packets/s across all workers. Selecting a cap automatically uses Unlimited rate policy so this is the only limiter. Pacing happens in small fixed batches so the DHMP packet hot path stays allocation-free.</p>
       </div>
     </section>
 
