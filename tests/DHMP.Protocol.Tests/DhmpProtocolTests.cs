@@ -107,78 +107,40 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
-    public void LatestHistory_ExposesAlreadyReceivedTailWithoutWaiting()
+    public void NativeSmoothing_IsLocalLatestOnlyReceivePolicy()
+    {
+        var wire = new DhmpWireContract(16);
+        var policy = new DhmpReceivePolicy(
+            DhmpProcessingMode.Latest,
+            maximumPayloadBytes: 1408,
+            nativeSmoothing: true);
+
+        policy.Validate(wire);
+        Assert.True(policy.NativeSmoothing);
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Sequential,
+                maximumPayloadBytes: 1408,
+                nativeSmoothing: true));
+    }
+
+    [Fact]
+    public void Latest_WithNativeSmoothingStillPublishesOnlyNewestRecord()
     {
         var processor = new DhmpPacketProcessor(
             new DhmpWireContract(2),
             new DhmpReceivePolicy(
                 DhmpProcessingMode.Latest,
                 maximumPayloadBytes: 16,
-                latestHistoryRecords: 3));
+                nativeSmoothing: true));
 
         byte[]? actual = null;
-
-        processor.Process(
-            new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 },
-            span => actual = span.ToArray());
-
-        Assert.Equal(
-            new byte[] { 3, 4, 5, 6, 7, 8 },
-            actual);
-    }
-
-    [Fact]
-    public void LatestHistory_UsesAllAvailableRecordsWhenPacketIsShorterThanWindow()
-    {
-        var processor = new DhmpPacketProcessor(
-            new DhmpWireContract(2),
-            new DhmpReceivePolicy(
-                DhmpProcessingMode.Latest,
-                maximumPayloadBytes: 16,
-                latestHistoryRecords: 3));
-
-        byte[]? actual = null;
-
-        processor.Process(
-            new byte[] { 9, 8, 7, 6 },
-            span => actual = span.ToArray());
-
-        Assert.Equal(
-            new byte[] { 9, 8, 7, 6 },
-            actual);
-    }
-
-    [Fact]
-    public void LatestHistory_DefaultRemainsSingleNewestRecord()
-    {
-        var processor = new DhmpPacketProcessor(
-            new DhmpWireContract(2),
-            new DhmpReceivePolicy(
-                DhmpProcessingMode.Latest,
-                maximumPayloadBytes: 16));
-
-        byte[]? actual = null;
-
         processor.Process(
             new byte[] { 1, 2, 3, 4, 5, 6 },
             span => actual = span.ToArray());
 
-        Assert.Equal(
-            new byte[] { 5, 6 },
-            actual);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(65536)]
-    public void LatestHistory_InvalidWindowIsRejected(int historyRecords)
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new DhmpReceivePolicy(
-                DhmpProcessingMode.Latest,
-                maximumPayloadBytes: 1408,
-                latestHistoryRecords: historyRecords));
+        Assert.Equal(new byte[] { 5, 6 }, actual);
     }
 
     [Fact]
