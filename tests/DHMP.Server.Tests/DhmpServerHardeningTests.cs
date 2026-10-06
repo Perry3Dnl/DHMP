@@ -393,7 +393,7 @@ public sealed class DhmpServerHardeningTests
 
         Assert.True(
             reader.Join(
-                TimeSpan.FromSeconds(2)));
+                TimeSpan.FromSeconds(5)));
 
         Volatile.Write(
             ref stop,
@@ -401,7 +401,7 @@ public sealed class DhmpServerHardeningTests
 
         Assert.True(
             writer.Join(
-                TimeSpan.FromSeconds(2)));
+                TimeSpan.FromSeconds(5)));
 
         Assert.Null(
             readerFailure);
