@@ -1,0 +1,21 @@
+[Unit]
+Description=DHMP Demo Arena experimental server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dhmp
+Group=dhmp
+WorkingDirectory=/opt/dhmp-arena
+EnvironmentFile=/etc/dhmp-arena.env
+ExecStart=/opt/dhmp-arena/DHMP-Arena.x86_64 -batchmode -nographics --dhmp-server -logFile -
+Restart=on-failure
+RestartSec=5
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

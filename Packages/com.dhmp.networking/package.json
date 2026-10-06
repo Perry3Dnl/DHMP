@@ -1,0 +1,15 @@
+{
+  "name": "com.dhmp.networking",
+  "version": "0.1.0-preview.1",
+  "displayName": "DHMP Networking 1",
+  "description": "Experimental direct IPv6 networking for Unity, with the complete Demo Arena and self-hosted server example included.",
+  "unity": "6000.0",
+  "author": { "name": "DHMP" },
+  "license": "See LICENSE.md",
+  "dependencies": { "com.unity.inputsystem": "1.11.2" },
+  "samples": [{
+    "displayName": "Demo Arena",
+    "description": "Walk, jump, join a configured demonstration server, or run the same arena on your own server. Includes source and hosting instructions.",
+    "path": "Samples~/DemoArena"
+  }]
+}

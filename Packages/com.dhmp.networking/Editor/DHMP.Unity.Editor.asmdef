@@ -1,0 +1,7 @@
+{
+  "name": "DHMP.Unity.Editor",
+  "rootNamespace": "DHMP.Unity.Editor",
+  "references": ["DHMP.Unity", "DHMP.Unity.Core"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}
