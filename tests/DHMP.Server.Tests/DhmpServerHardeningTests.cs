@@ -440,6 +440,153 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_ServerRing3FastPathConcurrentReaderNeverReturnsTornRecords()
+    {
+        const int RecordSize = 16;
+        const int WriterIterations = 250_000;
+        const int FinalReaderIterations = 1_000;
+
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(RecordSize),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: RecordSize,
+                    nativeSmoothing: true));
+
+        using var startGate =
+            new ManualResetEventSlim(false);
+
+        int writerDone = 0;
+        long readerSnapshots = 0;
+        Exception? readerFailure = null;
+
+        var writer =
+            new Thread(() =>
+            {
+                byte[] record =
+                    new byte[RecordSize];
+
+                startGate.Wait();
+
+                try
+                {
+                    for (long sequence = 1;
+                         sequence <= WriterIterations;
+                         sequence++)
+                    {
+                        BitConverter.TryWriteBytes(
+                            record.AsSpan(0, 8),
+                            sequence);
+
+                        BitConverter.TryWriteBytes(
+                            record.AsSpan(8, 8),
+                            ~sequence);
+
+                        server.ProcessPacket(
+                            record,
+                            static _ => { });
+                    }
+                }
+                finally
+                {
+                    Volatile.Write(
+                        ref writerDone,
+                        1);
+                }
+            });
+
+        var reader =
+            new Thread(() =>
+            {
+                try
+                {
+                    byte[] snapshot =
+                        new byte[
+                            RecordSize *
+                            DhmpLatestStateWindow.Capacity];
+
+                    startGate.Wait();
+
+                    while (Volatile.Read(ref writerDone) == 0)
+                    {
+                        ValidateSnapshot(
+                            server,
+                            snapshot);
+
+                        readerSnapshots++;
+                    }
+
+                    for (int iteration = 0;
+                         iteration < FinalReaderIterations;
+                         iteration++)
+                    {
+                        ValidateSnapshot(
+                            server,
+                            snapshot);
+
+                        readerSnapshots++;
+                    }
+                }
+                catch (Exception exception)
+                {
+                    readerFailure = exception;
+                }
+            });
+
+        writer.Start();
+        reader.Start();
+        startGate.Set();
+
+        Assert.True(
+            writer.Join(
+                TimeSpan.FromSeconds(10)));
+
+        Assert.True(
+            reader.Join(
+                TimeSpan.FromSeconds(10)));
+
+        Assert.Null(
+            readerFailure);
+
+        Assert.True(
+            readerSnapshots >= FinalReaderIterations);
+
+        static void ValidateSnapshot(
+            DhmpServer server,
+            byte[] snapshot)
+        {
+            int count =
+                server.CopyNativeSmoothingWindow(
+                    snapshot);
+
+            for (int index = 0;
+                 index < count;
+                 index++)
+            {
+                ReadOnlySpan<byte> record =
+                    snapshot.AsSpan(
+                        index * RecordSize,
+                        RecordSize);
+
+                long sequence =
+                    BitConverter.ToInt64(
+                        record[..8]);
+
+                long inverse =
+                    BitConverter.ToInt64(
+                        record[8..]);
+
+                if (~sequence != inverse)
+                {
+                    throw new InvalidOperationException(
+                        "Server Ring-3 fast path returned a torn record.");
+                }
+            }
+        }
+    }
+
+    [Fact]
     public void CriticalFlow_LatestFilter_ResetRestoresInitialAcceptanceState()
     {
         var filter =
