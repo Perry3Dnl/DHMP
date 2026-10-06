@@ -121,7 +121,9 @@
             'active',
             button.dataset.confirmationMode===selectedConfirmationMode));
       }
-      $('coreProcessNs').textContent=Number(cur.coreProcessNanosecondsPerPacket||0).toFixed(2)+' ns/packet';
+      const coreNs=Number(cur.coreProcessNanosecondsPerPacket||0);
+      $('coreProcessNs').textContent=coreNs.toFixed(2)+' ns/packet';
+      $('corePacketCeiling').textContent=coreNs>0?compact(1e9/coreNs):'0';
       $('allocProcessor').textContent=Number(cur.processorAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
       $('allocServer').textContent=Number(cur.serverAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
       $('allocClient').textContent=Number(cur.clientAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
