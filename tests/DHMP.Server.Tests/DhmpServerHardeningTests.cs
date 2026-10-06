@@ -298,6 +298,87 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_Ring3ConcurrentReaderNeverReturnsTornRecords()
+    {
+        const int RecordSize = 16;
+
+        var window =
+            new DhmpLatestStateWindow(
+                RecordSize);
+
+        using var cancellation =
+            new CancellationTokenSource(
+                TimeSpan.FromMilliseconds(500));
+
+        Task writer =
+            Task.Run(() =>
+            {
+                long sequence = 1;
+                Span<byte> record =
+                    stackalloc byte[RecordSize];
+
+                while (!cancellation.IsCancellationRequested)
+                {
+                    BitConverter.TryWriteBytes(
+                        record[..8],
+                        sequence);
+
+                    BitConverter.TryWriteBytes(
+                        record[8..],
+                        ~sequence);
+
+                    window.PublishValidatedPacket(
+                        record);
+
+                    sequence++;
+                }
+            });
+
+        Task reader =
+            Task.Run(() =>
+            {
+                byte[] snapshot =
+                    new byte[
+                        RecordSize *
+                        DhmpLatestStateWindow.Capacity];
+
+                while (!cancellation.IsCancellationRequested)
+                {
+                    int count =
+                        window.CopyNewestTo(
+                            snapshot);
+
+                    for (int index = 0;
+                         index < count;
+                         index++)
+                    {
+                        ReadOnlySpan<byte> record =
+                            snapshot.AsSpan(
+                                index * RecordSize,
+                                RecordSize);
+
+                        long sequence =
+                            BitConverter.ToInt64(
+                                record[..8]);
+
+                        long inverse =
+                            BitConverter.ToInt64(
+                                record[8..]);
+
+                        Assert.Equal(
+                            ~sequence,
+                            inverse);
+                    }
+                }
+            });
+
+        Assert.True(
+            Task.WaitAll(
+                [writer, reader],
+                TimeSpan.FromSeconds(2)));
+    }
+
+    [Fact]
     public void CriticalFlow_LatestFilter_ResetRestoresInitialAcceptanceState()
     {
         var filter =
