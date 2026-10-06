@@ -28,7 +28,7 @@ internal static class ProtocolComparisonBenchmarks
         int payloadBytes,
         CancellationToken cancellationToken)
     {
-        using var listener = new TcpListener(IPAddress.IPv6Loopback, 0);
+        var listener = new TcpListener(IPAddress.IPv6Loopback, 0);
         listener.Server.DualMode = false;
         listener.Start();
 
@@ -113,6 +113,8 @@ internal static class ProtocolComparisonBenchmarks
 
         double packetRate =
             TcpIterations / seconds;
+
+        listener.Stop();
 
         return new DhmpProtocolComparisonBenchmark(
             "TCP/IPv6",
