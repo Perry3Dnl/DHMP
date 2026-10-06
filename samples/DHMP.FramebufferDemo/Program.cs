@@ -182,13 +182,13 @@ app.Run();
 
 static bool IsSupportedPacketSize(int packetBytes) =>
     packetBytes is
-        64 or
+        16 or
         256 or
         1024 or
         4096 or
         16384 or
         32768 or
-        65472;
+        65520;
 
 
 static bool IsSupportedAfXdpPayloadSize(int payloadBytes) =>
