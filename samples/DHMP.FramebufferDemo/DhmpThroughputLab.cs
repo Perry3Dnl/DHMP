@@ -20,6 +20,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private long _configurationVersion;
 
     private WorkerMetrics[] _workerMetrics = [];
+    private double _coreProcessNanosecondsPerPacket;
     private long _workerFaults;
     private string _lastWorkerError = string.Empty;
 
@@ -84,6 +85,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         bool nativeSmoothing;
         DhmpStressConfirmationMode confirmationMode;
         long version;
+        double coreProcessNanosecondsPerPacket;
 
         lock (_configurationGate)
         {
@@ -94,6 +96,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             nativeSmoothing = _nativeSmoothing;
             confirmationMode = _confirmationMode;
             version = _configurationVersion;
+            coreProcessNanosecondsPerPacket =
+                _coreProcessNanosecondsPerPacket;
         }
 
         WorkerMetrics[] metrics =
@@ -135,6 +139,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             sendTicks,
             processTicks,
             Stopwatch.Frequency,
+            coreProcessNanosecondsPerPacket,
             packetBytes,
             packetBytes / RecordSize,
             workers,
@@ -160,12 +165,30 @@ internal sealed class DhmpThroughputLab : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             int workers;
+            int packetBytes;
+            DhmpProcessingMode receiveMode;
             long version;
 
             lock (_configurationGate)
             {
                 workers = _workers;
+                packetBytes = _packetBytes;
+                receiveMode = _receiveMode;
                 version = _configurationVersion;
+            }
+
+            double coreNs =
+                MeasureCoreProcessor(
+                    packetBytes,
+                    receiveMode);
+
+            lock (_configurationGate)
+            {
+                if (_configurationVersion == version)
+                {
+                    _coreProcessNanosecondsPerPacket =
+                        coreNs;
+                }
             }
 
             using var linked =
@@ -367,6 +390,67 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 }
             }
         }
+    }
+
+    private static double MeasureCoreProcessor(
+        int packetBytes,
+        DhmpProcessingMode receiveMode)
+    {
+        const int WarmupIterations = 100_000;
+        const int MeasuredIterations = 2_000_000;
+
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(RecordSize),
+                new DhmpReceivePolicy(
+                    receiveMode,
+                    MaximumPayloadBytes));
+
+        byte[] packet =
+            GC.AllocateUninitializedArray<byte>(
+                packetBytes);
+
+        long guard = 0;
+
+        Action<ReadOnlySpan<byte>> publish =
+            span =>
+            {
+                guard +=
+                    span.Length;
+            };
+
+        for (int index = 0;
+             index < WarmupIterations;
+             index++)
+        {
+            processor.Process(
+                packet,
+                publish);
+        }
+
+        long started =
+            Stopwatch.GetTimestamp();
+
+        for (int index = 0;
+             index < MeasuredIterations;
+             index++)
+        {
+            processor.Process(
+                packet,
+                publish);
+        }
+
+        long elapsed =
+            Stopwatch.GetTimestamp() - started;
+
+        GC.KeepAlive(
+            guard);
+
+        return
+            (double)elapsed /
+            Stopwatch.Frequency *
+            1_000_000_000d /
+            MeasuredIterations;
     }
 
     private static void FillPacket(
@@ -577,6 +661,7 @@ internal sealed record DhmpThroughputSnapshot(
     long SendTicks,
     long ProcessTicks,
     long StopwatchFrequency,
+    double CoreProcessNanosecondsPerPacket,
     int PacketBytes,
     int RecordsPerPacket,
     int Workers,
