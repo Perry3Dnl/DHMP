@@ -55,8 +55,9 @@
         <div class="mode-buttons" data-group="receive">
           <button type="button" class="mode-button active" data-receive-mode="Sequential">Sequential</button>
           <button type="button" class="mode-button" data-receive-mode="Latest">Latest</button>
+          <button type="button" class="mode-button" data-receive-mode="Latest" data-native-smoothing="true">Latest + Native Ring-3</button>
         </div>
-        <p class="muted">Sequential publishes every complete record. Latest publishes only the last complete record in each packet.</p>
+        <p class="muted">Sequential publishes every complete record. Latest publishes only the newest record. Latest + Native Ring-3 still publishes only that newest record, while retaining N-2/N-1/N receive-side for smoothing.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Rate policy</span>
@@ -121,6 +122,7 @@
         <div><span>Server process</span><strong id="processNs">0 ns/packet</strong></div>
         <div><span>Publication correctness</span><strong id="publicationParity">0%</strong></div>
         <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
+        <div><span>Native smoothing</span><strong id="nativeSmoothing">OFF</strong></div>
         <div><span>Rate policy</span><strong id="ratePolicy">RejectWindow</strong></div>
         <div><span>Worker restarts</span><strong id="workerFaults">0</strong></div>
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
@@ -140,7 +142,7 @@
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
-        <p>Sequential expects every record to be published. Latest expects exactly one record per accepted packet. The dashboard checks correctness against the selected DHMP receive mode.</p>
+        <p>Sequential expects every record to be published. Latest expects exactly one published record per accepted packet. Native Ring-3 does not change that publication count; it only retains the newest three received states for smoothing.</p>
       </div>
     </section>
 
