@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Unity Instance Test</title>
+  <link rel="stylesheet" href="/site.css">
+  <style>
+    .unity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+    .unity-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+    .unity-actions button{padding:10px 16px}
+    .unity-actions button:disabled{opacity:.45}
+    .unity-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+    .unity-form label{display:grid;gap:6px;font-size:.85rem}
+    .unity-form input{padding:9px;border-radius:8px;border:1px solid #334;background:#111827;color:#fff}
+    .endpoint-log{min-height:180px;max-height:360px;overflow:auto;white-space:pre-wrap;font:12px/1.45 ui-monospace,monospace}
+    .state-table{width:100%;border-collapse:collapse}
+    .state-table th,.state-table td{text-align:left;padding:8px;border-bottom:1px solid #263244}
+    .good{color:#71e6a1}.warn{color:#ffd166}
+  </style>
+</head>
+<body>
+<main>
+  <nav class="top-nav">
+    <a href="/">Throughput Lab</a>
+    <a href="/kernel-bypass.html">Kernel Bypass</a>
+    <a href="/game-lobby.html">Capacity Model</a>
+    <a class="active" href="/unity-test.html">Unity Instance Test</a>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">DHMP UNITY CLIENT CONTRACT</p>
+    <h1>Browser-driven simulated Unity instance</h1>
+    <p class="lead">Connect a simulated player, continuously send fixed-size player-state records through the DHMP client/server pipeline, inspect live server state, and test every endpoint before the Unity package exists.</p>
+  </header>
+
+  <section class="status">
+    <span id="connectionState" class="pill">disconnected</span>
+    <span>Player <strong id="playerId">—</strong></span>
+    <span>Auto DHMP tick <strong>20 Hz</strong></span>
+    <span>Record <strong>64 bytes</strong></span>
+  </section>
+
+  <section class="headline-grid">
+    <article class="metric-card"><span>Active &lt; 1s</span><strong id="activeConnections">0</strong><small>connections</small></article>
+    <article class="metric-card"><span>Connected</span><strong id="connectedConnections">0</strong><small>sessions</small></article>
+    <article class="metric-card"><span>Total joined</span><strong id="totalConnections">0</strong><small>since process start</small></article>
+    <article class="metric-card"><span>DHMP traffic</span><strong id="messagesPerSecond">0</strong><small>records/s</small></article>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">SESSION</p>
+    <div class="unity-form">
+      <label>Player name<input id="playerName" value="Web Unity Test"></label>
+    </div>
+    <div class="unity-actions">
+      <button id="connectButton">Connect</button>
+      <button id="disconnectButton" disabled>Disconnect</button>
+      <button id="receiveButton" disabled>Receive player data</button>
+      <button id="refreshButton">Refresh stats</button>
+    </div>
+    <p class="muted">After Connect, the server-side simulated Unity client keeps sending DHMP state at 20 Hz until Disconnect, even if you stop pressing buttons.</p>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">PLAYER STATE</p>
+    <div class="unity-form">
+      <label>X<input id="x" type="number" step="0.1" value="0"></label>
+      <label>Y<input id="y" type="number" step="0.1" value="0"></label>
+      <label>Z<input id="z" type="number" step="0.1" value="0"></label>
+      <label>Rotation X<input id="rx" type="number" step="0.01" value="0"></label>
+      <label>Rotation Y<input id="ry" type="number" step="0.01" value="0"></label>
+      <label>Rotation Z<input id="rz" type="number" step="0.01" value="0"></label>
+      <label>Rotation W<input id="rw" type="number" step="0.01" value="1"></label>
+      <label>Flags<input id="flags" type="number" step="1" value="0"></label>
+    </div>
+    <div class="unity-actions">
+      <button id="sendButton" disabled>Send player data now</button>
+      <button id="moveButton" disabled>Move +1 X and send</button>
+    </div>
+  </section>
+
+  <section class="server-panel">
+    <div class="panel-head">
+      <div><p class="eyebrow">LATEST SERVER STATE</p><h2>Players currently known to the DHMP session host</h2></div>
+      <div class="server-totals"><span><strong id="bytesPerSecond">0</strong> B/s</span><span><strong id="uptime">0s</strong> uptime</span></div>
+    </div>
+    <div style="overflow:auto">
+      <table class="state-table">
+        <thead><tr><th>ID</th><th>Seq</th><th>X</th><th>Y</th><th>Z</th><th>Last server message</th></tr></thead>
+        <tbody id="playersBody"><tr><td colspan="6">No players connected.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">ENDPOINT LOG</p>
+    <div id="endpointLog" class="endpoint-log">Ready.</div>
+  </section>
+
+  <footer>
+    <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
+  </footer>
+</main>
+<script src="/unity-test.js"></script>
+</body>
+</html>
