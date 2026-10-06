@@ -228,6 +228,76 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void HappyFlow_Ring3RetainsNewestThreeAcrossPackets()
+    {
+        var window = new DhmpLatestStateWindow(2);
+        window.PublishPacket(new byte[] { 1, 1 });
+        window.PublishPacket(new byte[] { 2, 2 });
+        window.PublishPacket(new byte[] { 3, 3 });
+        window.PublishPacket(new byte[] { 4, 4 });
+
+        Span<byte> destination = stackalloc byte[6];
+        int count = window.CopyNewestTo(destination);
+
+        Assert.Equal(3, count);
+        Assert.Equal(new byte[] { 2, 2, 3, 3, 4, 4 }, destination.ToArray());
+        Assert.Equal(4, window.RecordsObserved);
+        Assert.Equal(1, window.RecordsOverwritten);
+    }
+
+    [Fact]
+    public void HappyFlow_Ring3SkipsObsoleteRecordsInsideLargePacket()
+    {
+        var window = new DhmpLatestStateWindow(2);
+        window.PublishPacket(new byte[] { 1,1, 2,2, 3,3, 4,4, 5,5 });
+
+        Span<byte> destination = stackalloc byte[6];
+        int count = window.CopyNewestTo(destination);
+
+        Assert.Equal(3, count);
+        Assert.Equal(new byte[] { 3,3, 4,4, 5,5 }, destination.ToArray());
+        Assert.Equal(5, window.RecordsObserved);
+        Assert.Equal(2, window.RecordsOverwritten);
+    }
+
+    [Fact]
+    public void HappyFlow_ServerNativeSmoothingKeepsRingButPublishesOnlyLatest()
+    {
+        var server = new DhmpServer(
+            new DhmpWireContract(2),
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Latest,
+                maximumPayloadBytes: 16,
+                nativeSmoothing: true));
+
+        byte[]? published = null;
+        server.ProcessPacket(new byte[] { 1,1, 2,2, 3,3 }, span => published = span.ToArray());
+        server.ProcessPacket(new byte[] { 4,4 }, span => published = span.ToArray());
+
+        Span<byte> destination = stackalloc byte[6];
+        int count = server.CopyNativeSmoothingWindow(destination);
+
+        Assert.True(server.NativeSmoothingEnabled);
+        Assert.Equal(3, count);
+        Assert.Equal(new byte[] { 2,2, 3,3, 4,4 }, destination.ToArray());
+        Assert.Equal(new byte[] { 4,4 }, published);
+    }
+
+    [Fact]
+    public void BoundaryFlow_ServerWithoutNativeSmoothingHasNoWindow()
+    {
+        var server = new DhmpServer(
+            new DhmpWireContract(2),
+            new DhmpReceivePolicy(DhmpProcessingMode.Latest, maximumPayloadBytes: 16));
+
+        server.ProcessPacket(new byte[] { 1,1, 2,2 }, _ => { });
+        Span<byte> destination = stackalloc byte[6];
+
+        Assert.False(server.NativeSmoothingEnabled);
+        Assert.Equal(0, server.CopyNativeSmoothingWindow(destination));
+    }
+
+    [Fact]
     public void CriticalFlow_LatestFilter_ResetRestoresInitialAcceptanceState()
     {
         var filter =
