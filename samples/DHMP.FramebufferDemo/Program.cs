@@ -12,6 +12,9 @@ builder.Services.AddSingleton<DhmpUnitySessionLab>();
 
 var app = builder.Build();
 
+// Keep the Unity browser session host warm and available immediately after deployment.
+_ = app.Services.GetRequiredService<DhmpUnitySessionLab>();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -27,6 +30,26 @@ app.MapGet("/version", () => Results.Json(new
 {
     commit = Environment.GetEnvironmentVariable("DHMP_DEMO_COMMIT") ?? "dev"
 }));
+
+app.MapGet(
+    "/unity",
+    () => Results.Redirect("/unity-test.html"));
+
+app.MapGet(
+    "/api/unity/health",
+    (DhmpUnitySessionLab lab) =>
+    {
+        UnityServerStats stats = lab.Stats();
+
+        return Results.Json(new
+        {
+            status = "online",
+            connected = stats.ConnectedConnections,
+            active = stats.ActiveConnections,
+            tickRate = stats.SimulatedTickRate,
+            recordSize = stats.RecordSize
+        });
+    });
 
 app.MapGet(
     "/api/stress/stats",
