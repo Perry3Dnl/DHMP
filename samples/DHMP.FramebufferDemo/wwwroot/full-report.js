@@ -19,6 +19,45 @@
 
   const chartPalette = ['#69b7ff', '#71e6a1', '#f5c66f', '#d79cff', '#ff8c8c'];
 
+  const protocolComparisonPayloadBytes = 1408;
+  const protocolComparisons = [
+    {
+      label: 'HTTP/1.1 + TCP/IPv6',
+      overheadBytes: 60,
+      kernelBypass: 0,
+      note: '60 B is only the IPv6 + minimum TCP baseline; HTTP headers are additional and variable.'
+    },
+    {
+      label: 'TCP/IPv6',
+      overheadBytes: 60,
+      kernelBypass: 0,
+      note: 'Minimum IPv6 + TCP header size; options and lower-layer framing are excluded.'
+    },
+    {
+      label: 'UDP/IPv6',
+      overheadBytes: 48,
+      kernelBypass: 0,
+      note: '40 B IPv6 + 8 B UDP; lower-layer framing is excluded.'
+    },
+    {
+      label: 'DHMP Raw IPv6',
+      overheadBytes: 40,
+      kernelBypass: 0,
+      note: 'Headerless DHMP V1 data payload over IPv6; normal raw-socket kernel path.'
+    },
+    {
+      label: 'DHMP + AF_XDP',
+      overheadBytes: 40,
+      kernelBypass: 1,
+      note: 'Same headerless DHMP wire payload; AF_XDP shortens the host data path.'
+    }
+  ];
+
+  function protocolEfficiency(overheadBytes) {
+    return protocolComparisonPayloadBytes /
+      (protocolComparisonPayloadBytes + overheadBytes) * 100;
+  }
+
   function prepareCanvas(canvas) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.max(320, canvas.clientWidth || 640);
@@ -227,6 +266,50 @@
     ctx.fillText(label, a.left, height - 10);
   }
 
+
+  function renderProtocolComparison() {
+    const labels = protocolComparisons.map(row => row.label);
+
+    drawGroupedBarChart(
+      'protocolOverheadChart',
+      labels,
+      [{
+        label: 'Fixed bytes',
+        values: protocolComparisons.map(row => row.overheadBytes)
+      }],
+      fullInteger);
+
+    drawGroupedBarChart(
+      'protocolEfficiencyChart',
+      labels,
+      [{
+        label: 'Payload efficiency %',
+        values: protocolComparisons.map(row => protocolEfficiency(row.overheadBytes))
+      }],
+      value => fullDecimal(value, 2) + '%');
+
+    drawGroupedBarChart(
+      'kernelBypassChart',
+      labels,
+      [{
+        label: 'AF_XDP fast path',
+        values: protocolComparisons.map(row => row.kernelBypass)
+      }],
+      value => Number(value) >= 0.5 ? 'Yes' : 'No');
+
+    const body = $('protocolComparisonBody');
+    if (body) {
+      body.innerHTML = protocolComparisons.map(row =>
+        '<tr>' +
+        '<td>' + row.label + '</td>' +
+        '<td>' + fullInteger(row.overheadBytes) + '</td>' +
+        '<td>' + fullDecimal(protocolEfficiency(row.overheadBytes), 2) + '%</td>' +
+        '<td>' + (row.kernelBypass ? 'Yes — AF_XDP' : 'No') + '</td>' +
+        '<td style="text-align:left;white-space:normal;min-width:280px">' + row.note + '</td>' +
+        '</tr>').join('');
+    }
+  }
+
   function renderCharts(report) {
     const packetSizes = [...new Set(report.pathMatrix.map(r => Number(r.packetBytes)))];
     const modeLabels = ['Sequential', 'Latest', 'Latest + Ring-3'];
@@ -293,6 +376,8 @@
     drawZeroAwareAllocationChart(
       'allocationChart',
       report.allocations);
+
+    renderProtocolComparison();
   }
 
   function metric(label, value, unit = '') {
