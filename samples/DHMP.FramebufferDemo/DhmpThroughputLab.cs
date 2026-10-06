@@ -140,6 +140,10 @@ internal sealed class DhmpThroughputLab : BackgroundService
             processTicks,
             Stopwatch.Frequency,
             coreProcessNanosecondsPerPacket,
+            GC.GetTotalAllocatedBytes(precise: false),
+            GC.CollectionCount(0),
+            GC.CollectionCount(1),
+            GC.CollectionCount(2),
             packetBytes,
             packetBytes / RecordSize,
             workers,
@@ -482,6 +486,11 @@ internal sealed class DhmpThroughputLab : BackgroundService
         private readonly byte[] _confirmationScratch =
             new byte[DhmpThroughputLab.MaximumPayloadBytes];
         private readonly WorkerMetrics _metrics;
+        private readonly Action<ReadOnlySpan<byte>> _publishBatch;
+        private readonly Action<ReadOnlySpan<byte>> _confirmBatch;
+        private int _publishedRecordsCurrent;
+        private int _confirmationExpectedBytes;
+        private ReadOnlyMemory<byte> _fullEchoExpected;
 
         public InMemoryPacketSender(
             DhmpServer server,
@@ -499,6 +508,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
                         DhmpProcessingMode.Sequential,
                         DhmpThroughputLab.MaximumPayloadBytes));
             _metrics = metrics;
+            _publishBatch = PublishBatch;
+            _confirmBatch = ConfirmBatch;
         }
 
         public int MaximumPayloadBytes =>
@@ -510,18 +521,17 @@ internal sealed class DhmpThroughputLab : BackgroundService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            int publishedRecords = 0;
+            _publishedRecordsCurrent = 0;
             int confirmationRecordsReturned = 0;
             int confirmationBytesReturned = 0;
             long started = Stopwatch.GetTimestamp();
 
             _server.ProcessPacket(
                 payload.Span,
-                batch =>
-                {
-                    publishedRecords +=
-                        batch.Length / _recordSize;
-                });
+                _publishBatch);
+
+            int publishedRecords =
+                _publishedRecordsCurrent;
 
             if (_server.NativeSmoothingEnabled)
             {
@@ -574,19 +584,15 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     ].Clear();
                 }
 
+                _confirmationExpectedBytes =
+                    returnBytes;
+
+                _fullEchoExpected =
+                    ReadOnlyMemory<byte>.Empty;
+
                 _returnServer.ProcessPacket(
                     confirmation,
-                    returned =>
-                    {
-                        if (!returned.SequenceEqual(
-                                _confirmationScratch.AsSpan(
-                                    0,
-                                    returnBytes)))
-                        {
-                            throw new InvalidDataException(
-                                "Application ID confirmation mismatch.");
-                        }
-                    });
+                    _confirmBatch);
 
                 confirmationRecordsReturned =
                     returnRecords;
@@ -596,17 +602,18 @@ internal sealed class DhmpThroughputLab : BackgroundService
             }
             else if (_confirmationMode == DhmpStressConfirmationMode.FullEcho)
             {
+                _confirmationExpectedBytes =
+                    payload.Length;
+
+                _fullEchoExpected =
+                    payload;
+
                 _returnServer.ProcessPacket(
                     payload.Span,
-                    returned =>
-                    {
-                        if (!returned.SequenceEqual(
-                                payload.Span))
-                        {
-                            throw new InvalidDataException(
-                                "Full echo confirmation mismatch.");
-                        }
-                    });
+                    _confirmBatch);
+
+                _fullEchoExpected =
+                    ReadOnlyMemory<byte>.Empty;
 
                 confirmationRecordsReturned =
                     payload.Length /
@@ -633,6 +640,34 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 confirmationBytesReturned;
 
             return ValueTask.CompletedTask;
+        }
+
+        private void PublishBatch(
+            ReadOnlySpan<byte> batch)
+        {
+            _publishedRecordsCurrent +=
+                batch.Length /
+                _recordSize;
+        }
+
+        private void ConfirmBatch(
+            ReadOnlySpan<byte> returned)
+        {
+            ReadOnlySpan<byte> expected =
+                _fullEchoExpected.IsEmpty
+                    ? _confirmationScratch.AsSpan(
+                        0,
+                        _confirmationExpectedBytes)
+                    : _fullEchoExpected.Span;
+
+            if (!returned.SequenceEqual(
+                    expected))
+            {
+                throw new InvalidDataException(
+                    _fullEchoExpected.IsEmpty
+                        ? "Application ID confirmation mismatch."
+                        : "Full echo confirmation mismatch.");
+            }
         }
     }
     private sealed class WorkerMetrics
@@ -662,6 +697,10 @@ internal sealed record DhmpThroughputSnapshot(
     long ProcessTicks,
     long StopwatchFrequency,
     double CoreProcessNanosecondsPerPacket,
+    long TotalAllocatedBytes,
+    int Gen0Collections,
+    int Gen1Collections,
+    int Gen2Collections,
     int PacketBytes,
     int RecordsPerPacket,
     int Workers,
