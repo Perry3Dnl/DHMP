@@ -6,9 +6,8 @@
   const WORLD_H = 25;
   const SPEED = 5;
   const SEND_INTERVAL_MS = 50;
-  const RECEIVE_INTERVAL_MS = 50;
+  const RECEIVE_INTERVAL_MS = 100;
   const STATS_INTERVAL_MS = 1000;
-  const SMOOTHING_INTERVAL_MS = 50;
   const keys = new Set();
   const touch = new Set();
 
@@ -19,6 +18,7 @@
   let lastFrame = performance.now();
   let lastSend = 0;
   let sendInFlight = false;
+  let receiveInFlight = false;
   let autoMove = true;
   let autoDirection = randomDirection();
   let autoDirectionUntil = performance.now() + randomDirectionDuration();
@@ -126,9 +126,14 @@
   }
 
   async function players() {
+    if (receiveInFlight) return;
+
+    receiveInFlight = true;
+
     try {
       serverPlayers = await request('/api/unity/players');
       const present = new Set();
+      const receivedAt = performance.now();
 
       for (const snapshot of serverPlayers) {
         present.add(snapshot.playerId);
@@ -143,40 +148,37 @@
         }
 
         const nativeHistory = Array.isArray(snapshot.nativeHistory)
-          ? snapshot.nativeHistory.slice().sort((a, b) => a.sequence - b.sequence)
+          ? snapshot.nativeHistory
+              .slice()
+              .sort((a, b) => a.sequence - b.sequence)
           : [];
 
-        const latest = nativeHistory.length
-          ? nativeHistory[nativeHistory.length - 1]
-          : snapshot;
-        const previous = nativeHistory.length >= 2
-          ? nativeHistory[nativeHistory.length - 2]
-          : latest;
+        const frames = nativeHistory.length
+          ? nativeHistory
+          : [snapshot];
 
+        const latest = frames[frames.length - 1];
         const existing = renderedPlayers.get(snapshot.playerId);
+
         if (!existing) {
+          const first = frames[0];
+
           renderedPlayers.set(snapshot.playerId, {
             playerId: snapshot.playerId,
-            x: previous.x,
-            z: previous.z,
-            startX: previous.x,
-            startZ: previous.z,
-            targetX: latest.x,
-            targetZ: latest.z,
-            progress: 0,
+            x: first.x,
+            z: first.z,
             sequence: latest.sequence,
-            historyFrames: nativeHistory.length
+            frames,
+            playbackStartedAt: receivedAt
           });
-        } else if (latest.sequence > existing.sequence) {
-          // Native smoothing renders one authoritative state behind:
-          // interpolate from real N-1 to real N, never predict beyond N.
-          existing.startX = previous.x;
-          existing.startZ = previous.z;
-          existing.targetX = latest.x;
-          existing.targetZ = latest.z;
-          existing.progress = 0;
+
+          continue;
+        }
+
+        if (latest.sequence > existing.sequence) {
+          existing.frames = frames;
+          existing.playbackStartedAt = receivedAt;
           existing.sequence = latest.sequence;
-          existing.historyFrames = nativeHistory.length;
         }
       }
 
@@ -186,6 +188,8 @@
 
       renderPlayersTable();
     } catch {
+    } finally {
+      receiveInFlight = false;
     }
   }
 
@@ -193,21 +197,62 @@
     await Promise.all([stats(), players()]);
   }
 
-  function smoothRemotePlayers(dt) {
+  function smoothRemotePlayers(now) {
     for (const remote of renderedPlayers.values()) {
-      remote.progress = Math.min(
+      const frames = remote.frames;
+
+      if (!Array.isArray(frames) || frames.length === 0) continue;
+
+      if (frames.length === 1) {
+        remote.x = frames[0].x;
+        remote.z = frames[0].z;
+        continue;
+      }
+
+      const firstTimestamp = frames[0].sentAtUnixMilliseconds;
+      const lastTimestamp = frames[frames.length - 1].sentAtUnixMilliseconds;
+      const historyDuration = Math.max(
         1,
-        remote.progress + dt * 1000 / SMOOTHING_INTERVAL_MS);
+        lastTimestamp - firstTimestamp);
+
+      const playbackElapsed = Math.min(
+        historyDuration,
+        Math.max(0, now - remote.playbackStartedAt));
+
+      const playbackTimestamp =
+        firstTimestamp + playbackElapsed;
+
+      let left = frames[0];
+      let right = frames[frames.length - 1];
+
+      for (let index = 1; index < frames.length; index++) {
+        if (playbackTimestamp <= frames[index].sentAtUnixMilliseconds) {
+          left = frames[index - 1];
+          right = frames[index];
+          break;
+        }
+      }
+
+      const segmentDuration = Math.max(
+        1,
+        right.sentAtUnixMilliseconds - left.sentAtUnixMilliseconds);
+
+      const alpha = Math.min(
+        1,
+        Math.max(
+          0,
+          (playbackTimestamp - left.sentAtUnixMilliseconds) /
+            segmentDuration));
 
       remote.x =
-        remote.startX +
-        (remote.targetX - remote.startX) *
-        remote.progress;
+        left.x +
+        (right.x - left.x) *
+        alpha;
 
       remote.z =
-        remote.startZ +
-        (remote.targetZ - remote.startZ) *
-        remote.progress;
+        left.z +
+        (right.z - left.z) *
+        alpha;
     }
   }
 
@@ -350,7 +395,7 @@
     const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
     updateMovement(dt, now);
-    smoothRemotePlayers(dt);
+    smoothRemotePlayers(now);
     drawArena();
     requestAnimationFrame(frame);
   }
