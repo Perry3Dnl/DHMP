@@ -629,7 +629,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private sealed class AllocationProbeSender : IDhmpPacketSender
     {
         public int MaximumPayloadBytes =>
-            MaximumPayloadBytes;
+            DhmpThroughputLab.MaximumPayloadBytes;
 
         public ValueTask SendPacketAsync(
             ReadOnlyMemory<byte> payload,
