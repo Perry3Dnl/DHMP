@@ -47,6 +47,8 @@ jobs:
         run: dotnet build src/DHMP.Connector/DHMP.Connector.csproj --configuration Release
       - name: Build privilege-free core quickstart
         run: dotnet build samples/DHMP.CoreLoopback/DHMP.CoreLoopback.csproj --configuration Release
+      - name: Build deployed demo host
+        run: dotnet build samples/DHMP.FramebufferDemo/DHMP.FramebufferDemo.csproj --configuration Release
       - name: Build direct-IP experiments
         shell: bash
         run: |
