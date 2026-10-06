@@ -21,6 +21,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
     private WorkerMetrics[] _workerMetrics = [];
     private double _coreProcessNanosecondsPerPacket;
+    private AllocationBreakdown _allocationBreakdown;
     private long _workerFaults;
     private string _lastWorkerError = string.Empty;
 
@@ -86,6 +87,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         DhmpStressConfirmationMode confirmationMode;
         long version;
         double coreProcessNanosecondsPerPacket;
+        AllocationBreakdown allocationBreakdown;
 
         lock (_configurationGate)
         {
@@ -98,6 +100,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             version = _configurationVersion;
             coreProcessNanosecondsPerPacket =
                 _coreProcessNanosecondsPerPacket;
+            allocationBreakdown =
+                _allocationBreakdown;
         }
 
         WorkerMetrics[] metrics =
@@ -144,6 +148,10 @@ internal sealed class DhmpThroughputLab : BackgroundService
             GC.CollectionCount(0),
             GC.CollectionCount(1),
             GC.CollectionCount(2),
+            allocationBreakdown.ProcessorBytesPerPacket,
+            allocationBreakdown.ServerBytesPerPacket,
+            allocationBreakdown.ClientBytesPerPacket,
+            allocationBreakdown.FullPathBytesPerPacket,
             packetBytes,
             packetBytes / RecordSize,
             workers,
@@ -186,12 +194,18 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     packetBytes,
                     receiveMode);
 
+            AllocationBreakdown allocationBreakdown =
+                MeasureAllocationBreakdown(
+                    receiveMode);
+
             lock (_configurationGate)
             {
                 if (_configurationVersion == version)
                 {
                     _coreProcessNanosecondsPerPacket =
                         coreNs;
+                    _allocationBreakdown =
+                        allocationBreakdown;
                 }
             }
 
@@ -457,6 +471,141 @@ internal sealed class DhmpThroughputLab : BackgroundService
             MeasuredIterations;
     }
 
+    private static AllocationBreakdown MeasureAllocationBreakdown(
+        DhmpProcessingMode receiveMode)
+    {
+        const int ProbePacketBytes = 256;
+        const int WarmupIterations = 10_000;
+        const int MeasuredIterations = 250_000;
+
+        var wire =
+            new DhmpWireContract(
+                RecordSize);
+
+        var receivePolicy =
+            new DhmpReceivePolicy(
+                receiveMode,
+                MaximumPayloadBytes);
+
+        byte[] packet =
+            GC.AllocateUninitializedArray<byte>(
+                ProbePacketBytes);
+
+        Action<ReadOnlySpan<byte>> publish =
+            static _ => { };
+
+        var processor =
+            new DhmpPacketProcessor(
+                wire,
+                receivePolicy);
+
+        double processorBytes =
+            MeasureAllocatedBytesPerCall(
+                WarmupIterations,
+                MeasuredIterations,
+                () => processor.Process(
+                    packet,
+                    publish));
+
+        var server =
+            new DhmpServer(
+                wire,
+                receivePolicy);
+
+        double serverBytes =
+            MeasureAllocatedBytesPerCall(
+                WarmupIterations,
+                MeasuredIterations,
+                () => server.ProcessPacket(
+                    packet,
+                    publish));
+
+        var nullSender =
+            new AllocationProbeSender();
+
+        var client =
+            new DhmpClient(
+                nullSender,
+                wire,
+                new DhmpSendPolicy(
+                    long.MaxValue,
+                    MaximumPayloadBytes,
+                    DhmpRatePolicy.Unlimited));
+
+        double clientBytes =
+            MeasureAllocatedBytesPerCall(
+                WarmupIterations,
+                MeasuredIterations,
+                () => client.SendBatchAsync(
+                        packet)
+                    .GetAwaiter()
+                    .GetResult());
+
+        var metrics =
+            new WorkerMetrics();
+
+        var fullSender =
+            new InMemoryPacketSender(
+                server,
+                RecordSize,
+                DhmpStressConfirmationMode.None,
+                metrics);
+
+        var fullClient =
+            new DhmpClient(
+                fullSender,
+                wire,
+                new DhmpSendPolicy(
+                    long.MaxValue,
+                    MaximumPayloadBytes,
+                    DhmpRatePolicy.Unlimited));
+
+        double fullPathBytes =
+            MeasureAllocatedBytesPerCall(
+                WarmupIterations,
+                MeasuredIterations,
+                () => fullClient.SendBatchAsync(
+                        packet)
+                    .GetAwaiter()
+                    .GetResult());
+
+        return new AllocationBreakdown(
+            processorBytes,
+            serverBytes,
+            clientBytes,
+            fullPathBytes);
+    }
+
+    private static double MeasureAllocatedBytesPerCall(
+        int warmupIterations,
+        int measuredIterations,
+        Action action)
+    {
+        for (int index = 0;
+             index < warmupIterations;
+             index++)
+        {
+            action();
+        }
+
+        long before =
+            GC.GetAllocatedBytesForCurrentThread();
+
+        for (int index = 0;
+             index < measuredIterations;
+             index++)
+        {
+            action();
+        }
+
+        long after =
+            GC.GetAllocatedBytesForCurrentThread();
+
+        return
+            (double)(after - before) /
+            measuredIterations;
+    }
+
     private static void FillPacket(
         byte[] packet,
         int workerId)
@@ -474,6 +623,20 @@ internal sealed class DhmpThroughputLab : BackgroundService
             BitConverter.TryWriteBytes(
                 packet.AsSpan(offset + 8, 8),
                 ~sequence);
+        }
+    }
+
+    private sealed class AllocationProbeSender : IDhmpPacketSender
+    {
+        public int MaximumPayloadBytes =>
+            MaximumPayloadBytes;
+
+        public ValueTask SendPacketAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -701,6 +864,10 @@ internal sealed record DhmpThroughputSnapshot(
     int Gen0Collections,
     int Gen1Collections,
     int Gen2Collections,
+    double ProcessorAllocatedBytesPerPacket,
+    double ServerAllocatedBytesPerPacket,
+    double ClientAllocatedBytesPerPacket,
+    double FullPathAllocatedBytesPerPacket,
     int PacketBytes,
     int RecordsPerPacket,
     int Workers,
@@ -716,6 +883,12 @@ internal sealed record DhmpThroughputSnapshot(
     int ExpectedPublishedRecordsPerPacket,
     long WorkerFaults,
     string LastWorkerError);
+
+internal readonly record struct AllocationBreakdown(
+    double ProcessorBytesPerPacket,
+    double ServerBytesPerPacket,
+    double ClientBytesPerPacket,
+    double FullPathBytesPerPacket);
 
 internal sealed record DhmpThroughputRequest(
     int PacketBytes,
