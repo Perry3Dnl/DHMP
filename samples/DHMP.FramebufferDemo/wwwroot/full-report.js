@@ -19,6 +19,69 @@
 
   const chartPalette = ['#69b7ff', '#71e6a1', '#f5c66f', '#d79cff', '#ff8c8c'];
 
+  const publishedReferences = [
+    {
+      label: 'ASP.NET Core HTTP',
+      rateMillions: 1.15,
+      throughputGb: null,
+      result: '1.15 million plaintext requests/s',
+      payload: 'TechEmpower plaintext workload',
+      scope: 'Historical ASP.NET Core optimization result, published 2016',
+      sourceLabel: 'TechEmpower',
+      sourceUrl: 'https://www.techempower.com/blog/2016/02/24/performance-competition-is-a-good-thing/'
+    },
+    {
+      label: 'Linux UDP',
+      rateMillions: 1.147,
+      throughputGb: null,
+      result: '1.147 million packets/s',
+      payload: 'Small UDP packets',
+      scope: 'Cloudflare Linux UDP receiver with SO_REUSEPORT, published 2015',
+      sourceLabel: 'Cloudflare',
+      sourceUrl: 'https://blog.cloudflare.com/how-to-receive-a-million-packets/'
+    },
+    {
+      label: 'AF_XDP l2fwd',
+      rateMillions: 11.5,
+      throughputGb: null,
+      result: '≈11.5 million packets/s at 0% loss',
+      payload: '64-byte packets',
+      scope: 'Intel AF_XDP kernel l2fwd microbenchmark; Xeon Gold 6230 class test system',
+      sourceLabel: 'Intel AF_XDP guide',
+      sourceUrl: 'https://networkbuilders.intel.com/docs/networkbuilders/af-xdp-sockets-high-performance-networking-for-cloud-native-networking-technology-guide.pdf'
+    },
+    {
+      label: 'DPDK testpmd',
+      rateMillions: 3.933527049,
+      throughputGb: 6.04976460125,
+      result: '3.93 million packets/s; 48.40 Gbit/s',
+      payload: '1,518-byte frames',
+      scope: 'Intel DPDK testpmd host PF benchmark; published platform benchmark',
+      sourceLabel: 'Intel benchmark report',
+      sourceUrl: 'https://builders.intel.com/docs/networkbuilders/enhanced-platform-awareness-in-kubernetes-performance-benchmark-report.pdf'
+    },
+    {
+      label: 'Linux TCP',
+      rateMillions: null,
+      throughputGb: 8.93,
+      result: '71.44 Gbit/s send',
+      payload: 'TCP stream',
+      scope: 'Red Hat data-center Linux TCP benchmark on Arm server hardware, published 2024',
+      sourceLabel: 'Red Hat',
+      sourceUrl: 'https://developers.redhat.com/articles/2024/12/10/linux-arm-aarch64-servers-can-they-handle-datacenter-level-networks'
+    },
+    {
+      label: 'Linux UDP throughput',
+      rateMillions: null,
+      throughputGb: 1.25,
+      result: '≈10 Gbit/s link saturation',
+      payload: 'MTU-sized UDP, multiple flows',
+      scope: 'Red Hat UDP GRO/TSO benchmark on a 10 Gbit/s link; published 2021',
+      sourceLabel: 'Red Hat UDP',
+      sourceUrl: 'https://developers.redhat.com/articles/2021/11/05/improve-udp-performance-rhel-85'
+    }
+  ];
+
   function prepareCanvas(canvas) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const width = Math.max(320, canvas.clientWidth || 640);
@@ -270,6 +333,71 @@
     }
   }
 
+
+  function renderPublishedComparison(report) {
+    const rateRows =
+      publishedReferences.filter(row => Number.isFinite(row.rateMillions));
+
+    drawGroupedBarChart(
+      'publishedRateChart',
+      rateRows.map(row => row.label),
+      [{
+        label: 'Million ops/s',
+        values: rateRows.map(row => row.rateMillions)
+      }],
+      value => fullDecimal(value, 2) + ' M');
+
+    const dhmpBestGb =
+      Math.max(
+        0,
+        ...(report.workerScaling || [])
+          .map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)));
+
+    const throughputRows =
+      publishedReferences.filter(row => Number.isFinite(row.throughputGb));
+
+    const throughputLabels =
+      ['DHMP software ceiling', ...throughputRows.map(row => row.label)];
+
+    const throughputValues =
+      [dhmpBestGb, ...throughputRows.map(row => row.throughputGb)];
+
+    drawGroupedBarChart(
+      'publishedThroughputChart',
+      throughputLabels,
+      [{
+        label: 'GB/s',
+        values: throughputValues
+      }],
+      value => fullDecimal(value, 2));
+
+    drawGroupedBarChart(
+      'publishedMultipleChart',
+      throughputRows.map(row => row.label),
+      [{
+        label: 'DHMP multiple',
+        values: throughputRows.map(
+          row => row.throughputGb > 0
+            ? dhmpBestGb / row.throughputGb
+            : 0)
+      }],
+      value => fullDecimal(value, 1) + '×');
+
+    const body = $('publishedComparisonBody');
+    if (body) {
+      body.innerHTML =
+        publishedReferences.map(row =>
+          '<tr>' +
+          '<td>' + row.label + '</td>' +
+          '<td>' + row.result + '</td>' +
+          '<td>' + row.payload + '</td>' +
+          '<td style="text-align:left;white-space:normal;min-width:280px">' + row.scope + '</td>' +
+          '<td><a href="' + row.sourceUrl + '" target="_blank" rel="noopener noreferrer">' +
+          row.sourceLabel + '</a></td>' +
+          '</tr>').join('');
+    }
+  }
+
   function renderCharts(report) {
     const packetSizes = [...new Set(report.pathMatrix.map(r => Number(r.packetBytes)))];
     const modeLabels = ['Sequential', 'Latest', 'Latest + Ring-3'];
@@ -338,6 +466,7 @@
       report.allocations);
 
     renderProtocolComparison(report);
+    renderPublishedComparison(report);
   }
 
   function metric(label, value, unit = '') {
