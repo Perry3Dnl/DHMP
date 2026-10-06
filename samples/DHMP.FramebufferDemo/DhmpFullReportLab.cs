@@ -63,7 +63,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 28;
+            _totalSteps = 29;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -121,6 +121,9 @@ internal sealed class DhmpFullReportLab
             Step("Confirmation overhead");
             var confirmations = RunConfirmationBenchmarks();
 
+            Step("Ring-3 consumer read");
+            var ring3Consumer = RunRing3ConsumerBenchmark();
+
             Step("Allocation probes");
             var allocations = RunAllocationBenchmarks();
 
@@ -142,6 +145,7 @@ internal sealed class DhmpFullReportLab
                 scaling,
                 ratePolicies,
                 confirmations,
+                ring3Consumer,
                 allocations,
                 checks,
                 new[]
@@ -153,7 +157,8 @@ internal sealed class DhmpFullReportLab
                     "Packet rate is measured as complete benchmark packet transactions per second.",
                     "Records/s is the number of 16-byte application records represented by those packet transactions.",
                     "Latest publishes one newest record per packet; Sequential publishes every complete record.",
-                    "Latest + Ring-3 retains receive-side N-2/N-1/N while publishing only newest N."
+                    "Latest + Ring-3 retains receive-side N-2/N-1/N while publishing only newest N.",
+                    "Ring-3 packet-path timings measure writes only. Consumer reads are benchmarked separately instead of reading the window after every packet."
                 });
 
             lock (_gate)
@@ -575,6 +580,62 @@ internal sealed class DhmpFullReportLab
         return results.ToArray();
     }
 
+    private static DhmpRing3ConsumerBenchmark RunRing3ConsumerBenchmark()
+    {
+        const int packetBytes = 1408;
+
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(RecordSize),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    MaximumPayloadBytes,
+                    nativeSmoothing: true));
+
+        byte[] packet =
+            GC.AllocateUninitializedArray<byte>(
+                packetBytes);
+
+        server.ProcessPacket(
+            packet,
+            static _ => { });
+
+        byte[] destination =
+            new byte[
+                DhmpLatestStateWindow.Capacity *
+                RecordSize];
+
+        for (int i = 0; i < WarmupIterations; i++)
+        {
+            server.CopyNativeSmoothingWindow(
+                destination);
+        }
+
+        double[] samples =
+            new double[Repetitions];
+
+        for (int repetition = 0;
+             repetition < Repetitions;
+             repetition++)
+        {
+            samples[repetition] =
+                MeasureNanosecondsPerCall(
+                    MeasuredIterations,
+                    () => server.CopyNativeSmoothingWindow(
+                        destination));
+        }
+
+        DhmpSampleStats stats =
+            Stats(samples);
+
+        return new DhmpRing3ConsumerBenchmark(
+            packetBytes,
+            DhmpLatestStateWindow.Capacity,
+            stats,
+            stats.Median * 60d,
+            stats.Median * 120d);
+    }
+
     private static DhmpAllocationBenchmark[] RunAllocationBenchmarks()
     {
         var results =
@@ -874,16 +935,6 @@ internal sealed class DhmpFullReportLab
                 payload.Span,
                 _publish);
 
-            if (_server.NativeSmoothingEnabled)
-            {
-                Span<byte> window =
-                    stackalloc byte[
-                        DhmpLatestStateWindow.Capacity *
-                        RecordSize];
-
-                _server.CopyNativeSmoothingWindow(
-                    window);
-            }
 
             return ValueTask.CompletedTask;
         }
@@ -989,6 +1040,7 @@ internal sealed record DhmpFullReport(
     DhmpWorkerScalingBenchmark[] WorkerScaling,
     DhmpRatePolicyBenchmark[] RatePolicies,
     DhmpConfirmationBenchmark[] ConfirmationModes,
+    DhmpRing3ConsumerBenchmark Ring3Consumer,
     DhmpAllocationBenchmark[] Allocations,
     DhmpCorrectnessCheck[] CorrectnessChecks,
     string[] InterpretationNotes);
@@ -1051,6 +1103,13 @@ internal sealed record DhmpConfirmationBenchmark(
     DhmpSampleStats RoundTripNanoseconds,
     double PacketRate,
     int ReturnBytesPerForwardPacket);
+
+internal sealed record DhmpRing3ConsumerBenchmark(
+    int PacketBytes,
+    int RetainedRecords,
+    DhmpSampleStats ReadNanoseconds,
+    double NanosecondsPerSecondAt60Hz,
+    double NanosecondsPerSecondAt120Hz);
 
 internal sealed record DhmpAllocationBenchmark(
     string ReceiveMode,

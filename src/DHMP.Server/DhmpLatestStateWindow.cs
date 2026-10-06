@@ -15,7 +15,6 @@ public sealed class DhmpLatestStateWindow
 
     private int _writerActive;
     private long _publishedSequence;
-    private long _recordsObserved;
 
     public DhmpLatestStateWindow(int recordSize)
     {
@@ -35,7 +34,7 @@ public sealed class DhmpLatestStateWindow
             Capacity);
 
     public long RecordsObserved =>
-        Interlocked.Read(ref _recordsObserved);
+        Volatile.Read(ref _publishedSequence);
 
     public long RecordsOverwritten =>
         Math.Max(
@@ -77,64 +76,8 @@ public sealed class DhmpLatestStateWindow
 
         try
         {
-            int records =
-                packet.Length /
-                _recordSize;
-
-            int keep =
-                Math.Min(
-                    records,
-                    Capacity);
-
-            int first =
-                records - keep;
-
-            long sequence =
-                Volatile.Read(
-                    ref _publishedSequence);
-
-            // Records skipped at the front are still observed by Latest, but
-            // cannot affect the final three-state window.
-            sequence += records - keep;
-
-            for (int index = first;
-                 index < records;
-                 index++)
-            {
-                sequence++;
-
-                int slot =
-                    (int)((sequence - 1) %
-                          Capacity);
-
-                long stableVersion =
-                    sequence * 2;
-
-                // Odd = slot being written, even = stable sequence contents.
-                Volatile.Write(
-                    ref _slotVersions[slot],
-                    stableVersion - 1);
-
-                packet.Slice(
-                        index * _recordSize,
-                        _recordSize)
-                    .CopyTo(
-                        _slots.AsSpan(
-                            slot * _recordSize,
-                            _recordSize));
-
-                Volatile.Write(
-                    ref _slotVersions[slot],
-                    stableVersion);
-
-                Volatile.Write(
-                    ref _publishedSequence,
-                    sequence);
-            }
-
-            Interlocked.Add(
-                ref _recordsObserved,
-                records);
+            PublishValidatedPacketSingleWriter(
+                packet);
         }
         finally
         {
@@ -142,6 +85,71 @@ public sealed class DhmpLatestStateWindow
                 ref _writerActive,
                 0);
         }
+    }
+
+    /// <summary>
+    /// Single-producer fast path used by one DhmpServer receive path.
+    /// Readers remain lock-free and protected by per-slot versions.
+    /// </summary>
+    internal void PublishValidatedPacketSingleWriter(
+        ReadOnlySpan<byte> packet)
+    {
+        int records =
+            packet.Length /
+            _recordSize;
+
+        int keep =
+            Math.Min(
+                records,
+                Capacity);
+
+        int first =
+            records - keep;
+
+        long sequence =
+            Volatile.Read(
+                ref _publishedSequence);
+
+        // Obsolete records still advance the logical sequence, but only the
+        // newest three records need to be copied into the physical ring.
+        sequence += records - keep;
+
+        for (int index = first;
+             index < records;
+             index++)
+        {
+            sequence++;
+
+            int slot =
+                (int)((sequence - 1) %
+                      Capacity);
+
+            long stableVersion =
+                sequence * 2;
+
+            Volatile.Write(
+                ref _slotVersions[slot],
+                stableVersion - 1);
+
+            packet.Slice(
+                    index * _recordSize,
+                    _recordSize)
+                .CopyTo(
+                    _slots.AsSpan(
+                        slot * _recordSize,
+                        _recordSize));
+
+            Volatile.Write(
+                ref _slotVersions[slot],
+                stableVersion);
+        }
+
+        // Publish the entire packet atomically to readers only after all
+        // retained slots are stable. This is also the total records-observed
+        // sequence, so no separate Interlocked counter is needed.
+        Volatile.Write(
+            ref _publishedSequence,
+            sequence);
     }
 
     /// <summary>
