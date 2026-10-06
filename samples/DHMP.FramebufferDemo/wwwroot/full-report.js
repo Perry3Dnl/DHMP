@@ -365,6 +365,15 @@
       fullInteger(row.packetRate) + '</td><td>' + Number(row.returnBytesPerForwardPacket).toLocaleString() +
       '</td></tr>').join('');
 
+    const ring = report.ring3Consumer;
+    $('ring3ConsumerGrid').innerHTML =
+      metric('Median Ring-3 read', fullDecimal(ring.readNanoseconds.median, 2), 'ns/read') +
+      metric('Min Ring-3 read', fullDecimal(ring.readNanoseconds.min, 2), 'ns/read') +
+      metric('Max Ring-3 read', fullDecimal(ring.readNanoseconds.max, 2), 'ns/read') +
+      metric('Read CV', fullDecimal(ring.readNanoseconds.coefficientOfVariationPercent, 2), '%') +
+      metric('60 Hz consumer cost', fullDecimal(ring.nanosecondsPerSecondAt60Hz, 2), 'ns CPU time/s') +
+      metric('120 Hz consumer cost', fullDecimal(ring.nanosecondsPerSecondAt120Hz, 2), 'ns CPU time/s');
+
     $('allocationBody').innerHTML = report.allocations.map(row =>
       '<tr><td>' + row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : '') +
       '</td><td>' + row.packetBytes + '</td><td>' +
