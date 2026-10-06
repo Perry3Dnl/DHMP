@@ -15,7 +15,7 @@
   let configureTimer=0;
   let selectedReceiveMode='Sequential';
   let selectedNativeSmoothing=false;
-  let selectedRatePolicy='RejectWindow';
+  let selectedRatePolicy='Unlimited';
   let selectedConfirmationMode='None';
 
   function compact(v){
