@@ -151,7 +151,8 @@ app.MapPost(
                 ignoreCase: true,
                 out var ratePolicy) ||
             ratePolicy is not DHMP.Protocol.DhmpRatePolicy.RejectWindow and
-                not DHMP.Protocol.DhmpRatePolicy.SmoothPacing)
+                not DHMP.Protocol.DhmpRatePolicy.SmoothPacing and
+                not DHMP.Protocol.DhmpRatePolicy.Unlimited)
         {
             return Results.BadRequest(
                 new { error = "Unsupported rate policy." });
