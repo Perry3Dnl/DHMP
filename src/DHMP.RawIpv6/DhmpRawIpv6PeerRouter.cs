@@ -500,13 +500,17 @@ public sealed class DhmpRawIpv6PeerRouter
             int recordSize =
                 binding.Server.WireContract.RecordSize;
 
-            if (payload.Length <= 0 ||
-                payload.Length > maximumPlaintext ||
-                payload.Length % recordSize != 0)
+            if (payload.Length < recordSize ||
+                payload.Length > maximumPlaintext)
                 return false;
 
+            int completeBytes =
+                payload.Length /
+                recordSize *
+                recordSize;
+
             for (int offset = 0;
-                 offset < payload.Length;
+                 offset < completeBytes;
                  offset += recordSize)
             {
                 ulong actualId =
