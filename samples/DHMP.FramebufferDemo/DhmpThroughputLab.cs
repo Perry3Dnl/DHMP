@@ -6,12 +6,12 @@ using DHMP.Server;
 internal sealed class DhmpThroughputLab : BackgroundService
 {
     public const int RecordSize = 64;
-    public const int MaximumPayloadBytes = 65_520;
+    public const int MaximumPayloadBytes = 65_472;
 
     private readonly object _configurationGate = new();
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
 
-    private int _packetBytes = 65_520;
+    private int _packetBytes = 65_472;
     private int _workers = Math.Max(1, Environment.ProcessorCount);
     private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
     private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.RejectWindow;
@@ -497,8 +497,6 @@ internal sealed class DhmpThroughputLab : BackgroundService
                         0,
                         returnBytes);
 
-                confirmation.Clear();
-
                 ReadOnlySpan<byte> records =
                     payload.Span;
 
@@ -513,35 +511,27 @@ internal sealed class DhmpThroughputLab : BackgroundService
                                 8));
                 }
 
-                int confirmed = 0;
+                int usedBytes = ids * 8;
+                if (usedBytes < returnBytes)
+                {
+                    confirmation[
+                        usedBytes..
+                    ].Clear();
+                }
 
                 _returnServer.ProcessPacket(
                     confirmation,
                     returned =>
                     {
-                        for (int index = 0; index < ids; index++)
+                        if (!returned.SequenceEqual(
+                                _confirmationScratch.AsSpan(
+                                    0,
+                                    returnBytes)))
                         {
-                            if (!returned.Slice(
-                                    index * 8,
-                                    8)
-                                .SequenceEqual(
-                                    payload.Span.Slice(
-                                        index * _recordSize,
-                                        8)))
-                            {
-                                throw new InvalidDataException(
-                                    "Application ID confirmation mismatch.");
-                            }
-
-                            confirmed++;
+                            throw new InvalidDataException(
+                                "Application ID confirmation mismatch.");
                         }
                     });
-
-                if (confirmed != ids)
-                {
-                    throw new InvalidDataException(
-                        "Application ID confirmation count mismatch.");
-                }
 
                 confirmationRecordsReturned =
                     returnRecords;
