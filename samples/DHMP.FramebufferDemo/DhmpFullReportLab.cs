@@ -895,7 +895,7 @@ internal sealed class DhmpFullReportLab
         private readonly DhmpStressConfirmationMode _mode;
         private readonly DhmpServer _returnServer;
         private readonly byte[] _scratch =
-            new byte[MaximumPayloadBytes];
+            new byte[DhmpFullReportLab.MaximumPayloadBytes];
 
         public ConfirmationReportSender(
             DhmpServer forwardServer,
