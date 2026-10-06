@@ -215,12 +215,20 @@
         1,
         lastTimestamp - firstTimestamp);
 
-      const playbackElapsed = Math.min(
-        historyDuration,
-        Math.max(0, now - remote.playbackStartedAt));
+      // The browser deliberately consumes one Ring-3 window every 100 ms.
+      // Stretch the authoritative N-2..N window across that fixed frontend
+      // cadence instead of finishing early and freezing until the next poll.
+      const playbackAlpha = Math.min(
+        1,
+        Math.max(
+          0,
+          (now - remote.playbackStartedAt) /
+            RECEIVE_INTERVAL_MS));
 
       const playbackTimestamp =
-        firstTimestamp + playbackElapsed;
+        firstTimestamp +
+        historyDuration *
+        playbackAlpha;
 
       let left = frames[0];
       let right = frames[frames.length - 1];
