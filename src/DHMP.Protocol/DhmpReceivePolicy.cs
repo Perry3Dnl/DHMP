@@ -1,68 +1,44 @@
 namespace DHMP.Protocol;
 
-/// <summary>
-/// Local inbound publication and packet-limit policy.
-/// It does not change DHMP V1 wire bytes.
-/// </summary>
+/// <summary>Local inbound publication and packet-limit policy. It does not change DHMP V1 wire bytes.</summary>
 public readonly record struct DhmpReceivePolicy
 {
-    public DhmpReceivePolicy()
-        : this(
-            DhmpProcessingMode.Sequential,
-            1408,
-            1)
-    {
-    }
+    public DhmpReceivePolicy() : this(DhmpProcessingMode.Sequential, 1408, nativeSmoothing: false) { }
 
     public DhmpReceivePolicy(
         DhmpProcessingMode mode,
         int maximumPayloadBytes = 1408,
-        int latestHistoryRecords = 1)
+        bool nativeSmoothing = false)
     {
         if (mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
             throw new ArgumentOutOfRangeException(nameof(mode));
-
-        if (maximumPayloadBytes <= 0 ||
-            maximumPayloadBytes > ushort.MaxValue)
+        if (maximumPayloadBytes <= 0 || maximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(maximumPayloadBytes));
-
-        if (latestHistoryRecords <= 0 ||
-            latestHistoryRecords > ushort.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(latestHistoryRecords));
+        if (nativeSmoothing && mode != DhmpProcessingMode.Latest)
+            throw new ArgumentException("Native smoothing is only valid with Latest receive mode.", nameof(nativeSmoothing));
 
         Mode = mode;
         MaximumPayloadBytes = maximumPayloadBytes;
-        LatestHistoryRecords = latestHistoryRecords;
+        NativeSmoothing = nativeSmoothing;
     }
 
     public DhmpProcessingMode Mode { get; }
     public int MaximumPayloadBytes { get; }
 
     /// <summary>
-    /// Number of already-received tail records exposed when <see cref="Mode"/> is
-    /// <see cref="DhmpProcessingMode.Latest"/>. A value of 1 preserves normal
-    /// Latest behavior. Values above 1 expose older records from the same packet
-    /// before the newest record, without waiting for future packets and without
-    /// adding DHMP wire metadata.
+    /// Retain the newest three complete received records in a bounded receive-side Ring-3
+    /// while normal Latest publication still exposes only the newest record.
     /// </summary>
-    public int LatestHistoryRecords { get; }
+    public bool NativeSmoothing { get; }
 
     public void Validate(DhmpWireContract wireContract)
     {
         wireContract.Validate();
-
         if (Mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
-            throw new ArgumentException(
-                "A supported DHMP receive mode is required.");
-
-        if (MaximumPayloadBytes < wireContract.RecordSize ||
-            MaximumPayloadBytes > ushort.MaxValue)
-            throw new ArgumentException(
-                "A valid local DHMP receive packet limit is required.");
-
-        if (LatestHistoryRecords <= 0 ||
-            LatestHistoryRecords > ushort.MaxValue)
-            throw new ArgumentException(
-                "Latest history must request at least one record.");
+            throw new ArgumentException("A supported DHMP receive mode is required.");
+        if (MaximumPayloadBytes < wireContract.RecordSize || MaximumPayloadBytes > ushort.MaxValue)
+            throw new ArgumentException("A valid local DHMP receive packet limit is required.");
+        if (NativeSmoothing && Mode != DhmpProcessingMode.Latest)
+            throw new ArgumentException("Native smoothing requires Latest receive mode.");
     }
 }
