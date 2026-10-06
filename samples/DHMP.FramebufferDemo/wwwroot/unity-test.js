@@ -158,26 +158,42 @@
           : [snapshot];
 
         const latest = frames[frames.length - 1];
+        const current = frames.length >= 2
+          ? frames[frames.length - 2]
+          : latest;
+        const previous = frames.length >= 3
+          ? frames[frames.length - 3]
+          : current;
+
         const existing = renderedPlayers.get(snapshot.playerId);
 
         if (!existing) {
-          const first = frames[0];
-
           renderedPlayers.set(snapshot.playerId, {
             playerId: snapshot.playerId,
-            x: first.x,
-            z: first.z,
+            x: current.x,
+            z: current.z,
             sequence: latest.sequence,
-            frames,
-            playbackStartedAt: receivedAt
+            previous,
+            current,
+            future: latest,
+            segmentStartedAt: receivedAt,
+            segmentDuration: RECEIVE_INTERVAL_MS
           });
 
           continue;
         }
 
         if (latest.sequence > existing.sequence) {
-          existing.frames = frames;
-          existing.playbackStartedAt = receivedAt;
+          // Preserve visual continuity if the polling cadence skips more than
+          // one server state. N-2/N-1/N still define the authoritative curve,
+          // but the visible player never snaps backwards on a refresh.
+          existing.renderStartX = existing.x;
+          existing.renderStartZ = existing.z;
+          existing.previous = previous;
+          existing.current = current;
+          existing.future = latest;
+          existing.segmentStartedAt = receivedAt;
+          existing.segmentDuration = RECEIVE_INTERVAL_MS;
           existing.sequence = latest.sequence;
         }
       }
@@ -199,68 +215,62 @@
 
   function smoothRemotePlayers(now) {
     for (const remote of renderedPlayers.values()) {
-      const frames = remote.frames;
+      const previous = remote.previous;
+      const current = remote.current;
+      const future = remote.future;
 
-      if (!Array.isArray(frames) || frames.length === 0) continue;
-
-      if (frames.length === 1) {
-        remote.x = frames[0].x;
-        remote.z = frames[0].z;
-        continue;
-      }
-
-      const firstTimestamp = frames[0].sentAtUnixMilliseconds;
-      const lastTimestamp = frames[frames.length - 1].sentAtUnixMilliseconds;
-      const historyDuration = Math.max(
-        1,
-        lastTimestamp - firstTimestamp);
-
-      // The browser deliberately consumes one Ring-3 window every 100 ms.
-      // Stretch the authoritative N-2..N window across that fixed frontend
-      // cadence instead of finishing early and freezing until the next poll.
-      const playbackAlpha = Math.min(
-        1,
-        Math.max(
-          0,
-          (now - remote.playbackStartedAt) /
-            RECEIVE_INTERVAL_MS));
-
-      const playbackTimestamp =
-        firstTimestamp +
-        historyDuration *
-        playbackAlpha;
-
-      let left = frames[0];
-      let right = frames[frames.length - 1];
-
-      for (let index = 1; index < frames.length; index++) {
-        if (playbackTimestamp <= frames[index].sentAtUnixMilliseconds) {
-          left = frames[index - 1];
-          right = frames[index];
-          break;
-        }
-      }
-
-      const segmentDuration = Math.max(
-        1,
-        right.sentAtUnixMilliseconds - left.sentAtUnixMilliseconds);
+      if (!current || !future) continue;
 
       const alpha = Math.min(
         1,
         Math.max(
           0,
-          (playbackTimestamp - left.sentAtUnixMilliseconds) /
-            segmentDuration));
+          (now - remote.segmentStartedAt) /
+            Math.max(1, remote.segmentDuration)));
+
+      const startX = Number.isFinite(remote.renderStartX)
+        ? remote.renderStartX
+        : current.x;
+      const startZ = Number.isFinite(remote.renderStartZ)
+        ? remote.renderStartZ
+        : current.z;
+
+      // Estimate the incoming tangent from N-2 -> N-1 and the outgoing
+      // tangent from N-1 -> N. This uses only authoritative Ring-3 states.
+      const incomingX = previous
+        ? current.x - previous.x
+        : future.x - current.x;
+      const incomingZ = previous
+        ? current.z - previous.z
+        : future.z - current.z;
+      const outgoingX = future.x - current.x;
+      const outgoingZ = future.z - current.z;
+
+      const t2 = alpha * alpha;
+      const t3 = t2 * alpha;
+      const h00 = 2 * t3 - 3 * t2 + 1;
+      const h10 = t3 - 2 * t2 + alpha;
+      const h01 = -2 * t3 + 3 * t2;
+      const h11 = t3 - t2;
 
       remote.x =
-        left.x +
-        (right.x - left.x) *
-        alpha;
+        h00 * startX +
+        h10 * incomingX +
+        h01 * future.x +
+        h11 * outgoingX;
 
       remote.z =
-        left.z +
-        (right.z - left.z) *
-        alpha;
+        h00 * startZ +
+        h10 * incomingZ +
+        h01 * future.z +
+        h11 * outgoingZ;
+
+      if (alpha >= 1) {
+        remote.x = future.x;
+        remote.z = future.z;
+        remote.renderStartX = future.x;
+        remote.renderStartZ = future.z;
+      }
     }
   }
 
