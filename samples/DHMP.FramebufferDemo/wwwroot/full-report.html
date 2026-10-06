@@ -170,6 +170,11 @@
           <p class="muted">Ratio of this report's best DHMP aggregate payload GB/s to each published bandwidth reference. This is scale context only because hardware and benchmark scope differ.</p>
           <canvas id="publishedMultipleChart"></canvas>
         </article>
+        <article class="chart-card chart-wide">
+          <h3>Packet-size scaling: DHMP vs published DPDK</h3>
+          <p class="muted"><strong>Different hardware and path.</strong> Intel DPDK testpmd host-PF results are plotted against the nearest DHMP Full Report payload rows to show scaling shape, not a controlled head-to-head benchmark.</p>
+          <canvas id="dpdkScalingChart"></canvas>
+        </article>
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
