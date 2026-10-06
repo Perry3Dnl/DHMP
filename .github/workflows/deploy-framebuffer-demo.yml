@@ -1,6 +1,8 @@
 name: Deploy framebuffer demo
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm:
@@ -22,6 +24,7 @@ concurrency:
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[deploy-demo]')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -29,7 +32,7 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
-      DEMO_DOMAIN: ${{ inputs.domain }}
+      DEMO_DOMAIN: ${{ inputs.domain || 'dhmp.perry3d.nl' }}
       DEPLOY_SHA: ${{ github.sha }}
       EXPECTED_SSH_ED25519_FINGERPRINT: ${{ vars.DEPLOY_HOST_KEY_FINGERPRINT || 'SHA256:Vq5Cic1/9iZsNAXfG9GQlnOjciecd6V9BPLGV5X2ExE' }}
 
@@ -38,7 +41,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "${{ inputs.confirm }}" = "DEPLOY" || { echo "Confirmation must be exactly DEPLOY." >&2; exit 1; }
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            test "${{ inputs.confirm }}" = "DEPLOY" || { echo "Confirmation must be exactly DEPLOY." >&2; exit 1; }
+          fi
           [[ "$DEMO_DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "Invalid demo domain." >&2; exit 1; }
 
       - uses: actions/checkout@v4
