@@ -151,6 +151,35 @@
     </section>
 
     <section class="report-section">
+      <p class="eyebrow">PUBLISHED PERFORMANCE LANDSCAPE</p>
+      <h2>How DHMP sits against published HTTP, TCP, UDP and kernel-bypass results</h2>
+      <p class="muted"><strong>Context chart, not an apples-to-apples benchmark.</strong> These reference points come from public third-party benchmark reports on different hardware, packet sizes and workloads. They are shown because buyers want scale context. The measured-on-this-server section above remains the direct comparison.</p>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Published packet / request rate landscape</h3>
+          <p class="muted">Millions of packets or requests per second from the cited benchmark. Packet size and workload are shown in the table.</p>
+          <canvas id="publishedRateChart"></canvas>
+        </article>
+        <article class="chart-card chart-wide">
+          <h3>Published throughput landscape</h3>
+          <p class="muted">Application/network throughput converted to decimal GB/s where a source publishes a bandwidth result. DHMP is added from this Full Report as a clearly marked software-path ceiling.</p>
+          <canvas id="publishedThroughputChart"></canvas>
+        </article>
+        <article class="chart-card chart-wide">
+          <h3>DHMP multiple versus each published reference</h3>
+          <p class="muted">Ratio of this report's best DHMP aggregate payload GB/s to each published bandwidth reference. This is scale context only because hardware and benchmark scope differ.</p>
+          <canvas id="publishedMultipleChart"></canvas>
+        </article>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Reference</th><th>Published result</th><th>Payload/frame</th><th>Hardware / scope</th><th>Source</th></tr></thead>
+          <tbody id="publishedComparisonBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
       <p class="eyebrow">POLICY COST</p>
       <h2>Rate-policy overhead</h2>
       <div class="chart-grid">
