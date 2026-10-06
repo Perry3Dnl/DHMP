@@ -40,6 +40,19 @@ app.MapGet(
     "/report",
     () => Results.Redirect("/full-report.html"));
 
+app.MapPost(
+    "/api/report/http-sink",
+    async (
+        HttpRequest request,
+        CancellationToken cancellationToken) =>
+    {
+        await request.Body.CopyToAsync(
+            Stream.Null,
+            cancellationToken).ConfigureAwait(false);
+
+        return Results.NoContent();
+    });
+
 app.MapGet(
     "/api/report/status",
     (DhmpFullReportLab lab) =>
