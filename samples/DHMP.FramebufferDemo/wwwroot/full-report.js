@@ -3,13 +3,222 @@
   let latestReport = null;
   let timer = 0;
 
-  function compact(value) {
-    const v = Number(value || 0);
-    if (v >= 1e12) return (v / 1e12).toFixed(2) + 'T';
-    if (v >= 1e9) return (v / 1e9).toFixed(2) + 'B';
-    if (v >= 1e6) return (v / 1e6).toFixed(2) + 'M';
-    if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
-    return v.toFixed(v < 10 ? 2 : 0);
+  function fullInteger(value) {
+    return Math.round(Number(value || 0)).toLocaleString('en-US', {
+      maximumFractionDigits: 0
+    });
+  }
+
+  function fullDecimal(value, digits = 2) {
+    return Number(value || 0).toLocaleString('en-US', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+
+
+  const chartPalette = ['#69b7ff', '#71e6a1', '#f5c66f', '#d79cff', '#ff8c8c'];
+
+  function prepareCanvas(canvas) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(320, canvas.clientWidth || 640);
+    const height = Math.max(240, canvas.clientHeight || 320);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, width, height };
+  }
+
+  function drawAxes(ctx, width, height, maxValue, yLabelFormatter) {
+    const right = 16, top = 20, bottom = 58;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#0b1220';
+    ctx.fillRect(0, 0, width, height);
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+
+    const axisLabels = [];
+    for (let i = 0; i <= 4; i++) {
+      axisLabels.push(yLabelFormatter(maxValue * (1 - i / 4)));
+    }
+
+    const widestLabel = Math.max(
+      ...axisLabels.map(label => ctx.measureText(label).width));
+
+    const left = Math.max(78, Math.ceil(widestLabel) + 18);
+    const plotWidth = Math.max(80, width - left - right);
+    const plotHeight = height - top - bottom;
+
+    for (let i = 0; i <= 4; i++) {
+      const y = top + plotHeight * i / 4;
+      const value = maxValue * (1 - i / 4);
+      ctx.strokeStyle = '#202b3a';
+      ctx.beginPath();
+      ctx.moveTo(left, y);
+      ctx.lineTo(width - right, y);
+      ctx.stroke();
+      ctx.fillStyle = '#8fa3bd';
+      ctx.textAlign = 'right';
+      ctx.fillText(yLabelFormatter(value), left - 8, y);
+    }
+
+    return { left, right, top, bottom, plotWidth, plotHeight };
+  }
+
+  function drawGroupedBarChart(canvasId, categories, series, valueFormatter = fullInteger) {
+    const canvas = $(canvasId);
+    if (!canvas || !categories.length || !series.length) return;
+
+    const { ctx, width, height } = prepareCanvas(canvas);
+    const maxValue = Math.max(1, ...series.flatMap(s => s.values.map(Number)));
+    const a = drawAxes(ctx, width, height, maxValue, valueFormatter);
+    const groupWidth = a.plotWidth / categories.length;
+    const innerWidth = Math.min(groupWidth * 0.82, 100);
+    const barWidth = innerWidth / series.length;
+
+    categories.forEach((category, categoryIndex) => {
+      const groupX = a.left + groupWidth * categoryIndex + groupWidth / 2;
+      series.forEach((s, seriesIndex) => {
+        const value = Number(s.values[categoryIndex] || 0);
+        const h = value / maxValue * a.plotHeight;
+        const x = groupX - innerWidth / 2 + seriesIndex * barWidth + 1;
+        const y = a.top + a.plotHeight - h;
+        ctx.fillStyle = chartPalette[seriesIndex % chartPalette.length];
+        ctx.fillRect(x, y, Math.max(1, barWidth - 2), h);
+      });
+
+      ctx.save();
+      ctx.translate(groupX, height - a.bottom + 10);
+      ctx.rotate(-0.42);
+      ctx.fillStyle = '#8fa3bd';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(category, 0, 0);
+      ctx.restore();
+    });
+
+    let legendX = a.left;
+    const legendY = height - 10;
+    series.forEach((s, index) => {
+      ctx.fillStyle = chartPalette[index % chartPalette.length];
+      ctx.fillRect(legendX, legendY - 4, 10, 3);
+      ctx.fillStyle = '#a8b7ca';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.label, legendX + 15, legendY);
+      legendX += ctx.measureText(s.label).width + 42;
+    });
+  }
+
+  function drawLineChart(canvasId, categories, values, label, valueFormatter = fullInteger) {
+    const canvas = $(canvasId);
+    if (!canvas || !categories.length) return;
+
+    const { ctx, width, height } = prepareCanvas(canvas);
+    const maxValue = Math.max(1, ...values.map(Number));
+    const a = drawAxes(ctx, width, height, maxValue, valueFormatter);
+
+    ctx.strokeStyle = chartPalette[0];
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+
+    values.forEach((value, index) => {
+      const x = categories.length === 1
+        ? a.left + a.plotWidth / 2
+        : a.left + a.plotWidth * index / (categories.length - 1);
+      const y = a.top + a.plotHeight - Number(value) / maxValue * a.plotHeight;
+      if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    values.forEach((value, index) => {
+      const x = categories.length === 1
+        ? a.left + a.plotWidth / 2
+        : a.left + a.plotWidth * index / (categories.length - 1);
+      const y = a.top + a.plotHeight - Number(value) / maxValue * a.plotHeight;
+      ctx.fillStyle = chartPalette[0];
+      ctx.beginPath();
+      ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#8fa3bd';
+      ctx.textAlign = 'center';
+      ctx.fillText(categories[index], x, height - a.bottom + 18);
+    });
+
+    ctx.fillStyle = '#a8b7ca';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, a.left, height - 10);
+  }
+
+  function renderCharts(report) {
+    const packetSizes = [...new Set(report.pathMatrix.map(r => Number(r.packetBytes)))];
+    const modeLabels = ['Sequential', 'Latest', 'Latest + Ring-3'];
+
+    function rowsForMode(label) {
+      return report.pathMatrix.filter(row => modeName(row) === label);
+    }
+
+    drawGroupedBarChart(
+      'packetRateModeChart',
+      packetSizes.map(v => fullInteger(v) + ' B'),
+      modeLabels.map(label => ({
+        label,
+        values: packetSizes.map(size => {
+          const row = rowsForMode(label).find(r => Number(r.packetBytes) === size);
+          return row ? Number(row.packetRate) : 0;
+        })
+      })),
+      fullInteger);
+
+    drawGroupedBarChart(
+      'coreTimingModeChart',
+      packetSizes.map(v => fullInteger(v) + ' B'),
+      modeLabels.map(label => ({
+        label,
+        values: packetSizes.map(size => {
+          const row = rowsForMode(label).find(r => Number(r.packetBytes) === size);
+          return row ? Number(row.processorNanoseconds.median) : 0;
+        })
+      })),
+      value => fullDecimal(value, 2));
+
+    drawGroupedBarChart(
+      'clientTimingModeChart',
+      packetSizes.map(v => fullInteger(v) + ' B'),
+      modeLabels.map(label => ({
+        label,
+        values: packetSizes.map(size => {
+          const row = rowsForMode(label).find(r => Number(r.packetBytes) === size);
+          return row ? Number(row.clientNanoseconds.median) : 0;
+        })
+      })),
+      value => fullDecimal(value, 2));
+
+    drawLineChart(
+      'workerScalingChart',
+      report.workerScaling.map(r => String(r.workers)),
+      report.workerScaling.map(r => Number(r.packetRate)),
+      'Workers → packet transactions/s',
+      fullInteger);
+
+    drawGroupedBarChart(
+      'ratePolicyChart',
+      report.ratePolicies.map(r => r.ratePolicy),
+      [{ label: 'Packets/s', values: report.ratePolicies.map(r => Number(r.packetRate)) }],
+      fullInteger);
+
+    drawGroupedBarChart(
+      'confirmationChart',
+      report.confirmationModes.map(r => r.confirmationMode),
+      [{ label: 'Transactions/s', values: report.confirmationModes.map(r => Number(r.packetRate)) }],
+      fullInteger);
+
+    drawGroupedBarChart(
+      'allocationChart',
+      report.allocations.map(r => r.receiveMode + (r.nativeSmoothing ? ' + Ring-3' : '')),
+      [{ label: 'Full path B/call', values: report.allocations.map(r => Number(r.fullPathBytesPerCall)) }],
+      value => fullDecimal(value, 3));
   }
 
   function metric(label, value, unit = '') {
@@ -29,9 +238,9 @@
     const s = report.summary;
     $('summaryGrid').innerHTML =
       metric('Fastest core', Number(s.fastestCoreNanosecondsPerPacket).toFixed(2), 'ns/packet') +
-      metric('Core processing ceiling', compact(s.fastestCorePacketCeiling), 'packet-process ops/s') +
-      metric('Fastest single path', compact(s.fastestSinglePathPacketRate), 'packet transactions/s') +
-      metric('Best aggregate', compact(s.bestAggregatePacketRate), 'packet transactions/s') +
+      metric('Core processing ceiling', fullInteger(s.fastestCorePacketCeiling), 'packet-process ops/s') +
+      metric('Fastest single path', fullInteger(s.fastestSinglePathPacketRate), 'packet transactions/s') +
+      metric('Best aggregate', fullInteger(s.bestAggregatePacketRate), 'packet transactions/s') +
       metric('Best aggregate workers', s.bestAggregateWorkers, 'workers') +
       metric('Worst measured allocation', Number(s.worstMeasuredFullPathAllocationBytesPerCall).toFixed(3), 'B/call') +
       metric('Correctness', s.allCorrectnessChecksPassed ? 'PASS' : 'FAIL', 'all checks');
@@ -44,7 +253,7 @@
       metric('Logical CPUs', e.logicalProcessors, '') +
       metric('Server GC', e.serverGC ? 'Yes' : 'No', '') +
       metric('GC latency', e.gcLatencyMode, '') +
-      metric('Stopwatch frequency', compact(e.stopwatchFrequency), 'ticks/s') +
+      metric('Stopwatch frequency', fullInteger(e.stopwatchFrequency), 'ticks/s') +
       metric('DHMP record', e.recordSize, 'bytes');
 
     $('matrixBody').innerHTML = report.pathMatrix.map(row =>
@@ -56,14 +265,14 @@
       '<td>' + Number(row.processorNanoseconds.coefficientOfVariationPercent).toFixed(2) + '%</td>' +
       '<td>' + Number(row.serverNanoseconds.median).toFixed(2) + '</td>' +
       '<td>' + Number(row.clientNanoseconds.median).toFixed(2) + '</td>' +
-      '<td>' + compact(row.packetRate) + '</td>' +
-      '<td>' + compact(row.logicalRecordsPerSecond) + '</td>' +
+      '<td>' + fullInteger(row.packetRate) + '</td>' +
+      '<td>' + fullInteger(row.logicalRecordsPerSecond) + '</td>' +
       '<td>' + Number(row.logicalPayloadGigabytesPerSecond).toFixed(2) + '</td>' +
       '</tr>').join('');
 
     $('scalingBody').innerHTML = report.workerScaling.map(row =>
       '<tr><td>' + row.workers + '</td><td>' + row.packetBytes + '</td><td>' +
-      compact(row.packetRate) + '</td><td>' + compact(row.logicalRecordsPerSecond) +
+      fullInteger(row.packetRate) + '</td><td>' + fullInteger(row.logicalRecordsPerSecond) +
       '</td><td>' + Number(row.logicalPayloadGigabytesPerSecond).toFixed(2) +
       '</td><td>' + Number(row.elapsedSeconds).toFixed(3) + ' s</td></tr>').join('');
 
@@ -73,13 +282,13 @@
       Number(row.clientNanoseconds.min).toFixed(2) + '</td><td>' +
       Number(row.clientNanoseconds.max).toFixed(2) + '</td><td>' +
       Number(row.clientNanoseconds.coefficientOfVariationPercent).toFixed(2) + '%</td><td>' +
-      compact(row.packetRate) + '</td></tr>').join('');
+      fullInteger(row.packetRate) + '</td></tr>').join('');
 
     $('confirmBody').innerHTML = report.confirmationModes.map(row =>
       '<tr><td>' + row.confirmationMode + '</td><td>' + row.packetBytes + '</td><td>' +
       Number(row.roundTripNanoseconds.median).toFixed(2) + '</td><td>' +
       Number(row.roundTripNanoseconds.coefficientOfVariationPercent).toFixed(2) + '%</td><td>' +
-      compact(row.packetRate) + '</td><td>' + Number(row.returnBytesPerForwardPacket).toLocaleString() +
+      fullInteger(row.packetRate) + '</td><td>' + Number(row.returnBytesPerForwardPacket).toLocaleString() +
       '</td></tr>').join('');
 
     $('allocationBody').innerHTML = report.allocations.map(row =>
@@ -96,6 +305,8 @@
 
     $('notes').innerHTML = report.interpretationNotes.map(note =>
       '<div class="report-note">' + note + '</div>').join('');
+
+    renderCharts(report);
   }
 
   async function poll() {
@@ -166,6 +377,10 @@
     anchor.download = 'dhmp-full-report-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
     anchor.click();
     URL.revokeObjectURL(url);
+  });
+
+  window.addEventListener('resize', () => {
+    if (latestReport) renderCharts(latestReport);
   });
 
   poll();
