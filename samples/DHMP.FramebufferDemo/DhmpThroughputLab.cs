@@ -18,12 +18,25 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private bool _nativeSmoothing;
     private DhmpStressConfirmationMode _confirmationMode = DhmpStressConfirmationMode.None;
     private long _configurationVersion;
+    private bool _enabled = true;
 
     private WorkerMetrics[] _workerMetrics = [];
     private double _coreProcessNanosecondsPerPacket;
     private AllocationBreakdown _allocationBreakdown;
     private long _workerFaults;
     private string _lastWorkerError = string.Empty;
+
+    public void Pause()
+    {
+        lock (_configurationGate)
+        {
+            if (!_enabled)
+                return;
+
+            _enabled = false;
+            _configurationVersion++;
+        }
+    }
 
     public void Configure(
         int packetBytes,
@@ -67,6 +80,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         lock (_configurationGate)
         {
+            _enabled = true;
             _packetBytes = packetBytes;
             _workers = workers;
             _receiveMode = receiveMode;
@@ -180,6 +194,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             int packetBytes;
             DhmpProcessingMode receiveMode;
             long version;
+            bool enabled;
 
             lock (_configurationGate)
             {
@@ -187,6 +202,16 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 packetBytes = _packetBytes;
                 receiveMode = _receiveMode;
                 version = _configurationVersion;
+                enabled = _enabled;
+            }
+
+            if (!enabled)
+            {
+                await Task.Delay(
+                    250,
+                    stoppingToken);
+
+                continue;
             }
 
             double coreNs =

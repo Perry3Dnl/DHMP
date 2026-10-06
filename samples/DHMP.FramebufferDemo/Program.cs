@@ -92,7 +92,8 @@ app.MapPost(
     "/api/afxdp/configure",
     (
         DhmpAfXdpConfigureRequest request,
-        DhmpAfXdpLiveLab lab) =>
+        DhmpAfXdpLiveLab lab,
+        DhmpThroughputLab throughputLab) =>
     {
         if (!IsSupportedAfXdpPayloadSize(
                 request.PayloadBytes))
@@ -108,6 +109,8 @@ app.MapPost(
                 new { error = "Unsupported AF_XDP worker count." });
         }
 
+        throughputLab.Pause();
+
         lab.Configure(
             request.PayloadBytes,
             request.Workers);
@@ -120,7 +123,8 @@ app.MapPost(
     "/api/stress/configure",
     (
         DhmpThroughputRequest request,
-        DhmpThroughputLab lab) =>
+        DhmpThroughputLab lab,
+        DhmpAfXdpLiveLab afXdpLab) =>
     {
         if (!IsSupportedPacketSize(request.PacketBytes))
         {
@@ -167,6 +171,8 @@ app.MapPost(
             return Results.BadRequest(
                 new { error = "Unsupported confirmation mode." });
         }
+
+        afXdpLab.Pause();
 
         lab.Configure(
             request.PacketBytes,

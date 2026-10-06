@@ -16,6 +16,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
     private int _payloadBytes = 1408;
     private int _workers = Math.Min(MaximumWorkers, Math.Max(1, Environment.ProcessorCount));
     private long _configurationVersion;
+    private bool _enabled;
 
     private long _afXdpPacketsCompleted;
     private long _afXdpPayloadBytesCompleted;
@@ -40,6 +41,20 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
             MaximumWorkers,
             Math.Max(1, Environment.ProcessorCount * 2));
 
+    public void Pause()
+    {
+        lock (_gate)
+        {
+            if (!_enabled)
+                return;
+
+            _enabled = false;
+            _configurationVersion++;
+            _isRunning = false;
+            _detail = "Paused while another live benchmark owns the host.";
+        }
+    }
+
     public void Configure(
         int payloadBytes,
         int workers)
@@ -55,6 +70,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
         lock (_gate)
         {
+            _enabled = true;
             _payloadBytes = payloadBytes;
             _workers = workers;
             _configurationVersion++;
@@ -113,19 +129,39 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
             int workers;
             long version;
             long runNumber;
+            bool enabled;
 
             lock (_gate)
             {
                 payloadBytes = _payloadBytes;
                 workers = _workers;
                 version = _configurationVersion;
-                _isRunning = true;
+                enabled = _enabled;
+
+                if (enabled)
+                {
+                    _isRunning = true;
+                }
+                else
+                {
+                    _isRunning = false;
+                    _detail = "Idle until the Kernel Bypass lab is explicitly configured.";
+                }
 
                 if (_runs == 0 && _failures == 0)
                 {
                     _detail =
                         $"Running first paired Raw IPv6 and AF_XDP phases with {workers} parallel workers.";
                 }
+            }
+
+            if (!enabled)
+            {
+                await Task.Delay(
+                    250,
+                    stoppingToken);
+
+                continue;
             }
 
             runNumber = Interlocked.Read(ref _runs);
