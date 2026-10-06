@@ -9,6 +9,7 @@ public sealed class DhmpServer
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
     private readonly DhmpLatestStateWindow? _latestStateWindow;
+    private readonly Action<ReadOnlySpan<byte>>? _completeRecordsObserver;
 
     public DhmpServer(
         DhmpWireContract wireContract,
@@ -39,6 +40,9 @@ public sealed class DhmpServer
             _latestStateWindow =
                 new DhmpLatestStateWindow(
                     wireContract.RecordSize);
+
+            _completeRecordsObserver =
+                _latestStateWindow.PublishValidatedPacket;
         }
     }
 
@@ -61,9 +65,7 @@ public sealed class DhmpServer
         _processor.Process(
             packet,
             publishBatch,
-            _latestStateWindow is null
-                ? null
-                : _latestStateWindow.PublishValidatedPacket);
+            _completeRecordsObserver);
     }
 
     /// <summary>Copy retained N-2/N-1/N records in chronological order; returns zero when disabled.</summary>
