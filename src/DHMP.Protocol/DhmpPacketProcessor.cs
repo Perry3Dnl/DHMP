@@ -4,6 +4,7 @@ namespace DHMP.Protocol;
 /// <remarks>
 /// The packet bytes contain records only: no DHMP packet header, per-record header, separator or trailer.
 /// The wire contract defines record interpretation; receive mode and packet ceiling are local policy.
+/// Latest mode can optionally expose a tail window of already-received records for application smoothing.
 /// </remarks>
 public sealed class DhmpPacketProcessor
 {
@@ -37,9 +38,25 @@ public sealed class DhmpPacketProcessor
             packet.Length,
             _receivePolicy.MaximumPayloadBytes);
 
-        publishBatch(
-            _latest
-                ? packet[^_wireContract.RecordSize..]
-                : packet);
+        if (!_latest)
+        {
+            publishBatch(packet);
+            return;
+        }
+
+        int packetRecords =
+            packet.Length /
+            _wireContract.RecordSize;
+
+        int historyRecords =
+            Math.Min(
+                packetRecords,
+                _receivePolicy.LatestHistoryRecords);
+
+        int historyBytes =
+            historyRecords *
+            _wireContract.RecordSize;
+
+        publishBatch(packet[^historyBytes..]);
     }
 }
