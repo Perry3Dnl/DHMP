@@ -225,9 +225,7 @@ public sealed class DhmpLatestStateWindow
                 }
             }
 
-            if (!retry &&
-                Volatile.Read(
-                    ref _publishedSequence) == newest)
+            if (!retry)
             {
                 return count;
             }

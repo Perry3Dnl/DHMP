@@ -301,35 +301,51 @@ public sealed class DhmpServerHardeningTests
     public void CriticalFlow_Ring3ConcurrentReaderNeverReturnsTornRecords()
     {
         const int RecordSize = 16;
+        const int WriterIterations = 250_000;
+        const int FinalReaderIterations = 1_000;
 
         var window =
             new DhmpLatestStateWindow(
                 RecordSize);
 
-        int stop = 0;
+        using var startGate =
+            new ManualResetEventSlim(false);
+
+        int writerDone = 0;
+        long readerSnapshots = 0;
         Exception? readerFailure = null;
 
         var writer =
             new Thread(() =>
             {
-                long sequence = 1;
                 byte[] record =
                     new byte[RecordSize];
 
-                while (Volatile.Read(ref stop) == 0)
+                startGate.Wait();
+
+                try
                 {
-                    BitConverter.TryWriteBytes(
-                        record.AsSpan(0, 8),
-                        sequence);
+                    for (long sequence = 1;
+                         sequence <= WriterIterations;
+                         sequence++)
+                    {
+                        BitConverter.TryWriteBytes(
+                            record.AsSpan(0, 8),
+                            sequence);
 
-                    BitConverter.TryWriteBytes(
-                        record.AsSpan(8, 8),
-                        ~sequence);
+                        BitConverter.TryWriteBytes(
+                            record.AsSpan(8, 8),
+                            ~sequence);
 
-                    window.PublishValidatedPacket(
-                        record);
-
-                    sequence++;
+                        window.PublishValidatedPacket(
+                            record);
+                    }
+                }
+                finally
+                {
+                    Volatile.Write(
+                        ref writerDone,
+                        1);
                 }
             });
 
@@ -343,68 +359,84 @@ public sealed class DhmpServerHardeningTests
                             RecordSize *
                             DhmpLatestStateWindow.Capacity];
 
+                    startGate.Wait();
+
+                    while (Volatile.Read(ref writerDone) == 0)
+                    {
+                        ValidateSnapshot(
+                            window,
+                            snapshot);
+
+                        readerSnapshots++;
+                    }
+
                     for (int iteration = 0;
-                         iteration < 100_000;
+                         iteration < FinalReaderIterations;
                          iteration++)
                     {
-                        int count =
-                            window.CopyNewestTo(
-                                snapshot);
+                        ValidateSnapshot(
+                            window,
+                            snapshot);
 
-                        for (int index = 0;
-                             index < count;
-                             index++)
-                        {
-                            ReadOnlySpan<byte> record =
-                                snapshot.AsSpan(
-                                    index * RecordSize,
-                                    RecordSize);
-
-                            long sequence =
-                                BitConverter.ToInt64(
-                                    record[..8]);
-
-                            long inverse =
-                                BitConverter.ToInt64(
-                                    record[8..]);
-
-                            if (~sequence != inverse)
-                            {
-                                throw new InvalidOperationException(
-                                    "Ring-3 returned a torn record.");
-                            }
-                        }
+                        readerSnapshots++;
                     }
                 }
                 catch (Exception exception)
                 {
                     readerFailure = exception;
                 }
-                finally
-                {
-                    Volatile.Write(
-                        ref stop,
-                        1);
-                }
             });
 
         writer.Start();
         reader.Start();
-
-        Assert.True(
-            reader.Join(
-                TimeSpan.FromSeconds(2)));
-
-        Volatile.Write(
-            ref stop,
-            1);
+        startGate.Set();
 
         Assert.True(
             writer.Join(
-                TimeSpan.FromSeconds(2)));
+                TimeSpan.FromSeconds(10)));
+
+        Assert.True(
+            reader.Join(
+                TimeSpan.FromSeconds(10)));
 
         Assert.Null(
             readerFailure);
+
+        Assert.True(
+            readerSnapshots >= FinalReaderIterations);
+
+        static void ValidateSnapshot(
+            DhmpLatestStateWindow window,
+            byte[] snapshot)
+        {
+            int count =
+                window.CopyNewestTo(
+                    snapshot);
+
+            for (int index = 0;
+                 index < count;
+                 index++)
+            {
+                ReadOnlySpan<byte> record =
+                    snapshot.AsSpan(
+                        index * RecordSize,
+                        RecordSize);
+
+                long sequence =
+                    BitConverter.ToInt64(
+                        record[..8]);
+
+                long inverse =
+                    BitConverter.ToInt64(
+                        record[8..]);
+
+                if (~sequence != inverse)
+                {
+                    throw new InvalidOperationException(
+                        "Ring-3 returned a torn record.");
+                }
+            }
+        }
     }
 
     [Fact]
