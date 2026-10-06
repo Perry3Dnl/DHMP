@@ -13,6 +13,8 @@
   const throughputHistory=[];
   let previous=null;
   let configureTimer=0;
+  let configurationPending=false;
+  let configurationInFlight=0;
   let selectedReceiveMode='Sequential';
   let selectedNativeSmoothing=false;
   let selectedRatePolicy='Unlimited';
@@ -45,14 +47,43 @@
   }
 
   async function configure(){
+    configurationPending=false;
+    configurationInFlight++;
+
     const packetBytes=PACKETS[Number(packetSlider.value)];
     const workers=Number(workerSlider.value);
+    const receiveMode=selectedReceiveMode;
+    const ratePolicy=selectedRatePolicy;
+    const nativeSmoothing=selectedNativeSmoothing;
+    const confirmationMode=selectedConfirmationMode;
+
     packetLabel.textContent=packetBytes.toLocaleString()+' bytes';
     workerLabel.textContent=workers.toString();
     state.textContent='reconfiguring…';state.classList.remove('live');
-    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers,receiveMode:selectedReceiveMode,ratePolicy:selectedRatePolicy,nativeSmoothing:selectedNativeSmoothing,confirmationMode:selectedConfirmationMode})});
-    if(!response.ok)throw new Error('HTTP '+response.status);
-    previous=null;recordsHistory.length=0;throughputHistory.length=0;renderCharts();
+
+    try{
+      const response=await fetch('/api/stress/configure',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          packetBytes,
+          workers,
+          receiveMode,
+          ratePolicy,
+          nativeSmoothing,
+          confirmationMode
+        })
+      });
+
+      if(!response.ok)throw new Error('HTTP '+response.status);
+
+      previous=null;
+      recordsHistory.length=0;
+      throughputHistory.length=0;
+      renderCharts();
+    }finally{
+      configurationInFlight=Math.max(0,configurationInFlight-1);
+    }
   }
 
   async function poll(){
@@ -69,16 +100,27 @@
       $('nativeSmoothing').textContent=cur.nativeSmoothing?'Ring-3 ON':'OFF';
       $('ratePolicy').textContent=cur.ratePolicy;
       $('confirmationMode').textContent=cur.confirmationMode;
-      selectedReceiveMode=cur.receiveMode;
-      selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
-      selectedRatePolicy=cur.ratePolicy;
-      selectedConfirmationMode=cur.confirmationMode;
-      receiveButtons.forEach(button=>{
-        const smoothing=button.dataset.nativeSmoothing==='true';
-        button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode&&smoothing===selectedNativeSmoothing);
-      });
-      rateButtons.forEach(button=>button.classList.toggle('active',button.dataset.ratePolicy===selectedRatePolicy));
-      confirmationButtons.forEach(button=>button.classList.toggle('active',button.dataset.confirmationMode===selectedConfirmationMode));
+      if(!configurationPending && configurationInFlight===0){
+        selectedReceiveMode=cur.receiveMode;
+        selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
+        selectedRatePolicy=cur.ratePolicy;
+        selectedConfirmationMode=cur.confirmationMode;
+
+        receiveButtons.forEach(button=>{
+          const smoothing=button.dataset.nativeSmoothing==='true';
+          button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode&&smoothing===selectedNativeSmoothing);
+        });
+
+        rateButtons.forEach(button=>
+          button.classList.toggle(
+            'active',
+            button.dataset.ratePolicy===selectedRatePolicy));
+
+        confirmationButtons.forEach(button=>
+          button.classList.toggle(
+            'active',
+            button.dataset.confirmationMode===selectedConfirmationMode));
+      }
       $('coreProcessNs').textContent=Number(cur.coreProcessNanosecondsPerPacket||0).toFixed(2)+' ns/packet';
       $('allocProcessor').textContent=Number(cur.processorAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
       $('allocServer').textContent=Number(cur.serverAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
@@ -152,8 +194,15 @@
   }
 
   function queueConfigure(){
+    configurationPending=true;
     clearTimeout(configureTimer);
-    configureTimer=setTimeout(()=>configure().catch(()=>{state.textContent='configuration failed';}),180);
+    configureTimer=setTimeout(()=>{
+      configureTimer=0;
+      configure().catch(()=>{
+        configurationPending=false;
+        state.textContent='configuration failed';
+      });
+    },180);
   }
 
   packetSlider.addEventListener('input',()=>{packetLabel.textContent=PACKETS[Number(packetSlider.value)].toLocaleString()+' bytes';queueConfigure()});
