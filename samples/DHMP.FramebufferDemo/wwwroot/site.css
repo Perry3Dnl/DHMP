@@ -62,3 +62,5 @@ a{color:#c8d9ee;text-decoration:none;border:1px solid #343f4c;border-radius:8px;
 footer{gap:10px}
 @media(max-width:900px){.lobby-controls{grid-template-columns:1fr}.capacity-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.capacity-grid{grid-template-columns:1fr}}
+
+.scale.eleven{grid-template-columns:repeat(11,1fr)}
