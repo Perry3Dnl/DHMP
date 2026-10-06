@@ -10,14 +10,12 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
     public const int RecordSize = 64;
     public const int MaximumPayloadBytes = 1408;
     public const int SimulatedTickRate = 20;
-    public const int SmoothingHistoryRecords = 3;
     private static readonly TimeSpan ActiveWindow = TimeSpan.FromSeconds(1);
 
     private readonly ConcurrentDictionary<long, PlayerSession> _sessions = new();
     private readonly ConcurrentDictionary<long, PlayerSnapshot> _latest = new();
     private readonly ConcurrentDictionary<long, PlayerSnapshot[]> _nativeHistory = new();
     private readonly DhmpWireContract _wireContract = new(RecordSize);
-    private readonly DhmpServer _server;
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
     private long _nextPlayerId;
     private long _totalConnections;
@@ -29,22 +27,22 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
     private long _lastSecondMessages;
     private long _lastSecondBytes;
 
-    public DhmpUnitySessionLab()
-    {
-        _server = new DhmpServer(
-            _wireContract,
-            new DhmpReceivePolicy(
-                DhmpProcessingMode.Latest,
-                MaximumPayloadBytes,
-                latestHistoryRecords: SmoothingHistoryRecords));
-    }
-
     public UnityConnectResult Connect(string? name)
     {
         long playerId = Interlocked.Increment(ref _nextPlayerId);
         string displayName = NormalizeName(name, playerId);
 
-        var sender = new LoopbackSender(this);
+        var server = new DhmpServer(
+            _wireContract,
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.Latest,
+                MaximumPayloadBytes,
+                nativeSmoothing: true));
+
+        var sender = new LoopbackSender(
+            server,
+            PublishBatch);
+
         var client = new DhmpClient(
             sender,
             _wireContract,
@@ -53,12 +51,18 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
                 maximumPayloadBytes: MaximumPayloadBytes,
                 ratePolicy: DhmpRatePolicy.SmoothPacing));
 
-        var session = new PlayerSession(playerId, displayName, client);
+        var session =
+            new PlayerSession(
+                playerId,
+                displayName,
+                client,
+                server);
 
         if (!_sessions.TryAdd(playerId, session))
             throw new InvalidOperationException("Could not register simulated player.");
 
         Interlocked.Increment(ref _totalConnections);
+
         PlayerSnapshot initial = session.Snapshot();
         _latest[playerId] = initial;
         _nativeHistory[playerId] = [initial];
@@ -188,27 +192,22 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
 
         try
         {
-            PlayerSnapshot[] history =
-                session.NextSnapshotWindow(
-                    SmoothingHistoryRecords);
+            PlayerSnapshot snapshot =
+                session.NextSnapshot();
 
-            byte[] packet =
-                new byte[
-                    history.Length *
-                    RecordSize];
+            byte[] record =
+                GC.AllocateUninitializedArray<byte>(
+                    RecordSize);
 
-            for (int i = 0; i < history.Length; i++)
-            {
-                Encode(
-                    history[i],
-                    packet.AsSpan(
-                        i * RecordSize,
-                        RecordSize));
-            }
+            Encode(
+                snapshot,
+                record);
 
-            await session.Client.SendBatchAsync(
-                packet,
+            await session.Client.SendAsync(
+                record,
                 cancellationToken).ConfigureAwait(false);
+
+            CaptureNativeHistory(session);
         }
         finally
         {
@@ -216,60 +215,69 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         }
     }
 
-    private void ProcessPacket(ReadOnlyMemory<byte> packet)
+    private void CaptureNativeHistory(
+        PlayerSession session)
     {
-        _server.ProcessPacket(
-            packet.Span,
-            PublishBatch);
-    }
+        Span<byte> window =
+            stackalloc byte[
+                RecordSize *
+                DhmpLatestStateWindow.Capacity];
 
-    private void PublishBatch(ReadOnlySpan<byte> batch)
-    {
-        int recordCount = batch.Length / RecordSize;
-        var decoded = new PlayerSnapshot[recordCount];
+        int count =
+            session.Server.CopyNativeSmoothingWindow(
+                window);
 
-        for (int index = 0; index < recordCount; index++)
+        if (count == 0)
+            return;
+
+        var history =
+            new PlayerSnapshot[count];
+
+        for (int index = 0;
+             index < count;
+             index++)
         {
-            PlayerSnapshot snapshot =
+            history[index] =
                 Decode(
-                    batch.Slice(
+                    window.Slice(
                         index * RecordSize,
                         RecordSize));
-
-            decoded[index] = snapshot;
-
-            Interlocked.Increment(ref _messagesReceived);
-            Interlocked.Add(ref _bytesReceived, RecordSize);
-            AddRate(1, RecordSize);
         }
 
-        foreach (IGrouping<long, PlayerSnapshot> group in
-                 decoded.GroupBy(static snapshot => snapshot.PlayerId))
+        _nativeHistory[session.PlayerId] =
+            history;
+    }
+
+    private void PublishBatch(
+        ReadOnlySpan<byte> batch)
+    {
+        PlayerSnapshot snapshot =
+            Decode(batch);
+
+        if (_sessions.TryGetValue(
+                snapshot.PlayerId,
+                out PlayerSession? session))
         {
-            PlayerSnapshot[] history =
-                group
-                    .OrderBy(static snapshot => snapshot.Sequence)
-                    .TakeLast(SmoothingHistoryRecords)
-                    .ToArray();
+            session.MarkMessageReceived();
 
-            if (history.Length == 0)
-                continue;
-
-            PlayerSnapshot latest =
-                history[^1] with
+            _latest[snapshot.PlayerId] =
+                snapshot with
                 {
-                    LastMessageUtc = DateTimeOffset.UtcNow
+                    LastMessageUtc =
+                        DateTimeOffset.UtcNow
                 };
-
-            if (_sessions.TryGetValue(
-                    latest.PlayerId,
-                    out PlayerSession? session))
-            {
-                session.MarkMessageReceived();
-                _latest[latest.PlayerId] = latest;
-                _nativeHistory[latest.PlayerId] = history;
-            }
         }
+
+        Interlocked.Increment(
+            ref _messagesReceived);
+
+        Interlocked.Add(
+            ref _bytesReceived,
+            RecordSize);
+
+        AddRate(
+            1,
+            RecordSize);
     }
 
     private void AddRate(long messages, long bytes)
@@ -323,6 +331,11 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
 
     private static PlayerSnapshot Decode(ReadOnlySpan<byte> span)
     {
+        if (span.Length != RecordSize)
+            throw new ArgumentException(
+                $"Expected exactly one {RecordSize}-byte player record.",
+                nameof(span));
+
         return new PlayerSnapshot(
             BinaryPrimitives.ReadInt64LittleEndian(span[0..8]),
             BinaryPrimitives.ReadInt64LittleEndian(span[8..16]),
@@ -360,21 +373,30 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
 
     private sealed class LoopbackSender : IDhmpPacketSender
     {
-        private readonly DhmpUnitySessionLab _owner;
+        private readonly DhmpServer _server;
+        private readonly Action<ReadOnlySpan<byte>> _publish;
 
-        public LoopbackSender(DhmpUnitySessionLab owner)
+        public LoopbackSender(
+            DhmpServer server,
+            Action<ReadOnlySpan<byte>> publish)
         {
-            _owner = owner;
+            _server = server;
+            _publish = publish;
         }
 
-        public int MaximumPayloadBytes => DhmpUnitySessionLab.MaximumPayloadBytes;
+        public int MaximumPayloadBytes =>
+            DhmpUnitySessionLab.MaximumPayloadBytes;
 
         public ValueTask SendPacketAsync(
             ReadOnlyMemory<byte> payload,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _owner.ProcessPacket(payload);
+
+            _server.ProcessPacket(
+                payload.Span,
+                _publish);
+
             return ValueTask.CompletedTask;
         }
     }
@@ -385,24 +407,29 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         private readonly CancellationTokenSource _lifetime = new();
         private readonly long _connectedAtUnixMilliseconds =
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        private UnityPlayerStateInput _state = new(0, 0, 0, 0, 0, 0, 1, 0);
-        private readonly Queue<PlayerSnapshot> _outboundHistory = new();
+
+        private UnityPlayerStateInput _state =
+            new(0, 0, 0, 0, 0, 0, 1, 0);
+
         private long _sequence;
         private Task? _sendLoop;
 
         public PlayerSession(
             long playerId,
             string name,
-            DhmpClient client)
+            DhmpClient client,
+            DhmpServer server)
         {
             PlayerId = playerId;
             Name = name;
             Client = client;
+            Server = server;
         }
 
         public long PlayerId { get; }
         public string Name { get; }
         public DhmpClient Client { get; }
+        public DhmpServer Server { get; }
         public SemaphoreSlim SendGate { get; } = new(1, 1);
         public long LastMessageTimestamp { get; private set; }
 
@@ -411,7 +438,9 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
             _sendLoop = Task.Run(async () =>
             {
                 using var timer = new PeriodicTimer(
-                    TimeSpan.FromSeconds(1d / SimulatedTickRate));
+                    TimeSpan.FromSeconds(
+                        1d /
+                        SimulatedTickRate));
 
                 try
                 {
@@ -419,7 +448,9 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
 
                     while (await timer.WaitForNextTickAsync(_lifetime.Token)
                         .ConfigureAwait(false))
+                    {
                         await sendCurrent().ConfigureAwait(false);
+                    }
                 }
                 catch (OperationCanceledException)
                     when (_lifetime.IsCancellationRequested)
@@ -434,13 +465,8 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
                 _state = state;
         }
 
-        public PlayerSnapshot[] NextSnapshotWindow(
-            int maximumRecords)
+        public PlayerSnapshot NextSnapshot()
         {
-            if (maximumRecords <= 0)
-                throw new ArgumentOutOfRangeException(
-                    nameof(maximumRecords));
-
             lock (_stateGate)
             {
                 long sequence = ++_sequence;
@@ -448,54 +474,46 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
                     DateTimeOffset.UtcNow
                         .ToUnixTimeMilliseconds();
 
-                var snapshot =
-                    new PlayerSnapshot(
-                        PlayerId,
-                        sequence,
-                        _state.X,
-                        _state.Y,
-                        _state.Z,
-                        _state.RotationX,
-                        _state.RotationY,
-                        _state.RotationZ,
-                        _state.RotationW,
-                        now,
-                        _state.Flags,
-                        DateTimeOffset.FromUnixTimeMilliseconds(now));
-
-                _outboundHistory.Enqueue(snapshot);
-
-                while (_outboundHistory.Count > maximumRecords)
-                    _outboundHistory.Dequeue();
-
-                return _outboundHistory.ToArray();
+                return new PlayerSnapshot(
+                    PlayerId,
+                    sequence,
+                    _state.X,
+                    _state.Y,
+                    _state.Z,
+                    _state.RotationX,
+                    _state.RotationY,
+                    _state.RotationZ,
+                    _state.RotationW,
+                    now,
+                    _state.Flags,
+                    DateTimeOffset.FromUnixTimeMilliseconds(now));
             }
         }
 
         public PlayerSnapshot Snapshot()
         {
-            UnityPlayerStateInput state;
             lock (_stateGate)
-                state = _state;
-
-            return new PlayerSnapshot(
-                PlayerId,
-                Interlocked.Read(ref _sequence),
-                state.X,
-                state.Y,
-                state.Z,
-                state.RotationX,
-                state.RotationY,
-                state.RotationZ,
-                state.RotationW,
-                _connectedAtUnixMilliseconds,
-                state.Flags,
-                DateTimeOffset.FromUnixTimeMilliseconds(
-                    _connectedAtUnixMilliseconds));
+            {
+                return new PlayerSnapshot(
+                    PlayerId,
+                    _sequence,
+                    _state.X,
+                    _state.Y,
+                    _state.Z,
+                    _state.RotationX,
+                    _state.RotationY,
+                    _state.RotationZ,
+                    _state.RotationW,
+                    _connectedAtUnixMilliseconds,
+                    _state.Flags,
+                    DateTimeOffset.FromUnixTimeMilliseconds(
+                        _connectedAtUnixMilliseconds));
+            }
         }
 
         public void MarkMessageReceived() =>
-            LastMessageTimestamp = Stopwatch.GetTimestamp();
+            LastMessageTimestamp =
+                Stopwatch.GetTimestamp();
 
         public async ValueTask DisposeAsync()
         {
@@ -566,7 +584,6 @@ public sealed record UnityServerStats(
     TimeSpan Uptime,
     int SimulatedTickRate,
     int RecordSize);
-
 
 public sealed record UnityPlayerView(
     long PlayerId,
