@@ -14,7 +14,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private int _packetBytes = 65_520;
     private int _workers = Math.Max(1, Environment.ProcessorCount);
     private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
-    private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.RejectWindow;
+    private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.Unlimited;
     private bool _nativeSmoothing;
     private DhmpStressConfirmationMode _confirmationMode = DhmpStressConfirmationMode.None;
     private long _configurationVersion;
@@ -44,7 +44,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             throw new ArgumentOutOfRangeException(nameof(receiveMode));
 
         if (ratePolicy is not DhmpRatePolicy.RejectWindow and
-            not DhmpRatePolicy.SmoothPacing)
+            not DhmpRatePolicy.SmoothPacing and
+            not DhmpRatePolicy.Unlimited)
             throw new ArgumentOutOfRangeException(nameof(ratePolicy));
 
         if (nativeSmoothing &&
