@@ -120,6 +120,56 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
             version);
     }
 
+    public async Task<DhmpAfXdpComparisonSample> RunComparisonSampleAsync(
+        int payloadBytes,
+        int workers,
+        long packetsPerWorker,
+        CancellationToken cancellationToken = default)
+    {
+        if (payloadBytes <= 0 ||
+            payloadBytes > 1408 ||
+            payloadBytes % DhmpThroughputLab.RecordSize != 0)
+            throw new ArgumentOutOfRangeException(nameof(payloadBytes));
+
+        if (workers <= 0 ||
+            workers > MaxWorkers)
+            throw new ArgumentOutOfRangeException(nameof(workers));
+
+        if (packetsPerWorker <= 0)
+            throw new ArgumentOutOfRangeException(nameof(packetsPerWorker));
+
+        PhaseResult raw =
+            await RunRawPhaseAsync(
+                payloadBytes,
+                workers,
+                cancellationToken,
+                packetsPerWorker).ConfigureAwait(false);
+
+        AfXdpPhaseResult afXdp =
+            await RunAfXdpPhaseAsync(
+                payloadBytes,
+                workers,
+                cancellationToken,
+                packetsPerWorker).ConfigureAwait(false);
+
+        double rawSeconds =
+            (double)raw.ElapsedTicks /
+            Stopwatch.Frequency;
+
+        double afXdpSeconds =
+            (double)afXdp.ElapsedTicks /
+            Stopwatch.Frequency;
+
+        return new DhmpAfXdpComparisonSample(
+            payloadBytes,
+            workers,
+            raw.PacketsCompleted / rawSeconds,
+            raw.PayloadBytesCompleted / rawSeconds / 1_000_000_000d,
+            afXdp.PacketsCompleted / afXdpSeconds,
+            afXdp.PayloadBytesCompleted / afXdpSeconds / 1_000_000_000d,
+            afXdp.Mode);
+    }
+
     protected override async Task ExecuteAsync(
         CancellationToken stoppingToken)
     {
@@ -264,7 +314,8 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
     private async Task<PhaseResult> RunRawPhaseAsync(
         int payloadBytes,
         int workers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long packetsPerWorker = PacketsPerWorkerSample)
     {
         using var startGate = new ManualResetEventSlim(false);
 
@@ -280,7 +331,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                                 return RunRawIpv6Transmit(
                                     worker,
                                     payloadBytes,
-                                    PacketsPerWorkerSample);
+                                    packetsPerWorker);
                             },
                             cancellationToken,
                             TaskCreationOptions.LongRunning,
@@ -305,7 +356,8 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
     private async Task<AfXdpPhaseResult> RunAfXdpPhaseAsync(
         int payloadBytes,
         int workers,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long packetsPerWorker = PacketsPerWorkerSample)
     {
         using var startGate = new ManualResetEventSlim(false);
 
@@ -321,7 +373,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                                 return DhmpAfXdpBenchmark.RunTransmit(
                                     InterfaceName(worker),
                                     payloadBytes,
-                                    PacketsPerWorkerSample,
+                                    packetsPerWorker,
                                     queueId: 0,
                                     preferZeroCopy: true);
                             },
@@ -500,3 +552,12 @@ internal sealed record DhmpAfXdpLiveSnapshot(
 internal sealed record DhmpAfXdpConfigureRequest(
     int PayloadBytes,
     int Workers);
+
+internal sealed record DhmpAfXdpComparisonSample(
+    int PayloadBytes,
+    int Workers,
+    double RawPacketRate,
+    double RawPayloadGigabytesPerSecond,
+    double AfXdpPacketRate,
+    double AfXdpPayloadGigabytesPerSecond,
+    string Mode);
