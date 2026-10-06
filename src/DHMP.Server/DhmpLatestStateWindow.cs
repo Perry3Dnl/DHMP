@@ -47,17 +47,24 @@ public sealed class DhmpLatestStateWindow
     /// the fixed Ring-3. Only the newest three records in a larger packet can
     /// affect the retained state window.
     /// </summary>
-    public void PublishPacket(ReadOnlySpan<byte> packet) =>
-        PublishValidatedPacket(packet);
-
-    public void PublishValidatedPacket(ReadOnlySpan<byte> packet)
+    public void PublishPacket(ReadOnlySpan<byte> packet)
     {
         if (packet.IsEmpty ||
             packet.Length % _recordSize != 0)
+        {
             throw new ArgumentException(
                 "Latest state window requires only complete records.",
                 nameof(packet));
+        }
 
+        PublishValidatedPacket(packet);
+    }
+
+    /// <summary>
+    /// Internal fast path. Caller guarantees a non-empty span containing only complete records.
+    /// </summary>
+    public void PublishValidatedPacket(ReadOnlySpan<byte> packet)
+    {
         var spinner = new SpinWait();
 
         while (Interlocked.CompareExchange(
