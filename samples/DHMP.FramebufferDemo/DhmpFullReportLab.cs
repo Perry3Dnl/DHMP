@@ -63,7 +63,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 38;
+            _totalSteps = 28;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
