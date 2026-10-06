@@ -157,12 +157,23 @@ app.MapPost(
                 new { error = "Unsupported rate policy." });
         }
 
+        if (!Enum.TryParse<DhmpStressConfirmationMode>(
+                request.ConfirmationMode,
+                ignoreCase: true,
+                out var confirmationMode) ||
+            !Enum.IsDefined(confirmationMode))
+        {
+            return Results.BadRequest(
+                new { error = "Unsupported confirmation mode." });
+        }
+
         lab.Configure(
             request.PacketBytes,
             request.Workers,
             receiveMode,
             ratePolicy,
-            request.NativeSmoothing);
+            request.NativeSmoothing,
+            confirmationMode);
 
         return Results.Json(lab.Snapshot());
     });
@@ -171,13 +182,13 @@ app.Run();
 
 static bool IsSupportedPacketSize(int packetBytes) =>
     packetBytes is
-        16 or
+        64 or
         256 or
         1024 or
         4096 or
         16384 or
         32768 or
-        65520;
+        65472;
 
 
 static bool IsSupportedAfXdpPayloadSize(int payloadBytes) =>

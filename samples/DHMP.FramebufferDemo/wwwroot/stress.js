@@ -1,5 +1,5 @@
 (() => {
-  const PACKETS=[16,256,1024,4096,16384,32768,65520];
+  const PACKETS=[64,256,1024,4096,16384,32768,65472];
   const $=id=>document.getElementById(id);
   const packetSlider=$('packetSize');
   const workerSlider=$('workers');
@@ -8,6 +8,7 @@
   const state=$('state');
   const receiveButtons=[...document.querySelectorAll('[data-receive-mode]')];
   const rateButtons=[...document.querySelectorAll('[data-rate-policy]')];
+  const confirmationButtons=[...document.querySelectorAll('[data-confirmation-mode]')];
   const recordsHistory=[];
   const throughputHistory=[];
   let previous=null;
@@ -15,6 +16,7 @@
   let selectedReceiveMode='Sequential';
   let selectedNativeSmoothing=false;
   let selectedRatePolicy='RejectWindow';
+  let selectedConfirmationMode='None';
 
   function compact(v){
     if(v>=1e9)return (v/1e9).toFixed(2)+'B';
@@ -48,7 +50,7 @@
     packetLabel.textContent=packetBytes.toLocaleString()+' bytes';
     workerLabel.textContent=workers.toString();
     state.textContent='reconfiguring…';state.classList.remove('live');
-    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers,receiveMode:selectedReceiveMode,ratePolicy:selectedRatePolicy,nativeSmoothing:selectedNativeSmoothing})});
+    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers,receiveMode:selectedReceiveMode,ratePolicy:selectedRatePolicy,nativeSmoothing:selectedNativeSmoothing,confirmationMode:selectedConfirmationMode})});
     if(!response.ok)throw new Error('HTTP '+response.status);
     previous=null;recordsHistory.length=0;throughputHistory.length=0;renderCharts();
   }
@@ -66,14 +68,17 @@
       $('receiveMode').textContent=cur.receiveMode;
       $('nativeSmoothing').textContent=cur.nativeSmoothing?'Ring-3 ON':'OFF';
       $('ratePolicy').textContent=cur.ratePolicy;
+      $('confirmationMode').textContent=cur.confirmationMode;
       selectedReceiveMode=cur.receiveMode;
       selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
       selectedRatePolicy=cur.ratePolicy;
+      selectedConfirmationMode=cur.confirmationMode;
       receiveButtons.forEach(button=>{
         const smoothing=button.dataset.nativeSmoothing==='true';
         button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode&&smoothing===selectedNativeSmoothing);
       });
       rateButtons.forEach(button=>button.classList.toggle('active',button.dataset.ratePolicy===selectedRatePolicy));
+      confirmationButtons.forEach(button=>button.classList.toggle('active',button.dataset.confirmationMode===selectedConfirmationMode));
       $('workerFaults').textContent=Number(cur.workerFaults).toLocaleString();
       $('workerError').textContent=cur.lastWorkerError||'none';
       workerSlider.max=Math.max(1,Math.min(16,cur.logicalProcessors*2));
@@ -85,6 +90,10 @@
         const packets=(cur.packetsSubmitted-previous.packetsSubmitted)/sec;
         const submittedBytes=(cur.bytesSubmitted-previous.bytesSubmitted)/sec;
         const gb=submittedBytes/1e9;
+        const returnedBytes=Math.max(0,cur.confirmationBytesReturned-previous.confirmationBytesReturned)/sec;
+        const returnedRecords=Math.max(0,cur.confirmationRecordsReturned-previous.confirmationRecordsReturned)/sec;
+        const returnGb=returnedBytes/1e9;
+        const combinedGb=(submittedBytes+returnedBytes)/1e9;
         const acceptedPackets=Math.max(0,cur.packetsAccepted-previous.packetsAccepted);
         const expectedPublished=acceptedPackets*Math.max(1,cur.expectedPublishedRecordsPerPacket);
         const publishedDelta=Math.max(0,cur.recordsPublished-previous.recordsPublished);
@@ -102,6 +111,9 @@
         $('publishedRecords').textContent=compact(published);
         $('payloadGb').textContent=gb.toFixed(2);
         $('packetRate').textContent=compact(packets);
+        $('returnGb').textContent=returnGb.toFixed(2);
+        $('combinedGb').textContent=combinedGb.toFixed(2);
+        $('returnRecords').textContent=compact(returnedRecords)+'/s';
         $('publicationParity').textContent=parity.toFixed(3)+'%';
         $('sendNs').textContent=(sendTicks*nsPerTick/packetDelta).toFixed(1)+' ns/packet';
         $('processNs').textContent=(processTicks*nsPerTick/packetDelta).toFixed(1)+' ns/packet';
@@ -141,6 +153,16 @@
   rateButtons.forEach(button=>button.addEventListener('click',()=>{
     selectedRatePolicy=button.dataset.ratePolicy;
     rateButtons.forEach(item=>item.classList.toggle('active',item===button));
+    queueConfigure();
+  }));
+  confirmationButtons.forEach(button=>button.addEventListener('click',()=>{
+    selectedConfirmationMode=button.dataset.confirmationMode;
+    if(selectedConfirmationMode!=='None'){
+      selectedReceiveMode='Sequential';
+      selectedNativeSmoothing=false;
+      receiveButtons.forEach(item=>item.classList.toggle('active',item.dataset.receiveMode==='Sequential'&&item.dataset.nativeSmoothing!=='true'));
+    }
+    confirmationButtons.forEach(item=>item.classList.toggle('active',item===button));
     queueConfigure();
   }));
   window.addEventListener('resize',renderCharts);
