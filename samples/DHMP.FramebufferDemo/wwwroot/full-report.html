@@ -127,6 +127,35 @@
     </section>
 
     <section class="report-section">
+      <p class="eyebrow">PROTOCOL COMPARISON</p>
+      <h2>HTTP, TCP, UDP and DHMP direct-IP paths</h2>
+      <p class="muted">This section compares protocol architecture at the same 1,408-byte application payload. It does not invent HTTP/TCP/UDP throughput numbers: the graphs below use deterministic IPv6/header overhead and fast-path capability. AF_XDP changes the host data path, not the DHMP wire payload.</p>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Minimum protocol + IPv6 overhead</h3>
+          <p class="muted">Bytes added outside the 1,408-byte application payload. HTTP uses the TCP/IPv6 minimum here; HTTP request/response headers are additional and variable.</p>
+          <canvas id="protocolOverheadChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Best-case payload efficiency</h3>
+          <p class="muted">Application payload as a percentage of payload plus fixed protocol/IP bytes. HTTP is an upper bound because variable HTTP headers are excluded.</p>
+          <canvas id="protocolEfficiencyChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Kernel network-stack bypass</h3>
+          <p class="muted">1 = the compared path can use the AF_XDP fast path; 0 = normal kernel networking stack.</p>
+          <canvas id="kernelBypassChart"></canvas>
+        </article>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Path</th><th>IPv6 + protocol bytes</th><th>Payload efficiency</th><th>Kernel bypass</th><th>Notes</th></tr></thead>
+          <tbody id="protocolComparisonBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
       <p class="eyebrow">POLICY COST</p>
       <h2>Rate-policy overhead</h2>
       <div class="chart-grid">
