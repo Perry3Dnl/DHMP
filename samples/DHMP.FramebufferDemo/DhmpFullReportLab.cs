@@ -63,7 +63,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 29;
+            _totalSteps = 30;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -115,6 +115,11 @@ internal sealed class DhmpFullReportLab
             Step("Worker scaling");
             var scaling = RunScalingBenchmarks();
 
+            Step("Protocol comparison");
+            var protocolComparisons =
+                await RunProtocolComparisonBenchmarksAsync(
+                    scaling).ConfigureAwait(false);
+
             Step("Rate-policy overhead");
             var ratePolicies = RunRatePolicyBenchmarks();
 
@@ -145,6 +150,7 @@ internal sealed class DhmpFullReportLab
                 scaling,
                 ratePolicies,
                 confirmations,
+                protocolComparisons,
                 ring3Consumer,
                 allocations,
                 checks,
@@ -416,6 +422,89 @@ internal sealed class DhmpFullReportLab
                     pps * (packetBytes / RecordSize),
                     pps * packetBytes / 1_000_000_000d,
                     seconds));
+        }
+
+        return results.ToArray();
+    }
+
+    private async Task<DhmpProtocolComparisonBenchmark[]> RunProtocolComparisonBenchmarksAsync(
+        IReadOnlyList<DhmpWorkerScalingBenchmark> scaling)
+    {
+        const int packetBytes = 1408;
+        int workers =
+            Math.Min(
+                4,
+                Math.Max(1, _afXdpLab.MaxWorkers));
+
+        var results =
+            new List<DhmpProtocolComparisonBenchmark>();
+
+        results.AddRange(
+            await ProtocolComparisonBenchmarks.RunAsync(
+                packetBytes).ConfigureAwait(false));
+
+        DhmpWorkerScalingBenchmark? dhmp =
+            scaling.FirstOrDefault(
+                row =>
+                    row.Workers == workers &&
+                    row.PacketBytes == packetBytes);
+
+        if (dhmp is not null)
+        {
+            results.Add(
+                new DhmpProtocolComparisonBenchmark(
+                    "DHMP in-memory full path",
+                    $"{workers} workers, client → sender → server",
+                    packetBytes,
+                    dhmp.PacketRate,
+                    dhmp.LogicalPayloadGigabytesPerSecond,
+                    100_000L * workers,
+                    false,
+                    "Measured by this Full Report run. This is a software-path ceiling, not physical wire throughput."));
+        }
+
+        try
+        {
+            DhmpAfXdpComparisonSample network =
+                await _afXdpLab.RunComparisonSampleAsync(
+                    packetBytes,
+                    workers,
+                    packetsPerWorker: 50_000).ConfigureAwait(false);
+
+            results.Add(
+                new DhmpProtocolComparisonBenchmark(
+                    "DHMP Raw IPv6",
+                    $"{workers} workers, raw IPv6 transmit",
+                    packetBytes,
+                    network.RawPacketRate,
+                    network.RawPayloadGigabytesPerSecond,
+                    50_000L * workers,
+                    false,
+                    "Measured on the benchmark interfaces using the normal kernel raw-IPv6 path."));
+
+            results.Add(
+                new DhmpProtocolComparisonBenchmark(
+                    "DHMP + AF_XDP",
+                    $"{workers} workers, AF_XDP {network.Mode}",
+                    packetBytes,
+                    network.AfXdpPacketRate,
+                    network.AfXdpPayloadGigabytesPerSecond,
+                    50_000L * workers,
+                    true,
+                    $"Measured AF_XDP mode: {network.Mode}."));
+        }
+        catch (Exception exception)
+        {
+            results.Add(
+                new DhmpProtocolComparisonBenchmark(
+                    "DHMP Raw IPv6 / AF_XDP",
+                    $"{workers} workers",
+                    packetBytes,
+                    0,
+                    0,
+                    0,
+                    true,
+                    $"Network comparison unavailable: {exception.GetBaseException().Message}"));
         }
 
         return results.ToArray();
@@ -1040,6 +1129,7 @@ internal sealed record DhmpFullReport(
     DhmpWorkerScalingBenchmark[] WorkerScaling,
     DhmpRatePolicyBenchmark[] RatePolicies,
     DhmpConfirmationBenchmark[] ConfirmationModes,
+    DhmpProtocolComparisonBenchmark[] ProtocolComparisons,
     DhmpRing3ConsumerBenchmark Ring3Consumer,
     DhmpAllocationBenchmark[] Allocations,
     DhmpCorrectnessCheck[] CorrectnessChecks,
@@ -1103,6 +1193,16 @@ internal sealed record DhmpConfirmationBenchmark(
     DhmpSampleStats RoundTripNanoseconds,
     double PacketRate,
     int ReturnBytesPerForwardPacket);
+
+internal sealed record DhmpProtocolComparisonBenchmark(
+    string Protocol,
+    string Scope,
+    int PacketBytes,
+    double PacketRate,
+    double PayloadGigabytesPerSecond,
+    long Operations,
+    bool KernelBypass,
+    string Detail);
 
 internal sealed record DhmpRing3ConsumerBenchmark(
     int PacketBytes,
