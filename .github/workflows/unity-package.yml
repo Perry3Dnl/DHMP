@@ -31,6 +31,9 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: sudo "$(command -v dotnet)" tests/DHMP.Unity.Tests/bin/Release/net10.0/DHMP.Unity.Tests.dll --raw-smoke
+      - name: Exercise real Windows raw IPv6 sockets
+        if: runner.os == 'Windows'
+        run: dotnet tests/DHMP.Unity.Tests/bin/Release/net10.0/DHMP.Unity.Tests.dll --raw-smoke
       - name: Build importable archive including demo and hosting files
         if: runner.os == 'Linux'
         run: python3 tools/package_unity.py

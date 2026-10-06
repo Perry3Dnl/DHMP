@@ -33,10 +33,10 @@ namespace DHMP.Unity.Editor
             if (settings == null) throw new InvalidOperationException("The imported sample's settings asset is missing.");
             settings.ValidateStartup(server, development);
             // Do not silently mutate the developer's active input setting or other project settings.
-            var playerSettings = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/ProjectSettings.asset")[0]);
-            SerializedProperty input = playerSettings.FindProperty("activeInputHandler");
-            if (input != null && input.intValue == 0)
+#if !ENABLE_INPUT_SYSTEM
+            if (!server)
                 throw new InvalidOperationException("Enable Input System Package (New) or Both under Player > Active Input Handling, then restart Unity.");
+#endif
             string output = server ? "Builds/DHMP-Server/DHMP-Arena.x86_64" : "Builds/DHMP-Client/DHMP-Arena.exe";
             Directory.CreateDirectory(Path.GetDirectoryName(output));
             BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
