@@ -3,20 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DHMP Unity Instance Test</title>
+  <title>DHMP Unity Movement Simulator</title>
   <link rel="stylesheet" href="/site.css">
   <style>
-    .unity-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
     .unity-actions{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
     .unity-actions button{padding:10px 16px}
     .unity-actions button:disabled{opacity:.45}
-    .unity-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
-    .unity-form label{display:grid;gap:6px;font-size:.85rem}
-    .unity-form input{padding:9px;border-radius:8px;border:1px solid #334;background:#111827;color:#fff}
-    .endpoint-log{min-height:180px;max-height:360px;overflow:auto;white-space:pre-wrap;font:12px/1.45 ui-monospace,monospace}
+    .sim-layout{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:18px;align-items:start}
+    .arena-wrap{position:relative;min-width:0}
+    #arena{display:block;width:100%;aspect-ratio:16/10;max-height:620px;border:1px solid #263244;border-radius:12px;background:#0b1220;touch-action:none}
+    .sim-side{display:grid;gap:12px}
+    .sim-stat{padding:12px;border:1px solid #263244;border-radius:10px;background:#111827}
+    .sim-stat span{display:block;font-size:.78rem;opacity:.7}
+    .sim-stat strong{font-size:1.15rem}
+    .control-pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:6px;justify-content:center;margin:8px 0}
+    .control-pad button{font-size:20px;border-radius:9px}
+    .control-pad .up{grid-column:2}.control-pad .left{grid-column:1;grid-row:2}.control-pad .down{grid-column:2;grid-row:2}.control-pad .right{grid-column:3;grid-row:2}
+    .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;opacity:.85}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+    .legend .you i{background:#71e6a1}.legend .other i{background:#7aa2ff}
     .state-table{width:100%;border-collapse:collapse}
     .state-table th,.state-table td{text-align:left;padding:8px;border-bottom:1px solid #263244}
-    .good{color:#71e6a1}.warn{color:#ffd166}
+    .good{color:#71e6a1}
+    @media(max-width:800px){.sim-layout{grid-template-columns:1fr}.sim-side{grid-template-columns:repeat(2,minmax(0,1fr))}.control-card{grid-column:1/-1}}
   </style>
 </head>
 <body>
@@ -25,19 +34,19 @@
     <a href="/">Throughput Lab</a>
     <a href="/kernel-bypass.html">Kernel Bypass</a>
     <a href="/game-lobby.html">Capacity Model</a>
-    <a class="active" href="/unity-test.html">Unity Instance Test</a>
+    <a class="active" href="/unity-test.html">Unity Movement Test</a>
   </nav>
 
   <header class="hero">
-    <p class="eyebrow">DHMP UNITY CLIENT CONTRACT</p>
-    <h1>Browser-driven simulated Unity instance</h1>
-    <p class="lead">Connect a simulated player, continuously send fixed-size player-state records through the DHMP client/server pipeline, inspect live server state, and test every endpoint before the Unity package exists.</p>
+    <p class="eyebrow">DHMP UNITY MOVEMENT SIMULATOR</p>
+    <h1>Move a player and watch DHMP synchronize the world</h1>
+    <p class="lead">This browser acts like a tiny Unity client: move with WASD, arrow keys, or the on-screen controls. Position updates are sent to the DHMP session host and every connected player is drawn from the server's latest state.</p>
   </header>
 
   <section class="status">
     <span id="connectionState" class="pill">disconnected</span>
     <span>Player <strong id="playerId">—</strong></span>
-    <span>Auto DHMP tick <strong>20 Hz</strong></span>
+    <span>DHMP tick <strong>20 Hz</strong></span>
     <span>Record <strong>64 bytes</strong></span>
   </section>
 
@@ -50,52 +59,63 @@
 
   <section class="card">
     <p class="eyebrow">SESSION</p>
-    <div class="unity-form">
-      <label>Player name<input id="playerName" value="Web Unity Test"></label>
-    </div>
     <div class="unity-actions">
-      <button id="connectButton">Connect</button>
+      <button id="connectButton">Connect player</button>
       <button id="disconnectButton" disabled>Disconnect</button>
-      <button id="receiveButton" disabled>Receive player data</button>
-      <button id="refreshButton">Refresh stats</button>
     </div>
-    <p class="muted">After Connect, the server-side simulated Unity client keeps sending DHMP state at 20 Hz until Disconnect, even if you stop pressing buttons.</p>
+    <p class="muted">The player remains connected and the server continues its 20 Hz DHMP state stream until Disconnect.</p>
   </section>
 
-  <section class="card">
-    <p class="eyebrow">PLAYER STATE</p>
-    <div class="unity-form">
-      <label>X<input id="x" type="number" step="0.1" value="0"></label>
-      <label>Y<input id="y" type="number" step="0.1" value="0"></label>
-      <label>Z<input id="z" type="number" step="0.1" value="0"></label>
-      <label>Rotation X<input id="rx" type="number" step="0.01" value="0"></label>
-      <label>Rotation Y<input id="ry" type="number" step="0.01" value="0"></label>
-      <label>Rotation Z<input id="rz" type="number" step="0.01" value="0"></label>
-      <label>Rotation W<input id="rw" type="number" step="0.01" value="1"></label>
-      <label>Flags<input id="flags" type="number" step="1" value="0"></label>
+  <section class="server-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">TOP-DOWN WORLD</p>
+        <h2>Live synchronized player state</h2>
+      </div>
+      <div class="server-totals">
+        <span>X <strong id="posX">0.00</strong></span>
+        <span>Z <strong id="posZ">0.00</strong></span>
+        <span><strong id="bytesPerSecond">0</strong> B/s</span>
+      </div>
     </div>
-    <div class="unity-actions">
-      <button id="sendButton" disabled>Send player data now</button>
-      <button id="moveButton" disabled>Move +1 X and send</button>
+
+    <div class="sim-layout">
+      <div class="arena-wrap">
+        <canvas id="arena" width="960" height="600" aria-label="Top-down DHMP player movement simulator"></canvas>
+        <div class="legend">
+          <span class="you"><i></i>Your player</span>
+          <span class="other"><i></i>Other connected player</span>
+        </div>
+      </div>
+
+      <div class="sim-side">
+        <div class="sim-stat"><span>Movement</span><strong>WASD / arrows</strong></div>
+        <div class="sim-stat"><span>Speed</span><strong>5 units/s</strong></div>
+        <div class="sim-stat"><span>World</span><strong>40 × 25</strong></div>
+        <div class="sim-stat"><span>Server uptime</span><strong id="uptime">0s</strong></div>
+        <div class="sim-stat control-card">
+          <span>Touch controls</span>
+          <div class="control-pad">
+            <button class="up" data-dir="up" disabled>▲</button>
+            <button class="left" data-dir="left" disabled>◀</button>
+            <button class="down" data-dir="down" disabled>▼</button>
+            <button class="right" data-dir="right" disabled>▶</button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 
   <section class="server-panel">
     <div class="panel-head">
-      <div><p class="eyebrow">LATEST SERVER STATE</p><h2>Players currently known to the DHMP session host</h2></div>
-      <div class="server-totals"><span><strong id="bytesPerSecond">0</strong> B/s</span><span><strong id="uptime">0s</strong> uptime</span></div>
+      <div><p class="eyebrow">LATEST SERVER STATE</p><h2>Connected players</h2></div>
     </div>
     <div style="overflow:auto">
       <table class="state-table">
-        <thead><tr><th>ID</th><th>Seq</th><th>X</th><th>Y</th><th>Z</th><th>Last server message</th></tr></thead>
-        <tbody id="playersBody"><tr><td colspan="6">No players connected.</td></tr></tbody>
+        <thead><tr><th>ID</th><th>Seq</th><th>X</th><th>Z</th><th>Last message</th></tr></thead>
+        <tbody id="playersBody"><tr><td colspan="5">No players connected.</td></tr></tbody>
       </table>
     </div>
-  </section>
-
-  <section class="card">
-    <p class="eyebrow">ENDPOINT LOG</p>
-    <div id="endpointLog" class="endpoint-log">Ready.</div>
   </section>
 
   <footer>
