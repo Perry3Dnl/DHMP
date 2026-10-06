@@ -31,11 +31,11 @@
       <div class="control-block">
         <div>
           <span class="control-label">DHMP packet payload</span>
-          <strong id="packetLabel">65,520 bytes</strong>
+          <strong id="packetLabel">65,472 bytes</strong>
         </div>
         <input id="packetSize" type="range" min="0" max="6" step="1" value="6">
         <div class="scale seven">
-          <span>16B</span><span>256B</span><span>1KB</span><span>4KB</span><span>16KB</span><span>32KB</span><span>65.5KB</span>
+          <span>64B</span><span>256B</span><span>1KB</span><span>4KB</span><span>16KB</span><span>32KB</span><span>65.5KB</span>
         </div>
       </div>
 
@@ -58,6 +58,15 @@
           <button type="button" class="mode-button" data-receive-mode="Latest" data-native-smoothing="true">Latest + Native Ring-3</button>
         </div>
         <p class="muted">Sequential publishes every complete record. Latest publishes only the newest record. Latest + Native Ring-3 still publishes only that newest record, while retaining N-2/N-1/N receive-side for smoothing.</p>
+      </div>
+      <div class="mode-group">
+        <span class="control-label">Confirmation mode</span>
+        <div class="mode-buttons" data-group="confirmation">
+          <button type="button" class="mode-button active" data-confirmation-mode="None">No confirm</button>
+          <button type="button" class="mode-button" data-confirmation-mode="ApplicationId">Application ID confirm</button>
+          <button type="button" class="mode-button" data-confirmation-mode="FullEcho">Full echo</button>
+        </div>
+        <p class="muted">No confirm is the normal one-way path. Application ID confirm batches eight 64-bit application-owned IDs into each 64-byte return record. Full echo returns and byte-compares every complete 64-byte record. Confirmation modes require Sequential receive mode.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Rate policy</span>
@@ -90,6 +99,16 @@
         <strong id="packetRate">0</strong>
         <small>packets/s</small>
       </article>
+      <article class="metric-card">
+        <span>Return payload</span>
+        <strong id="returnGb">0</strong>
+        <small>GB/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Bidirectional payload</span>
+        <strong id="combinedGb">0</strong>
+        <small>GB/s</small>
+      </article>
     </section>
 
     <section class="server-panel">
@@ -112,7 +131,7 @@
           <canvas id="recordsChart"></canvas>
         </article>
         <article class="chart-card">
-          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of 16-byte application records</span></div>
+          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of 64-byte application records</span></div>
           <canvas id="throughputChart"></canvas>
         </article>
       </div>
@@ -123,6 +142,8 @@
         <div><span>Publication correctness</span><strong id="publicationParity">0%</strong></div>
         <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
         <div><span>Native smoothing</span><strong id="nativeSmoothing">OFF</strong></div>
+        <div><span>Confirmation</span><strong id="confirmationMode">None</strong></div>
+        <div><span>Return records</span><strong id="returnRecords">0/s</strong></div>
         <div><span>Rate policy</span><strong id="ratePolicy">RejectWindow</strong></div>
         <div><span>Worker restarts</span><strong id="workerFaults">0</strong></div>
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
@@ -138,11 +159,11 @@
       </div>
       <div>
         <strong>Large packets expose throughput</strong>
-        <p>Each packet contains only fixed 16-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
+        <p>Each packet contains only fixed 64-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
-        <p>Sequential expects every record to be published. Latest expects exactly one published record per accepted packet. Native Ring-3 does not change that publication count; it only retains the newest three received states for smoothing.</p>
+        <p>Sequential expects every record to be published. Latest expects exactly one published record per accepted packet. Native Ring-3 does not change that publication count. Confirmation modes use Sequential publication: Application ID returns compact batched IDs, while Full Echo returns the full record bytes.</p>
       </div>
     </section>
 
