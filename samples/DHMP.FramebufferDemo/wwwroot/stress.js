@@ -13,6 +13,7 @@
   let previous=null;
   let configureTimer=0;
   let selectedReceiveMode='Sequential';
+  let selectedNativeSmoothing=false;
   let selectedRatePolicy='RejectWindow';
 
   function compact(v){
@@ -47,7 +48,7 @@
     packetLabel.textContent=packetBytes.toLocaleString()+' bytes';
     workerLabel.textContent=workers.toString();
     state.textContent='reconfiguring…';state.classList.remove('live');
-    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers,receiveMode:selectedReceiveMode,ratePolicy:selectedRatePolicy})});
+    const response=await fetch('/api/stress/configure',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({packetBytes,workers,receiveMode:selectedReceiveMode,ratePolicy:selectedRatePolicy,nativeSmoothing:selectedNativeSmoothing})});
     if(!response.ok)throw new Error('HTTP '+response.status);
     previous=null;recordsHistory.length=0;throughputHistory.length=0;renderCharts();
   }
@@ -63,10 +64,15 @@
       $('activeWorkers').textContent=cur.workers;
       $('logicalProcessors').textContent=cur.logicalProcessors;
       $('receiveMode').textContent=cur.receiveMode;
+      $('nativeSmoothing').textContent=cur.nativeSmoothing?'Ring-3 ON':'OFF';
       $('ratePolicy').textContent=cur.ratePolicy;
       selectedReceiveMode=cur.receiveMode;
+      selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
       selectedRatePolicy=cur.ratePolicy;
-      receiveButtons.forEach(button=>button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode));
+      receiveButtons.forEach(button=>{
+        const smoothing=button.dataset.nativeSmoothing==='true';
+        button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode&&smoothing===selectedNativeSmoothing);
+      });
       rateButtons.forEach(button=>button.classList.toggle('active',button.dataset.ratePolicy===selectedRatePolicy));
       $('workerFaults').textContent=Number(cur.workerFaults).toLocaleString();
       $('workerError').textContent=cur.lastWorkerError||'none';
@@ -128,6 +134,7 @@
   workerSlider.addEventListener('input',()=>{workerLabel.textContent=workerSlider.value;queueConfigure()});
   receiveButtons.forEach(button=>button.addEventListener('click',()=>{
     selectedReceiveMode=button.dataset.receiveMode;
+    selectedNativeSmoothing=button.dataset.nativeSmoothing==='true';
     receiveButtons.forEach(item=>item.classList.toggle('active',item===button));
     queueConfigure();
   }));
