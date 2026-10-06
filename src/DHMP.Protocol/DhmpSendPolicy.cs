@@ -18,7 +18,8 @@ public readonly record struct DhmpSendPolicy
             throw new ArgumentOutOfRangeException(nameof(maximumPayloadBytes));
 
         if (ratePolicy is not DhmpRatePolicy.RejectWindow and
-            not DhmpRatePolicy.SmoothPacing)
+            not DhmpRatePolicy.SmoothPacing and
+            not DhmpRatePolicy.Unlimited)
             throw new ArgumentOutOfRangeException(nameof(ratePolicy));
 
         Pmax = pmax;
@@ -41,7 +42,8 @@ public readonly record struct DhmpSendPolicy
                 "A valid local DHMP send policy is required.");
 
         if (RatePolicy is not DhmpRatePolicy.RejectWindow and
-            not DhmpRatePolicy.SmoothPacing)
+            not DhmpRatePolicy.SmoothPacing and
+            not DhmpRatePolicy.Unlimited)
             throw new ArgumentException(
                 "A supported DHMP rate policy is required.");
     }
