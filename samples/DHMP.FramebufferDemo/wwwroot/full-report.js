@@ -19,6 +19,15 @@
 
   const chartPalette = ['#69b7ff', '#71e6a1', '#f5c66f', '#d79cff', '#ff8c8c'];
 
+  const publishedDpdkCurve = [
+    { bytes: 64, packetRate: 36679208.64 },
+    { bytes: 128, packetRate: 34311658.33 },
+    { bytes: 256, packetRate: 20911167.28 },
+    { bytes: 512, packetRate: 11472768.69 },
+    { bytes: 1024, packetRate: 5813539.239 },
+    { bytes: 1518, packetRate: 3933527.049 }
+  ];
+
   const publishedReferences = [
     {
       label: 'ASP.NET Core HTTP',
@@ -382,6 +391,44 @@
             : 0)
       }],
       value => fullDecimal(value, 1) + '×');
+
+
+    const dhmpRows =
+      (report.pathMatrix || [])
+        .filter(row => row.receiveMode === 'Sequential' && !row.nativeSmoothing);
+
+    const scalingSizes =
+      publishedDpdkCurve.map(row => row.bytes);
+
+    const nearestDhmpRate = size => {
+      if (!dhmpRows.length) return 0;
+
+      const nearest =
+        dhmpRows.reduce(
+          (best, row) =>
+            Math.abs(Number(row.packetBytes) - size) <
+            Math.abs(Number(best.packetBytes) - size)
+              ? row
+              : best,
+          dhmpRows[0]);
+
+      return Number(nearest.packetRate || 0);
+    };
+
+    drawGroupedBarChart(
+      'dpdkScalingChart',
+      scalingSizes.map(size => fullInteger(size) + ' B'),
+      [
+        {
+          label: 'DHMP Full Report (nearest payload)',
+          values: scalingSizes.map(nearestDhmpRate)
+        },
+        {
+          label: 'Intel DPDK testpmd host PF',
+          values: publishedDpdkCurve.map(row => row.packetRate)
+        }
+      ],
+      fullInteger);
 
     const body = $('publishedComparisonBody');
     if (body) {
