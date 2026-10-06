@@ -15,6 +15,9 @@
   let lastFrame = performance.now();
   let lastSend = 0;
   let sendInFlight = false;
+  let autoMove = true;
+  let autoDirection = randomDirection();
+  let autoDirectionUntil = performance.now() + randomDirectionDuration();
 
   const request = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -34,7 +37,9 @@
     $('playerId').textContent = connected ? playerId : '—';
     $('connectButton').disabled = connected;
     $('disconnectButton').disabled = !connected;
+    $('autoMoveButton').disabled = !connected;
     document.querySelectorAll('[data-dir]').forEach(button => button.disabled = !connected);
+    updateMovementMode();
   }
 
   function payload() {
@@ -60,6 +65,8 @@
       playerId = result.playerId;
       player.x = (Math.random() - 0.5) * 8;
       player.z = (Math.random() - 0.5) * 8;
+      autoMove = true;
+      chooseNewAutoDirection();
       localStorage.setItem('dhmpUnityPlayerId', String(playerId));
       setConnected(true);
       await sendState(true);
@@ -136,27 +143,60 @@
     return ['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].some(k => keys.has(k)) || touch.size > 0;
   }
 
-  function movementVector() {
+  function movementVector(now) {
     let x = 0;
     let z = 0;
     if (keys.has('a') || keys.has('arrowleft') || touch.has('left')) x -= 1;
     if (keys.has('d') || keys.has('arrowright') || touch.has('right')) x += 1;
     if (keys.has('w') || keys.has('arrowup') || touch.has('up')) z -= 1;
     if (keys.has('s') || keys.has('arrowdown') || touch.has('down')) z += 1;
-    const length = Math.hypot(x, z);
-    return length > 0 ? { x: x / length, z: z / length } : { x: 0, z: 0 };
+
+    const manualLength = Math.hypot(x, z);
+    if (manualLength > 0) {
+      return { x: x / manualLength, z: z / manualLength, automatic: false };
+    }
+
+    if (!autoMove) return { x: 0, z: 0, automatic: false };
+
+    if (now >= autoDirectionUntil) chooseNewAutoDirection(now);
+
+    return { x: autoDirection.x, z: autoDirection.z, automatic: true };
   }
 
-  function updateMovement(dt) {
+  function updateMovement(dt, now) {
     if (!playerId) return;
-    const move = movementVector();
+    const move = movementVector(now);
     if (move.x === 0 && move.z === 0) return;
 
-    player.x = clamp(player.x + move.x * SPEED * dt, -WORLD_W / 2, WORLD_W / 2);
-    player.z = clamp(player.z + move.z * SPEED * dt, -WORLD_H / 2, WORLD_H / 2);
-    player.rotationY = Math.atan2(move.x, -move.z);
+    const halfW = WORLD_W / 2;
+    const halfH = WORLD_H / 2;
+    let nextX = player.x + move.x * SPEED * dt;
+    let nextZ = player.z + move.z * SPEED * dt;
+
+    if (move.automatic) {
+      let bounced = false;
+      if (nextX <= -halfW || nextX >= halfW) {
+        autoDirection.x *= -1;
+        bounced = true;
+      }
+      if (nextZ <= -halfH || nextZ >= halfH) {
+        autoDirection.z *= -1;
+        bounced = true;
+      }
+      if (bounced) {
+        normalizeAutoDirection();
+        autoDirectionUntil = now + randomDirectionDuration();
+        nextX = player.x + autoDirection.x * SPEED * dt;
+        nextZ = player.z + autoDirection.z * SPEED * dt;
+      }
+    }
+
+    player.x = clamp(nextX, -halfW, halfW);
+    player.z = clamp(nextZ, -halfH, halfH);
+    player.rotationY = Math.atan2(move.automatic ? autoDirection.x : move.x, -(move.automatic ? autoDirection.z : move.z));
     $('posX').textContent = player.x.toFixed(2);
     $('posZ').textContent = player.z.toFixed(2);
+    updateAutoDirectionLabel();
     sendState();
   }
 
@@ -237,7 +277,7 @@
   function frame(now) {
     const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
-    updateMovement(dt);
+    updateMovement(dt, now);
     drawArena();
     requestAnimationFrame(frame);
   }
@@ -252,21 +292,69 @@
     return Math.max(min, Math.min(max, value));
   }
 
+  function randomDirection() {
+    const angle = Math.random() * Math.PI * 2;
+    return { x: Math.cos(angle), z: Math.sin(angle) };
+  }
+
+  function randomDirectionDuration() {
+    return 1500 + Math.random() * 2500;
+  }
+
+  function normalizeAutoDirection() {
+    const length = Math.hypot(autoDirection.x, autoDirection.z) || 1;
+    autoDirection.x /= length;
+    autoDirection.z /= length;
+  }
+
+  function chooseNewAutoDirection(now = performance.now()) {
+    autoDirection = randomDirection();
+    autoDirectionUntil = now + randomDirectionDuration();
+    updateAutoDirectionLabel();
+  }
+
+  function updateAutoDirectionLabel() {
+    const degrees = ((Math.atan2(autoDirection.x, -autoDirection.z) * 180 / Math.PI) + 360) % 360;
+    $('autoDirection').textContent = Math.round(degrees) + '°';
+  }
+
+  function updateMovementMode() {
+    const manual = isMoving();
+    $('movementMode').textContent = manual ? 'Manual override' : (autoMove ? 'Automatic' : 'Paused');
+    $('autoMoveButton').textContent = 'Auto movement: ' + (autoMove ? 'ON' : 'OFF');
+  }
+
   window.addEventListener('keydown', event => {
     const key = event.key.toLowerCase();
     if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(key)) {
       keys.add(key);
+      updateMovementMode();
       event.preventDefault();
     }
   });
 
-  window.addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
-  window.addEventListener('blur', () => keys.clear());
+  window.addEventListener('keyup', event => {
+    keys.delete(event.key.toLowerCase());
+    updateMovementMode();
+  });
+  window.addEventListener('blur', () => {
+    keys.clear();
+    updateMovementMode();
+  });
 
   document.querySelectorAll('[data-dir]').forEach(button => {
     const dir = button.dataset.dir;
-    const start = event => { if (!button.disabled) { touch.add(dir); event.preventDefault(); } };
-    const stop = () => touch.delete(dir);
+    const start = event => {
+      if (!button.disabled) {
+        touch.add(dir);
+        updateMovementMode();
+        event.preventDefault();
+      }
+    };
+    const stop = () => {
+      touch.delete(dir);
+      updateMovementMode();
+    };
     button.addEventListener('pointerdown', start);
     button.addEventListener('pointerup', stop);
     button.addEventListener('pointercancel', stop);
@@ -275,8 +363,14 @@
 
   $('connectButton').addEventListener('click', connect);
   $('disconnectButton').addEventListener('click', disconnect);
+  $('autoMoveButton').addEventListener('click', () => {
+    autoMove = !autoMove;
+    if (autoMove) chooseNewAutoDirection();
+    updateMovementMode();
+  });
 
   setConnected(Boolean(playerId));
+  updateAutoDirectionLabel();
   refreshAll();
   setInterval(refreshAll, 250);
   requestAnimationFrame(frame);
