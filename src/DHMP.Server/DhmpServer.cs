@@ -42,7 +42,7 @@ public sealed class DhmpServer
                     wireContract.RecordSize);
 
             _completeRecordsObserver =
-                _latestStateWindow.PublishValidatedPacket;
+                _latestStateWindow.PublishValidatedPacketSingleWriter;
         }
     }
 
