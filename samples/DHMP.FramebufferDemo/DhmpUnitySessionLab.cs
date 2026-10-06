@@ -149,11 +149,38 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
             RecordSize);
     }
 
-    public UnityPlayerView[] Players() =>
-        _latest.Values
+    public UnityPlayerView[] Players()
+    {
+        long nowTimestamp = Stopwatch.GetTimestamp();
+
+        return _latest.Values
             .OrderBy(static player => player.PlayerId)
             .Select(snapshot =>
-                new UnityPlayerView(
+            {
+                long ageNanoseconds = 0;
+
+                if (_sessions.TryGetValue(
+                        snapshot.PlayerId,
+                        out PlayerSession? session))
+                {
+                    long last = session.LastMessageTimestamp;
+
+                    if (last != 0)
+                    {
+                        long elapsedTicks =
+                            Math.Max(
+                                0,
+                                nowTimestamp - last);
+
+                        ageNanoseconds =
+                            (long)(
+                                (double)elapsedTicks /
+                                Stopwatch.Frequency *
+                                1_000_000_000d);
+                    }
+                }
+
+                return new UnityPlayerView(
                     snapshot.PlayerId,
                     snapshot.Sequence,
                     snapshot.X,
@@ -165,13 +192,15 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
                     snapshot.RotationW,
                     snapshot.SentAtUnixMilliseconds,
                     snapshot.Flags,
-                    snapshot.LastMessageUtc,
+                    ageNanoseconds,
                     _nativeHistory.TryGetValue(
                         snapshot.PlayerId,
                         out PlayerSnapshot[]? history)
                         ? history
-                        : [snapshot]))
+                        : [snapshot]);
+            })
             .ToArray();
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -557,5 +586,5 @@ public sealed record UnityPlayerView(
     float RotationW,
     long SentAtUnixMilliseconds,
     int Flags,
-    DateTimeOffset LastMessageUtc,
+    long LastMessageAgeNanoseconds,
     PlayerSnapshot[] NativeHistory);
