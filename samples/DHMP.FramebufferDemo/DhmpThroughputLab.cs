@@ -458,7 +458,6 @@ internal sealed class DhmpThroughputLab : BackgroundService
             int publishedRecords = 0;
             int confirmationRecordsReturned = 0;
             int confirmationBytesReturned = 0;
-            ReadOnlyMemory<byte> published = ReadOnlyMemory<byte>.Empty;
             long started = Stopwatch.GetTimestamp();
 
             _server.ProcessPacket(
@@ -467,7 +466,6 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 {
                     publishedRecords +=
                         batch.Length / _recordSize;
-                    published = batch.ToArray();
                 });
 
             if (_server.NativeSmoothingEnabled)
@@ -483,12 +481,16 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
             if (_confirmationMode == DhmpStressConfirmationMode.ApplicationId)
             {
-                ReadOnlySpan<byte> records = published.Span;
-                int ids = records.Length / _recordSize;
+                int ids =
+                    payload.Length /
+                    _recordSize;
+
                 int returnRecords =
                     (ids + 7) / 8;
+
                 int returnBytes =
-                    returnRecords * _recordSize;
+                    returnRecords *
+                    _recordSize;
 
                 Span<byte> confirmation =
                     _confirmationScratch.AsSpan(
@@ -496,6 +498,9 @@ internal sealed class DhmpThroughputLab : BackgroundService
                         returnBytes);
 
                 confirmation.Clear();
+
+                ReadOnlySpan<byte> records =
+                    payload.Span;
 
                 for (int index = 0; index < ids; index++)
                 {
@@ -509,15 +514,18 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 }
 
                 int confirmed = 0;
+
                 _returnServer.ProcessPacket(
                     confirmation,
                     returned =>
                     {
                         for (int index = 0; index < ids; index++)
                         {
-                            if (!returned.Slice(index * 8, 8)
+                            if (!returned.Slice(
+                                    index * 8,
+                                    8)
                                 .SequenceEqual(
-                                    records.Slice(
+                                    payload.Span.Slice(
                                         index * _recordSize,
                                         8)))
                             {
@@ -530,32 +538,37 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     });
 
                 if (confirmed != ids)
+                {
                     throw new InvalidDataException(
                         "Application ID confirmation count mismatch.");
+                }
 
                 confirmationRecordsReturned =
                     returnRecords;
+
                 confirmationBytesReturned =
                     returnBytes;
             }
             else if (_confirmationMode == DhmpStressConfirmationMode.FullEcho)
             {
-                ReadOnlySpan<byte> records = published.Span;
-
                 _returnServer.ProcessPacket(
-                    records,
+                    payload.Span,
                     returned =>
                     {
-                        if (!returned.SequenceEqual(records))
+                        if (!returned.SequenceEqual(
+                                payload.Span))
+                        {
                             throw new InvalidDataException(
                                 "Full echo confirmation mismatch.");
+                        }
                     });
 
                 confirmationRecordsReturned =
-                    records.Length /
+                    payload.Length /
                     _recordSize;
+
                 confirmationBytesReturned =
-                    records.Length;
+                    payload.Length;
             }
 
             long ticks =
