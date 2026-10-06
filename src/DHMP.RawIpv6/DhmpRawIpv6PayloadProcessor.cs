@@ -31,10 +31,14 @@ internal static class DhmpRawIpv6PayloadProcessor
                 }
                 payload = plaintextScratch[..length];
             }
-            if (payload.Length <= 0 || payload.Length > maximumPlaintext ||
-                payload.Length % server.WireContract.RecordSize != 0)
+            int recordSize = server.WireContract.RecordSize;
+            if (payload.Length < recordSize ||
+                payload.Length > maximumPlaintext)
                 return false;
-            server.ProcessPacket(payload, publishBatch);
+
+            server.ProcessPacket(
+                payload,
+                publishBatch);
             return true;
         }
         finally
