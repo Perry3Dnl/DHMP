@@ -80,6 +80,10 @@
       rateButtons.forEach(button=>button.classList.toggle('active',button.dataset.ratePolicy===selectedRatePolicy));
       confirmationButtons.forEach(button=>button.classList.toggle('active',button.dataset.confirmationMode===selectedConfirmationMode));
       $('coreProcessNs').textContent=Number(cur.coreProcessNanosecondsPerPacket||0).toFixed(2)+' ns/packet';
+      $('allocProcessor').textContent=Number(cur.processorAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
+      $('allocServer').textContent=Number(cur.serverAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
+      $('allocClient').textContent=Number(cur.clientAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
+      $('allocFullPath').textContent=Number(cur.fullPathAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
       $('workerFaults').textContent=Number(cur.workerFaults).toLocaleString();
       $('workerError').textContent=cur.lastWorkerError||'none';
       workerSlider.max=Math.max(1,Math.min(16,cur.logicalProcessors*2));
