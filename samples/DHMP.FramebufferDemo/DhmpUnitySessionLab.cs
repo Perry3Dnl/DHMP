@@ -88,7 +88,8 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         session.Update(input);
         await SendCurrentAsync(session, cancellationToken).ConfigureAwait(false);
 
-        return _latest.TryGetValue(playerId, out PlayerSnapshot snapshot)
+        return _latest.TryGetValue(playerId, out PlayerSnapshot? snapshot) &&
+               snapshot is not null
             ? snapshot
             : session.Snapshot();
     }
