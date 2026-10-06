@@ -524,7 +524,9 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     returned =>
                     {
                         if (!returned.SequenceEqual(
-                                confirmation))
+                                _confirmationScratch.AsSpan(
+                                    0,
+                                    returnBytes)))
                         {
                             throw new InvalidDataException(
                                 "Application ID confirmation mismatch.");
