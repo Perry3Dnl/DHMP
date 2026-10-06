@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Full Benchmark Report</title>
+  <link rel="stylesheet" href="/site.css">
+  <style>
+    .report-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:18px 0}
+    .report-actions button{padding:11px 16px}
+    .progress-shell{height:12px;border:1px solid #263244;border-radius:999px;overflow:hidden;background:#0b1220}
+    .progress-fill{height:100%;width:0;background:#69b7ff;transition:width .25s ease}
+    .report-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .report-section{margin-top:22px;padding:18px;border:1px solid #263244;border-radius:12px;background:#0d131c}
+    .report-section h2{margin-top:0}
+    .report-section h3{margin:20px 0 8px}
+    .report-table-wrap{overflow:auto}
+    .report-table{width:100%;border-collapse:collapse;font-size:.86rem}
+    .report-table th,.report-table td{padding:8px 9px;border-bottom:1px solid #263244;text-align:right;white-space:nowrap}
+    .report-table th:first-child,.report-table td:first-child{text-align:left}
+    .report-table thead th{position:sticky;top:0;background:#0d131c}
+    .report-note{padding:10px 12px;border-left:3px solid #69b7ff;background:#0b1220;margin:8px 0}
+    .pass{color:#71e6a1}.fail{color:#ff7f8c}
+    .hidden{display:none!important}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    @media(max-width:900px){.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){.report-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<main>
+  <nav class="top-nav">
+    <a href="/">Throughput Lab</a>
+    <a href="/kernel-bypass.html">Kernel Bypass</a>
+    <a href="/game-lobby.html">Virtual Game Lobby</a>
+    <a href="/unity-test.html">Unity Movement Test</a>
+    <a class="active" href="/full-report.html">Full Report</a>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">DHMP COMPLETE DIAGNOSTIC BENCHMARK</p>
+    <h1>Run one button. Get the full DHMP report.</h1>
+    <p class="lead">This page pauses the other live benchmark labs and runs a finite, repeatable benchmark suite. It separates core processing, server facade, full in-memory client/server paths, worker scaling, receive modes, Ring-3, rate policies, confirmation modes, allocation behavior and correctness.</p>
+  </header>
+
+  <section class="card">
+    <p class="eyebrow">BENCHMARK CONTROL</p>
+    <div class="report-actions">
+      <button id="runReport">Run full report</button>
+      <button id="downloadJson" disabled>Download JSON</button>
+      <span id="reportState" class="pill">idle</span>
+    </div>
+    <div class="progress-shell" aria-label="Benchmark progress">
+      <div id="progressFill" class="progress-fill"></div>
+    </div>
+    <p id="phase" class="muted">No report has been run yet.</p>
+    <p class="muted">The run is intentionally isolated: Throughput Lab and Kernel Bypass live loops are paused first. A full run performs warmups and repeated samples, so it can take a while.</p>
+  </section>
+
+  <section id="report" class="hidden">
+    <section class="report-section">
+      <p class="eyebrow">EXECUTIVE SUMMARY</p>
+      <h2>Measured DHMP ceilings and sustained paths</h2>
+      <div id="summaryGrid" class="report-grid"></div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">HOST</p>
+      <h2>Runtime and benchmark environment</h2>
+      <div id="environmentGrid" class="report-grid"></div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">PACKET MATRIX</p>
+      <h2>Core, server and end-to-end path by packet size and receive mode</h2>
+      <p class="muted">Each timing is based on repeated finite samples. Median is the headline value; min/max and coefficient of variation expose instability instead of hiding it.</p>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr>
+            <th>Configuration</th><th>Bytes</th><th>Records</th><th>Core ns</th><th>Core CV</th><th>Server ns</th><th>Client ns</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th>
+          </tr></thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">PARALLEL SCALING</p>
+      <h2>Aggregate 1,408-byte full-path scaling</h2>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Workers</th><th>Payload</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th><th>Elapsed</th></tr></thead>
+          <tbody id="scalingBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">POLICY COST</p>
+      <h2>Rate-policy overhead</h2>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Policy</th><th>Payload</th><th>Median ns/packet</th><th>Min</th><th>Max</th><th>CV</th><th>Packets/s</th></tr></thead>
+          <tbody id="rateBody"></tbody>
+        </table>
+      </div>
+
+      <h3>Confirmation modes</h3>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Mode</th><th>Payload</th><th>Median ns/transaction</th><th>CV</th><th>Transactions/s</th><th>Return bytes</th></tr></thead>
+          <tbody id="confirmBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">MEMORY</p>
+      <h2>Steady-state allocation probes</h2>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Receive mode</th><th>Payload</th><th>Processor B/call</th><th>Server B/call</th><th>Full path B/call</th></tr></thead>
+          <tbody id="allocationBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">CORRECTNESS</p>
+      <h2>Contract checks</h2>
+      <div id="checks"></div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">READ THIS CORRECTLY</p>
+      <h2>Interpretation notes</h2>
+      <div id="notes"></div>
+    </section>
+  </section>
+</main>
+<script src="/full-report.js"></script>
+</body>
+</html>

@@ -9,6 +9,7 @@ builder.Services.AddHostedService(
     services => services.GetRequiredService<DhmpAfXdpLiveLab>());
 
 builder.Services.AddSingleton<DhmpUnitySessionLab>();
+builder.Services.AddSingleton<DhmpFullReportLab>();
 
 var app = builder.Build();
 
@@ -34,6 +35,28 @@ app.MapGet("/version", () => Results.Json(new
 app.MapGet(
     "/unity",
     () => Results.Redirect("/unity-test.html"));
+
+app.MapGet(
+    "/report",
+    () => Results.Redirect("/full-report.html"));
+
+app.MapGet(
+    "/api/report/status",
+    (DhmpFullReportLab lab) =>
+        Results.Json(lab.Status()));
+
+app.MapPost(
+    "/api/report/run",
+    (DhmpFullReportLab lab) =>
+        lab.Start()
+            ? Results.Accepted(
+                "/api/report/status",
+                lab.Status())
+            : Results.Conflict(
+                new
+                {
+                    error = "A full benchmark report is already running."
+                }));
 
 app.MapGet(
     "/api/unity/health",
