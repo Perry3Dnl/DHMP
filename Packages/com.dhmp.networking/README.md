@@ -43,4 +43,4 @@ Environment overrides: `DHMP_LOCAL_IPV6`, `DHMP_DEMO_IPV6`, `DHMP_APPLICATION_ID
 
 ## Validation
 
-The repository's `Unity package preview` workflow compiles this exact portable source against .NET Standard 2.1, exercises it on .NET 10 on Linux/Windows, checks byte interoperability, runs a Linux raw IPv6 loopback session, and packages the sample with its metadata. Those jobs do **not** compile or launch the Unity Editor or an IL2CPP player. Unity/physical-host acceptance remains a separate required step.
+The repository's `Unity package preview` workflow compiles this exact portable source against .NET Standard 2.1, exercises it on .NET 10 on Linux/Windows, checks byte interoperability, runs native raw IPv6 loopback sessions on both operating systems, and packages the sample with its metadata. Those jobs do **not** compile or launch the Unity Editor or an IL2CPP player. Unity/physical-host acceptance remains a separate required step.

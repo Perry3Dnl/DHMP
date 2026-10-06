@@ -6,7 +6,7 @@ The first implementation is under [Packages/com.dhmp.networking](../Packages/com
 
 It preserves the [headerless V1 contract](WIRE_CONTRACT_V1.md). The separately specified [DUNA/1 application schema](../Packages/com.dhmp.networking/Documentation~/arena-profile.md) contains the game state and input acknowledgements. No legacy transport fallback is added and the existing .NET 10 projects retain their current targets.
 
-This is `0.1.0-preview.1`, not a published product. The publisher's arena address is not configured, and no server is deployed by this change. The [validation checklist](../Packages/com.dhmp.networking/Documentation~/validation.md) distinguishes portable-runtime/raw-loopback evidence from the still-required Unity, Windows native backend and real Internet tests. Public-service security integration and commercial release qualification remain open.
+This is `0.1.0-preview.1`, not a published product. The publisher's arena address is not configured, and no server is deployed by this change. The [validation checklist](../Packages/com.dhmp.networking/Documentation~/validation.md) distinguishes portable-runtime/raw-loopback evidence from the still-required Unity player/platform and real Internet tests. Public-service security integration and commercial release qualification remain open.
 
 Commands from the repository root:
 
@@ -16,4 +16,8 @@ python3 tools/check_unity_package.py
 python3 tools/package_unity.py
 ```
 
-The `Unity package preview` workflow also runs the raw IPv6 loopback session with the required permission and uploads the importable archive. It does not publish to NuGet or the Unity Asset Store.
+The `Unity package preview` workflow also runs raw IPv6 loopback sessions on Linux and Windows with the required permission and uploads the importable archive. It does not publish to NuGet or the Unity Asset Store.
+
+## First verified preview
+
+On 2026-10-06, [workflow run 37421481560](https://github.com/Perry3Dnl/DHMP/actions/runs/37421481560) passed for code commit `ad4cfc3ba495c6ae6e08f402579bead1dac39e7e`: 43 portable-runtime checks on each OS, package/reference checks and real raw IPv6 loopback sessions on both OSes. This covers the code below the Unity-facing components; no Unity executable has been built or played as part of that run.

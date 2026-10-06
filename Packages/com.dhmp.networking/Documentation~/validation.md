@@ -9,10 +9,10 @@
 - Reject malformed complete packets atomically, nonfinite floats and invalid reserved fields.
 - Exercise shared-motor speed, diagonal normalization, jumping, landing and boundaries.
 - Exercise application join, duplicate input, stale-session rejection, reconciliation, multi-packet snapshots, disconnect and idle cleanup.
-- Exercise actual Linux raw IPv6 253/254 sockets with the portable runtime on loopback.
+- Exercise actual Linux and Windows raw IPv6 253/254 sockets with the portable runtime on loopback.
 - Validate importable package structure, sample references, metadata uniqueness and included hosting files; create the `.tgz`.
 
-These checks are not Unity Editor or IL2CPP compilation, a rendered-scene test, Windows native socket evidence, physical networking, security qualification or an Internet benchmark.
+These checks are not Unity Editor or IL2CPP compilation, a rendered-scene test, physical networking, security qualification or an Internet benchmark. Native socket execution under .NET 10 does not establish the behavior of Unity's Mono or IL2CPP runtime.
 
 ## Required Unity acceptance
 
