@@ -31,15 +31,25 @@
   }
 
   function drawAxes(ctx, width, height, maxValue, yLabelFormatter) {
-    const left = 92, right = 16, top = 20, bottom = 58;
-    const plotWidth = width - left - right;
-    const plotHeight = height - top - bottom;
+    const right = 16, top = 20, bottom = 58;
 
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = '#0b1220';
     ctx.fillRect(0, 0, width, height);
     ctx.font = '11px system-ui, sans-serif';
     ctx.textBaseline = 'middle';
+
+    const axisLabels = [];
+    for (let i = 0; i <= 4; i++) {
+      axisLabels.push(yLabelFormatter(maxValue * (1 - i / 4)));
+    }
+
+    const widestLabel = Math.max(
+      ...axisLabels.map(label => ctx.measureText(label).width));
+
+    const left = Math.max(78, Math.ceil(widestLabel) + 18);
+    const plotWidth = Math.max(80, width - left - right);
+    const plotHeight = height - top - bottom;
 
     for (let i = 0; i <= 4; i++) {
       const y = top + plotHeight * i / 4;
