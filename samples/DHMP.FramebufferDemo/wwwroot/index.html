@@ -144,6 +144,10 @@
         <div><span>Allocated garbage</span><strong id="allocatedPerPacket">0 B/packet</strong></div>
         <div><span>Allocation rate</span><strong id="allocationRate">0 MB/s</strong></div>
         <div><span>GC collections</span><strong id="gcCollections">0 / 0 / 0</strong></div>
+        <div><span>Alloc probe: processor</span><strong id="allocProcessor">0 B/call</strong></div>
+        <div><span>Alloc probe: server</span><strong id="allocServer">0 B/call</strong></div>
+        <div><span>Alloc probe: client</span><strong id="allocClient">0 B/call</strong></div>
+        <div><span>Alloc probe: full path</span><strong id="allocFullPath">0 B/call</strong></div>
         <div><span>Publication correctness</span><strong id="publicationParity">0%</strong></div>
         <div><span>Receive mode</span><strong id="receiveMode">Sequential</strong></div>
         <div><span>Native smoothing</span><strong id="nativeSmoothing">OFF</strong></div>
@@ -154,7 +158,7 @@
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
-      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. Allocation telemetry is process-wide and sampled once per second; at high packet rates, steady-state DHMP should converge near 0 B/packet.  This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
+      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. Allocation telemetry is process-wide and sampled once per second; at high packet rates, steady-state DHMP should converge near 0 B/packet. The four allocation probes are isolated single-thread measurements over 250,000 calls using one outer allocation counter; the full-path probe uses Unlimited + No confirm to isolate baseline DHMP overhead.  This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
     </section>
 
     <section class="explain">
