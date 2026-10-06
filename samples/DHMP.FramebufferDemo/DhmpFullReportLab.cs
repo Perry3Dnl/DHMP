@@ -912,7 +912,7 @@ internal sealed class DhmpFullReportLab
         }
 
         public int MaximumPayloadBytes =>
-            MaximumPayloadBytes;
+            DhmpFullReportLab.MaximumPayloadBytes;
 
         public ValueTask SendPacketAsync(
             ReadOnlyMemory<byte> payload,
