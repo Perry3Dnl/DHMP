@@ -16,5 +16,11 @@ public enum DhmpRatePolicy
     /// Smooth sends over time at the configured Pmax rate instead of
     /// intentionally allowing a full one-second burst.
     /// </summary>
-    SmoothPacing = 1
+    SmoothPacing = 1,
+
+    /// <summary>
+    /// Apply no local message-rate budget or pacing. Packets are submitted to the
+    /// configured sender as quickly as the caller/backend can process them.
+    /// </summary>
+    Unlimited = 2
 }
