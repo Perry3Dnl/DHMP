@@ -56,7 +56,7 @@
 
     const packetBytes=PACKETS[Number(packetSlider.value)];
     const workers=Number(workerSlider.value);
-    const packetRateCap=PACKET_RATE_CAPS[Number(packetRateCapSlider.value)];
+    const packetRateCap=selectedPacketRateCap;
     const receiveMode=selectedReceiveMode;
     const ratePolicy=selectedRatePolicy;
     const nativeSmoothing=selectedNativeSmoothing;
@@ -221,8 +221,22 @@
   packetSlider.addEventListener('input',()=>{packetLabel.textContent=PACKETS[Number(packetSlider.value)].toLocaleString()+' bytes';queueConfigure()});
   workerSlider.addEventListener('input',()=>{workerLabel.textContent=workerSlider.value;queueConfigure()});
   packetRateCapSlider.addEventListener('input',()=>{
-    selectedPacketRateCap=PACKET_RATE_CAPS[Number(packetRateCapSlider.value)];
-    packetRateCapLabel.textContent=selectedPacketRateCap>0?compact(selectedPacketRateCap)+'/s':'Unlimited';
+    selectedPacketRateCap=
+      PACKET_RATE_CAPS[Number(packetRateCapSlider.value)];
+
+    packetRateCapLabel.textContent=
+      selectedPacketRateCap>0
+        ? compact(selectedPacketRateCap)+'/s'
+        : 'Unlimited';
+
+    // The explicit hard cap is the only limiter for this test.
+    selectedRatePolicy='Unlimited';
+
+    rateButtons.forEach(button=>
+      button.classList.toggle(
+        'active',
+        button.dataset.ratePolicy==='Unlimited'));
+
     queueConfigure();
   });
   receiveButtons.forEach(button=>button.addEventListener('click',()=>{
@@ -247,6 +261,10 @@
     queueConfigure();
   }));
   window.addEventListener('resize',renderCharts);
+
+  // Do not trust browser-restored range positions before server state arrives.
+  packetRateCapSlider.value='0';
+  packetRateCapLabel.textContent='Unlimited';
 
   poll();
   setInterval(poll,1000);
