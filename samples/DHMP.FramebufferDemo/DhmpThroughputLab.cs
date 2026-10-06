@@ -241,6 +241,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             packetBytes = _packetBytes;
             receiveMode = _receiveMode;
             ratePolicy = _ratePolicy;
+            nativeSmoothing = _nativeSmoothing;
         }
 
         var wire = new DhmpWireContract(RecordSize);
