@@ -20,11 +20,17 @@
     .report-table th:first-child,.report-table td:first-child{text-align:left}
     .report-table thead th{position:sticky;top:0;background:#0d131c}
     .report-note{padding:10px 12px;border-left:3px solid #69b7ff;background:#0b1220;margin:8px 0}
+    .chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0 20px}
+    .chart-card{border:1px solid #263244;border-radius:12px;background:#0b1220;padding:12px;min-width:0}
+    .chart-card h3{margin:0 0 4px;font-size:1rem}
+    .chart-card p{margin:0 0 10px}
+    .chart-card canvas{display:block;width:100%;height:320px}
+    .chart-wide{grid-column:1/-1}
     .pass{color:#71e6a1}.fail{color:#ff7f8c}
     .hidden{display:none!important}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-    @media(max-width:900px){.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:560px){.report-grid{grid-template-columns:1fr}}
+    @media(max-width:900px){.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.chart-grid{grid-template-columns:1fr}.chart-wide{grid-column:auto}}
+    @media(max-width:560px){.report-grid{grid-template-columns:1fr}.chart-card canvas{height:280px}}
   </style>
 </head>
 <body>
@@ -73,7 +79,24 @@
     <section class="report-section">
       <p class="eyebrow">PACKET MATRIX</p>
       <h2>Core, server and end-to-end path by packet size and receive mode</h2>
-      <p class="muted">Each timing is based on repeated finite samples. Median is the headline value; min/max and coefficient of variation expose instability instead of hiding it.</p>
+      <p class="muted">Each timing is based on repeated finite samples. Median is the headline value; min/max and coefficient of variation expose instability instead of hiding it. All counters and rates are written in full — no M/B/T abbreviation.</p>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Packet rate by receive mode</h3>
+          <p class="muted">Exact packet transactions per second across payload sizes.</p>
+          <canvas id="packetRateModeChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Core processing time</h3>
+          <p class="muted">Median ns/packet by receive mode and payload size.</p>
+          <canvas id="coreTimingModeChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>End-to-end client path</h3>
+          <p class="muted">Median ns/packet through client → sender → server.</p>
+          <canvas id="clientTimingModeChart"></canvas>
+        </article>
+      </div>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr>
@@ -87,6 +110,13 @@
     <section class="report-section">
       <p class="eyebrow">PARALLEL SCALING</p>
       <h2>Aggregate 1,408-byte full-path scaling</h2>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Packet rate by worker count</h3>
+          <p class="muted">Aggregate packet transactions per second as worker count increases.</p>
+          <canvas id="workerScalingChart"></canvas>
+        </article>
+      </div>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr><th>Workers</th><th>Payload</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th><th>Elapsed</th></tr></thead>
@@ -98,6 +128,18 @@
     <section class="report-section">
       <p class="eyebrow">POLICY COST</p>
       <h2>Rate-policy overhead</h2>
+      <div class="chart-grid">
+        <article class="chart-card">
+          <h3>Rate policy packet rate</h3>
+          <p class="muted">Exact packets/s for Unlimited, RejectWindow and SmoothPacing.</p>
+          <canvas id="ratePolicyChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Confirmation throughput</h3>
+          <p class="muted">Exact transaction rate by confirmation mode.</p>
+          <canvas id="confirmationChart"></canvas>
+        </article>
+      </div>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr><th>Policy</th><th>Payload</th><th>Median ns/packet</th><th>Min</th><th>Max</th><th>CV</th><th>Packets/s</th></tr></thead>
@@ -117,6 +159,13 @@
     <section class="report-section">
       <p class="eyebrow">MEMORY</p>
       <h2>Steady-state allocation probes</h2>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Full-path allocation by receive mode</h3>
+          <p class="muted">Bytes allocated per call; lower is better.</p>
+          <canvas id="allocationChart"></canvas>
+        </article>
+      </div>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr><th>Receive mode</th><th>Payload</th><th>Processor B/call</th><th>Server B/call</th><th>Full path B/call</th></tr></thead>
