@@ -67,8 +67,9 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         _latest[playerId] = initial;
         _nativeHistory[playerId] = [initial];
 
-        session.Start(() => SendCurrentAsync(session));
-
+        // Browser-controlled demo sessions have exactly one movement producer:
+        // /api/unity/send. Do not run a second server-side 20 Hz producer,
+        // because duplicate/stale samples make remote interpolation stutter.
         return new UnityConnectResult(
             playerId,
             displayName,
@@ -404,7 +405,6 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
     private sealed class PlayerSession : IAsyncDisposable
     {
         private readonly object _stateGate = new();
-        private readonly CancellationTokenSource _lifetime = new();
         private readonly long _connectedAtUnixMilliseconds =
             DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
@@ -412,7 +412,6 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
             new(0, 0, 0, 0, 0, 0, 1, 0);
 
         private long _sequence;
-        private Task? _sendLoop;
 
         public PlayerSession(
             long playerId,
@@ -432,32 +431,6 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         public DhmpServer Server { get; }
         public SemaphoreSlim SendGate { get; } = new(1, 1);
         public long LastMessageTimestamp { get; private set; }
-
-        public void Start(Func<ValueTask> sendCurrent)
-        {
-            _sendLoop = Task.Run(async () =>
-            {
-                using var timer = new PeriodicTimer(
-                    TimeSpan.FromSeconds(
-                        1d /
-                        SimulatedTickRate));
-
-                try
-                {
-                    await sendCurrent().ConfigureAwait(false);
-
-                    while (await timer.WaitForNextTickAsync(_lifetime.Token)
-                        .ConfigureAwait(false))
-                    {
-                        await sendCurrent().ConfigureAwait(false);
-                    }
-                }
-                catch (OperationCanceledException)
-                    when (_lifetime.IsCancellationRequested)
-                {
-                }
-            });
-        }
 
         public void Update(UnityPlayerStateInput state)
         {
@@ -515,23 +488,10 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
             LastMessageTimestamp =
                 Stopwatch.GetTimestamp();
 
-        public async ValueTask DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            _lifetime.Cancel();
-
-            if (_sendLoop is not null)
-            {
-                try
-                {
-                    await _sendLoop.ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                }
-            }
-
             SendGate.Dispose();
-            _lifetime.Dispose();
+            return ValueTask.CompletedTask;
         }
     }
 }
