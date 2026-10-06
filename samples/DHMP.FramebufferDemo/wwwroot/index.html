@@ -31,11 +31,11 @@
       <div class="control-block">
         <div>
           <span class="control-label">DHMP packet payload</span>
-          <strong id="packetLabel">65,472 bytes</strong>
+          <strong id="packetLabel">65,520 bytes</strong>
         </div>
         <input id="packetSize" type="range" min="0" max="6" step="1" value="6">
         <div class="scale seven">
-          <span>64B</span><span>256B</span><span>1KB</span><span>4KB</span><span>16KB</span><span>32KB</span><span>65.5KB</span>
+          <span>16B</span><span>256B</span><span>1KB</span><span>4KB</span><span>16KB</span><span>32KB</span><span>65.5KB</span>
         </div>
       </div>
 
@@ -66,7 +66,7 @@
           <button type="button" class="mode-button" data-confirmation-mode="ApplicationId">Application ID confirm</button>
           <button type="button" class="mode-button" data-confirmation-mode="FullEcho">Full echo</button>
         </div>
-        <p class="muted">No confirm is the normal one-way path. Application ID confirm batches eight 64-bit application-owned IDs into each 64-byte return record. Full echo returns and byte-compares every complete 64-byte record. Confirmation modes require Sequential receive mode.</p>
+        <p class="muted">No confirm is the normal one-way path. Application ID confirm reuses the existing 64-bit application ID already present in each 16-byte stress record and packs two IDs into each 16-byte return record. Full echo returns and byte-compares the same 16-byte records. Forward packet shape never changes. Confirmation modes require Sequential receive mode.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Rate policy</span>
@@ -131,7 +131,7 @@
           <canvas id="recordsChart"></canvas>
         </article>
         <article class="chart-card">
-          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of 64-byte application records</span></div>
+          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of 16-byte application records</span></div>
           <canvas id="throughputChart"></canvas>
         </article>
       </div>
@@ -159,7 +159,7 @@
       </div>
       <div>
         <strong>Large packets expose throughput</strong>
-        <p>Each packet contains only fixed 64-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
+        <p>Each packet contains only fixed 16-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
