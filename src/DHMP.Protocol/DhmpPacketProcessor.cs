@@ -1,10 +1,12 @@
 namespace DHMP.Protocol;
 
-/// <summary>Validates one complete headerless DHMP data payload and publishes one borrowed record batch.</summary>
+/// <summary>
+/// Applies the configured receive policy to bytes already accepted by the transport/session boundary.
+/// Steady-state processing does not revalidate the negotiated wire contract.
+/// </summary>
 public sealed class DhmpPacketProcessor
 {
     private readonly DhmpWireContract _wireContract;
-    private readonly DhmpReceivePolicy _receivePolicy;
     private readonly bool _latest;
 
     public DhmpPacketProcessor(
@@ -19,7 +21,6 @@ public sealed class DhmpPacketProcessor
         receivePolicy.Validate(wireContract);
 
         _wireContract = wireContract;
-        _receivePolicy = receivePolicy;
         _latest =
             receivePolicy.Mode ==
             DhmpProcessingMode.Latest;
@@ -32,31 +33,41 @@ public sealed class DhmpPacketProcessor
         Process(
             packet,
             publishBatch,
-            validatedPacketObserver: null);
+            completeRecordsObserver: null);
     }
 
     /// <summary>
-    /// Validate once, optionally expose the complete validated packet to an
-    /// internal receive-side observer, then apply normal publication semantics.
+    /// Ignore any incomplete tail, expose only whole records to the optional internal observer,
+    /// then apply Sequential/Latest publication. No per-packet protocol exception is raised.
     /// </summary>
     public void Process(
         ReadOnlySpan<byte> packet,
         Action<ReadOnlySpan<byte>> publishBatch,
-        Action<ReadOnlySpan<byte>>? validatedPacketObserver)
+        Action<ReadOnlySpan<byte>>? completeRecordsObserver)
     {
         ArgumentNullException.ThrowIfNull(
             publishBatch);
 
-        _wireContract.ValidatePacket(
-            packet.Length,
-            _receivePolicy.MaximumPayloadBytes);
+        int recordSize =
+            _wireContract.RecordSize;
 
-        validatedPacketObserver?.Invoke(
-            packet);
+        int completeBytes =
+            packet.Length /
+            recordSize *
+            recordSize;
+
+        if (completeBytes == 0)
+            return;
+
+        ReadOnlySpan<byte> complete =
+            packet[..completeBytes];
+
+        completeRecordsObserver?.Invoke(
+            complete);
 
         publishBatch(
             _latest
-                ? packet[^_wireContract.RecordSize..]
-                : packet);
+                ? complete[^recordSize..]
+                : complete);
     }
 }
