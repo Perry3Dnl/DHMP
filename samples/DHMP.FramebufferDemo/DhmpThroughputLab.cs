@@ -15,6 +15,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private int _workers = Math.Max(1, Environment.ProcessorCount);
     private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
     private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.RejectWindow;
+    private bool _nativeSmoothing;
     private long _configurationVersion;
 
     private long _packetsSubmitted;
@@ -32,7 +33,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
         int packetBytes,
         int workers,
         DhmpProcessingMode receiveMode,
-        DhmpRatePolicy ratePolicy)
+        DhmpRatePolicy ratePolicy,
+        bool nativeSmoothing)
     {
         if (packetBytes < RecordSize ||
             packetBytes > MaximumPayloadBytes ||
@@ -50,12 +52,19 @@ internal sealed class DhmpThroughputLab : BackgroundService
             not DhmpRatePolicy.SmoothPacing)
             throw new ArgumentOutOfRangeException(nameof(ratePolicy));
 
+        if (nativeSmoothing &&
+            receiveMode != DhmpProcessingMode.Latest)
+            throw new ArgumentException(
+                "Native smoothing requires Latest receive mode.",
+                nameof(nativeSmoothing));
+
         lock (_configurationGate)
         {
             _packetBytes = packetBytes;
             _workers = workers;
             _receiveMode = receiveMode;
             _ratePolicy = ratePolicy;
+            _nativeSmoothing = nativeSmoothing;
             _configurationVersion++;
         }
     }
@@ -66,6 +75,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         int workers;
         DhmpProcessingMode receiveMode;
         DhmpRatePolicy ratePolicy;
+        bool nativeSmoothing;
         long version;
 
         lock (_configurationGate)
@@ -74,6 +84,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             workers = _workers;
             receiveMode = _receiveMode;
             ratePolicy = _ratePolicy;
+            nativeSmoothing = _nativeSmoothing;
+            nativeSmoothing = _nativeSmoothing;
             version = _configurationVersion;
         }
 
@@ -96,6 +108,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             RecordSize,
             receiveMode.ToString(),
             ratePolicy.ToString(),
+            nativeSmoothing,
             receiveMode == DhmpProcessingMode.Latest
                 ? 1
                 : packetBytes / RecordSize,
@@ -221,18 +234,21 @@ internal sealed class DhmpThroughputLab : BackgroundService
         int packetBytes;
         DhmpProcessingMode receiveMode;
         DhmpRatePolicy ratePolicy;
+        bool nativeSmoothing;
 
         lock (_configurationGate)
         {
             packetBytes = _packetBytes;
             receiveMode = _receiveMode;
             ratePolicy = _ratePolicy;
+            nativeSmoothing = _nativeSmoothing;
         }
 
         var wire = new DhmpWireContract(RecordSize);
         var receivePolicy = new DhmpReceivePolicy(
             receiveMode,
-            MaximumPayloadBytes);
+            MaximumPayloadBytes,
+            nativeSmoothing);
 
         var server = new DhmpServer(
             wire,
@@ -409,6 +425,17 @@ internal sealed class DhmpThroughputLab : BackgroundService
                         batch.Length / _recordSize;
                 });
 
+            if (_server.NativeSmoothingEnabled)
+            {
+                Span<byte> smoothingWindow =
+                    stackalloc byte[
+                        DhmpLatestStateWindow.Capacity *
+                        DhmpThroughputLab.RecordSize];
+
+                _server.CopyNativeSmoothingWindow(
+                    smoothingWindow);
+            }
+
             long ticks =
                 Stopwatch.GetTimestamp() - started;
 
@@ -441,6 +468,7 @@ internal sealed record DhmpThroughputSnapshot(
     int RecordSize,
     string ReceiveMode,
     string RatePolicy,
+    bool NativeSmoothing,
     int ExpectedPublishedRecordsPerPacket,
     long WorkerFaults,
     string LastWorkerError);
@@ -449,4 +477,5 @@ internal sealed record DhmpThroughputRequest(
     int PacketBytes,
     int Workers,
     string ReceiveMode,
-    string RatePolicy);
+    string RatePolicy,
+    bool NativeSmoothing);

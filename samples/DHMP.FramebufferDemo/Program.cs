@@ -161,7 +161,8 @@ app.MapPost(
             request.PacketBytes,
             request.Workers,
             receiveMode,
-            ratePolicy);
+            ratePolicy,
+            request.NativeSmoothing);
 
         return Results.Json(lab.Snapshot());
     });
