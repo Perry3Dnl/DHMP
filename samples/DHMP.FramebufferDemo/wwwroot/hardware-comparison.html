@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DHMP Hardware Capacity Comparison</title>
+  <link rel="stylesheet" href="/site.css">
+  <style>
+    .comparison-note{padding:14px 16px;border-left:3px solid #69b7ff;background:#0b1220;margin:16px 0;line-height:1.55}
+    .comparison-note.warning{border-left-color:#f5c66f}
+    .comparison-wrap{overflow:auto;margin-top:14px}
+    .comparison-table{width:100%;border-collapse:collapse;font-size:.88rem}
+    .comparison-table th,.comparison-table td{padding:11px 12px;border-bottom:1px solid #263244;text-align:right;white-space:nowrap}
+    .comparison-table th:first-child,.comparison-table td:first-child{text-align:left}
+    .comparison-table thead th{background:#0d131c;color:#a8b7ca}
+    .comparison-table tbody tr:last-child td{border-bottom:0}
+    .comparison-table strong{color:#fff}
+    .source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+    .source-card{padding:16px;border:1px solid #29323d;background:#0d1117;border-radius:12px}
+    .source-card h3{margin:0 0 8px}
+    .source-card p{margin:6px 0;color:#8f9aa8;line-height:1.55}
+    .source-card a{display:inline-block;margin-top:8px}
+    .formula{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#080d13;border:1px solid #263244;border-radius:10px;padding:12px;overflow:auto;color:#dce7f5}
+    .tag{display:inline-block;border:1px solid #34404e;border-radius:999px;padding:4px 8px;font-size:.72rem;color:#9eb0c5;margin-right:6px}
+    .good{color:#71e6a1}
+    @media(max-width:760px){.source-grid{grid-template-columns:1fr}.comparison-table{font-size:.8rem}}
+  </style>
+</head>
+<body>
+<main>
+  <nav class="top-nav">
+    <a href="/">Throughput Lab</a>
+    <a href="/kernel-bypass.html">Kernel Bypass</a>
+    <a href="/game-lobby.html">Virtual Game Lobby</a>
+    <a href="/unity-test.html">Unity Movement Test</a>
+    <a class="active" href="/hardware-comparison.html">Hardware Capacity</a>
+    <a href="/full-report.html">Full Report</a>
+  </nav>
+
+  <header class="hero">
+    <p class="eyebrow">DHMP HARDWARE CAPACITY REFERENCE</p>
+    <h1>How much useful DHMP state fits through real Wi-Fi hardware?</h1>
+    <p class="lead">Five adapters measured in the same independent iPerf3 lab are used as a hardware reference. DHMP capacity is then calculated with the current 16-byte record and 1,408-byte packet payload used by the benchmark suite.</p>
+  </header>
+
+  <section class="status">
+    <span class="pill live">same-lab source data</span>
+    <span><strong>16 bytes</strong> per DHMP record</span>
+    <span><strong>1,408 bytes</strong> DHMP payload</span>
+    <span><strong>88</strong> records/packet</span>
+    <span><strong>0 bytes</strong> DHMP V1 data header</span>
+  </section>
+
+  <section class="headline-grid">
+    <article class="metric-card">
+      <span>Fastest published adapter</span>
+      <strong>2.830</strong>
+      <small>Gbit/s iPerf3</small>
+    </article>
+    <article class="metric-card">
+      <span>Projected DHMP packet rate</span>
+      <strong>251,243</strong>
+      <small>1,408-byte packets/s</small>
+    </article>
+    <article class="metric-card">
+      <span>Projected DHMP record rate</span>
+      <strong>22,109,375</strong>
+      <small>16-byte records/s</small>
+    </article>
+    <article class="metric-card">
+      <span>DHMP data-plane header</span>
+      <strong>0</strong>
+      <small>bytes before/between/after records</small>
+    </article>
+  </section>
+
+  <section class="server-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">SAME-LAB ADAPTER COMPARISON</p>
+        <h2>Published iPerf3 throughput → projected DHMP capacity</h2>
+      </div>
+      <div class="server-totals">
+        <span>near range</span>
+        <span>uncongested</span>
+        <span>best tested band</span>
+      </div>
+    </div>
+
+    <div class="comparison-wrap">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Adapter</th>
+            <th>Wi-Fi</th>
+            <th>Form</th>
+            <th>Published iPerf3</th>
+            <th>Projected DHMP packets/s</th>
+            <th>Projected 16B records/s</th>
+            <th>Useful payload</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Cudy AX3000</strong></td>
+            <td>Wi-Fi 6</td>
+            <td>PCIe</td>
+            <td>1,363 Mbit/s</td>
+            <td>121,005</td>
+            <td>10,648,438</td>
+            <td>0.170 GB/s</td>
+          </tr>
+          <tr>
+            <td><strong>MSI AXE5400</strong></td>
+            <td>Wi-Fi 6E</td>
+            <td>USB</td>
+            <td>1,413 Mbit/s</td>
+            <td>125,444</td>
+            <td>11,039,062</td>
+            <td>0.177 GB/s</td>
+          </tr>
+          <tr>
+            <td><strong>OKN AX5400</strong></td>
+            <td>Wi-Fi 6E</td>
+            <td>PCIe</td>
+            <td>1,670 Mbit/s</td>
+            <td>148,260</td>
+            <td>13,046,875</td>
+            <td>0.209 GB/s</td>
+          </tr>
+          <tr>
+            <td><strong>Gigabyte GC-WBAX210</strong></td>
+            <td>Wi-Fi 6E</td>
+            <td>PCIe</td>
+            <td>1,870 Mbit/s</td>
+            <td>166,016</td>
+            <td>14,609,375</td>
+            <td>0.234 GB/s</td>
+          </tr>
+          <tr>
+            <td><strong>MSI Herald BE</strong></td>
+            <td>Wi-Fi 7</td>
+            <td>PCIe</td>
+            <td>2,830 Mbit/s</td>
+            <td>251,243</td>
+            <td>22,109,375</td>
+            <td>0.354 GB/s</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="comparison-note">
+      <strong>What is measured?</strong> The adapter throughput values are published third-party iPerf3 results from one test methodology: six-foot/near distance, uncongested traffic, and the fastest reported band for each adapter. <strong>What is calculated?</strong> DHMP packets/s and records/s are projections from those published rates; DHMP itself was not run on these five adapters in that external test.
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">PROJECTION MATH</p>
+    <h2>One physical throughput number, expressed as useful DHMP state</h2>
+    <p class="muted">The current benchmark record is 16 bytes. A 1,408-byte DHMP V1 payload therefore contains 88 complete records with no DHMP header, separator or trailer bytes.</p>
+    <div class="formula">records/s = (published Mbit/s × 1,000,000) ÷ (16 × 8)
+
+packets/s = (published Mbit/s × 1,000,000) ÷ (1,408 × 8)
+
+records/packet = 1,408 ÷ 16 = 88</div>
+    <p class="comparison-note warning"><strong>Do not read this as a measured DHMP speedup over iPerf3.</strong> iPerf3 reports useful transfer throughput, not raw Wi-Fi airtime. Proving that DHMP delivers more useful state than TCP/UDP on the same radio requires a controlled same-hardware test that records application bytes, IP bytes, packets/s and interface/link counters for every protocol.</p>
+  </section>
+
+  <section class="server-panel">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">WHY DHMP IS INTERESTING HERE</p>
+        <h2>The data plane does not spend bytes on DHMP framing</h2>
+      </div>
+    </div>
+    <div class="explain">
+      <div>
+        <strong class="good">0 DHMP header bytes</strong>
+        <p>DHMP V1 data packets contain only complete fixed-size application records. Record boundaries come from the negotiated record size and received IP payload length.</p>
+      </div>
+      <div>
+        <strong>Lower layers still exist</strong>
+        <p>IPv6, Wi-Fi MAC/PHY, encryption, acknowledgements, inter-frame spacing and retransmissions remain real network costs. “Headerless DHMP” never means “zero network overhead.”</p>
+      </div>
+      <div>
+        <strong>The next test is the proof</strong>
+        <p>Run DHMP, UDP and TCP on the same adapter with the same 16-byte state workload. Compare useful records/s against actual interface bytes and packet rate.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">SOURCE QUALITY</p>
+    <h2>Why these five adapters were selected</h2>
+    <div class="source-grid">
+      <article class="source-card">
+        <span class="tag">Primary dataset</span><span class="tag">same test lab</span>
+        <h3>Tom's Hardware Wi-Fi adapter testing</h3>
+        <p>The same desktop/router test setup was used across the selected adapters with iPerf3 at near and far distances and with uncongested/congested traffic. Using one lab reduces methodology noise between products.</p>
+        <a href="https://www.tomshardware.com/networking/best-wifi-adapters" target="_blank" rel="noreferrer">Open source benchmark</a>
+      </article>
+      <article class="source-card">
+        <span class="tag">DHMP wire contract</span><span class="tag">repository</span>
+        <h3>DHMP V1 headerless data contract</h3>
+        <p>The repository specifies zero DHMP header bytes before the first record, zero separator bytes between records and zero trailer bytes after the final record.</p>
+        <a href="https://github.com/Perry3Dnl/DHMP/blob/main/docs/WIRE_CONTRACT_V1.md" target="_blank" rel="noreferrer">Open DHMP wire contract</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="card">
+    <p class="eyebrow">ORIGINAL REFERENCE</p>
+    <h2>Why the ROG USB-BE92 is not mixed into the primary five</h2>
+    <p class="muted">The ROG USB-BE92 remains a useful reference and an independent review measured 1,768.6 Mbit/s download on 6 GHz. It is intentionally kept out of the main ranking because that review used a different test environment. Mixing it into the same table would make the ranking look more precise than the source data allows.</p>
+    <a href="https://unikoshardware.com/2025/07/rog-usb-be92-review.html" target="_blank" rel="noreferrer">Open USB-BE92 reference test</a>
+  </section>
+
+  <footer>
+    <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
+  </footer>
+</main>
+</body>
+</html>
