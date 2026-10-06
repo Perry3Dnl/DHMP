@@ -8,6 +8,8 @@ builder.Services.AddSingleton<DhmpAfXdpLiveLab>();
 builder.Services.AddHostedService(
     services => services.GetRequiredService<DhmpAfXdpLiveLab>());
 
+builder.Services.AddSingleton<DhmpUnitySessionLab>();
+
 var app = builder.Build();
 
 app.UseDefaultFiles();
@@ -35,6 +37,56 @@ app.MapGet(
     "/api/afxdp/stats",
     (DhmpAfXdpLiveLab lab) =>
         Results.Json(lab.Snapshot()));
+
+app.MapPost(
+    "/api/unity/connect",
+    (UnityConnectRequest request, DhmpUnitySessionLab lab) =>
+        Results.Json(lab.Connect(request.Name)));
+
+app.MapPost(
+    "/api/unity/disconnect/{playerId:long}",
+    async (long playerId, DhmpUnitySessionLab lab) =>
+        await lab.DisconnectAsync(playerId).ConfigureAwait(false)
+            ? Results.NoContent()
+            : Results.NotFound(new { error = "Unknown player." }));
+
+app.MapPost(
+    "/api/unity/send/{playerId:long}",
+    async (
+        long playerId,
+        UnityPlayerStateInput request,
+        DhmpUnitySessionLab lab,
+        CancellationToken cancellationToken) =>
+    {
+        PlayerSnapshot? snapshot = await lab.SendAsync(
+            playerId,
+            request,
+            cancellationToken).ConfigureAwait(false);
+
+        return snapshot is null
+            ? Results.NotFound(new { error = "Unknown player." })
+            : Results.Json(snapshot);
+    });
+
+app.MapGet(
+    "/api/unity/receive/{playerId:long}",
+    (long playerId, DhmpUnitySessionLab lab) =>
+    {
+        UnityReceiveResult? result = lab.Receive(playerId);
+        return result is null
+            ? Results.NotFound(new { error = "Unknown player." })
+            : Results.Json(result);
+    });
+
+app.MapGet(
+    "/api/unity/stats",
+    (DhmpUnitySessionLab lab) =>
+        Results.Json(lab.Stats()));
+
+app.MapGet(
+    "/api/unity/players",
+    (DhmpUnitySessionLab lab) =>
+        Results.Json(lab.Players()));
 
 app.MapPost(
     "/api/afxdp/configure",
