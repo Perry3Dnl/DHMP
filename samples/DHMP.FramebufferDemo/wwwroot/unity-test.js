@@ -168,6 +168,8 @@
             historyFrames: nativeHistory.length
           });
         } else if (latest.sequence > existing.sequence) {
+          // Native smoothing renders one authoritative state behind:
+          // interpolate from real N-1 to real N, never predict beyond N.
           existing.startX = previous.x;
           existing.startZ = previous.z;
           existing.targetX = latest.x;
@@ -175,14 +177,6 @@
           existing.progress = 0;
           existing.sequence = latest.sequence;
           existing.historyFrames = nativeHistory.length;
-        });
-        } else if (snapshot.sequence >= existing.sequence) {
-          existing.targetX = targetX;
-          existing.targetZ = targetZ;
-          existing.velocityX = motion.vx;
-          existing.velocityZ = motion.vz;
-          existing.historyFrames = nativeHistory.length;
-          existing.sequence = snapshot.sequence;
         }
       }
 
