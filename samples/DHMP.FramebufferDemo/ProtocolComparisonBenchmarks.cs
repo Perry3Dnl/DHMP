@@ -14,14 +14,65 @@ internal static class ProtocolComparisonBenchmarks
         int payloadBytes,
         CancellationToken cancellationToken = default)
     {
-        var results = new List<DhmpProtocolComparisonBenchmark>
-        {
-            await RunTcpAsync(payloadBytes, cancellationToken).ConfigureAwait(false),
-            await RunUdpAsync(payloadBytes, cancellationToken).ConfigureAwait(false),
-            await RunHttpAsync(payloadBytes, cancellationToken).ConfigureAwait(false)
-        };
+        var results =
+            new List<DhmpProtocolComparisonBenchmark>();
+
+        results.Add(
+            await RunSafeAsync(
+                "TCP/IPv6",
+                "IPv6 loopback, 1,408-byte application writes",
+                payloadBytes,
+                false,
+                () => RunTcpAsync(
+                    payloadBytes,
+                    cancellationToken)).ConfigureAwait(false));
+
+        results.Add(
+            await RunSafeAsync(
+                "UDP/IPv6",
+                "IPv6 loopback datagrams",
+                payloadBytes,
+                false,
+                () => RunUdpAsync(
+                    payloadBytes,
+                    cancellationToken)).ConfigureAwait(false));
+
+        results.Add(
+            await RunSafeAsync(
+                "HTTP/1.1 + TCP/IPv6",
+                "Local ASP.NET POST + 204 response",
+                payloadBytes,
+                false,
+                () => RunHttpAsync(
+                    payloadBytes,
+                    cancellationToken)).ConfigureAwait(false));
 
         return results.ToArray();
+    }
+
+    private static async Task<DhmpProtocolComparisonBenchmark> RunSafeAsync(
+        string protocol,
+        string scope,
+        int payloadBytes,
+        bool kernelBypass,
+        Func<Task<DhmpProtocolComparisonBenchmark>> benchmark)
+    {
+        try
+        {
+            return await benchmark().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            return new DhmpProtocolComparisonBenchmark(
+                protocol,
+                scope,
+                payloadBytes,
+                0,
+                0,
+                0,
+                kernelBypass,
+                $"Benchmark unavailable: {exception.GetBaseException().Message}");
+        }
     }
 
     private static async Task<DhmpProtocolComparisonBenchmark> RunTcpAsync(
