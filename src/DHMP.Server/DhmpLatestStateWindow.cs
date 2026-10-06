@@ -47,6 +47,9 @@ public sealed class DhmpLatestStateWindow
     /// the fixed Ring-3. Only the newest three records in a larger packet can
     /// affect the retained state window.
     /// </summary>
+    public void PublishPacket(ReadOnlySpan<byte> packet) =>
+        PublishValidatedPacket(packet);
+
     public void PublishValidatedPacket(ReadOnlySpan<byte> packet)
     {
         if (packet.IsEmpty ||
