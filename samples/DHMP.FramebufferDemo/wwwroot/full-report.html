@@ -127,29 +127,24 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">PROTOCOL COMPARISON</p>
-      <h2>HTTP, TCP, UDP and DHMP direct-IP paths</h2>
-      <p class="muted">This section compares protocol architecture at the same 1,408-byte application payload. It does not invent HTTP/TCP/UDP throughput numbers: the graphs below use deterministic IPv6/header overhead and fast-path capability. AF_XDP changes the host data path, not the DHMP wire payload.</p>
+      <p class="eyebrow">PROTOCOL PERFORMANCE COMPARISON</p>
+      <h2>HTTP, TCP, UDP, Raw IPv6 and AF_XDP on this host</h2>
+      <p class="muted">These are measured during the same Full Report run with a 1,408-byte application payload. HTTP/TCP/UDP use local host networking, Raw IPv6 and AF_XDP use the benchmark interfaces, and the DHMP in-memory row is shown separately as a software-path ceiling. Read the scope column before comparing absolute numbers.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Minimum protocol + IPv6 overhead</h3>
-          <p class="muted">Bytes added outside the 1,408-byte application payload. HTTP uses the TCP/IPv6 minimum here; HTTP request/response headers are additional and variable.</p>
-          <canvas id="protocolOverheadChart"></canvas>
+          <h3>Packet / transaction rate</h3>
+          <p class="muted">Measured operations per second. HTTP is request/response; TCP is 1,408-byte writes; UDP/Raw IPv6/AF_XDP are packet sends.</p>
+          <canvas id="protocolPacketRateChart"></canvas>
         </article>
-        <article class="chart-card">
-          <h3>Best-case payload efficiency</h3>
-          <p class="muted">Application payload as a percentage of payload plus fixed protocol/IP bytes. HTTP is an upper bound because variable HTTP headers are excluded.</p>
-          <canvas id="protocolEfficiencyChart"></canvas>
-        </article>
-        <article class="chart-card">
-          <h3>Kernel network-stack bypass</h3>
-          <p class="muted">1 = the compared path can use the AF_XDP fast path; 0 = normal kernel networking stack.</p>
-          <canvas id="kernelBypassChart"></canvas>
+        <article class="chart-card chart-wide">
+          <h3>Application payload throughput</h3>
+          <p class="muted">Measured application payload GB/s, excluding protocol headers.</p>
+          <canvas id="protocolThroughputChart"></canvas>
         </article>
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>Path</th><th>IPv6 + protocol bytes</th><th>Payload efficiency</th><th>Kernel bypass</th><th>Notes</th></tr></thead>
+          <thead><tr><th>Path</th><th>Scope</th><th>Payload</th><th>Packets / tx per second</th><th>Payload GB/s</th><th>Kernel bypass</th><th>Detail</th></tr></thead>
           <tbody id="protocolComparisonBody"></tbody>
         </table>
       </div>
