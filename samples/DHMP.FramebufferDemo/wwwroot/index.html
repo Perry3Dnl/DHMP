@@ -82,9 +82,9 @@
 
     <section class="headline-grid">
       <article class="metric-card">
-        <span>Submitted</span>
+        <span>Logical records represented</span>
         <strong id="submittedRecords">0</strong>
-        <small>records/s</small>
+        <small>records/s inside submitted batches</small>
       </article>
       <article class="metric-card">
         <span>Published</span>
@@ -97,9 +97,14 @@
         <small>GB/s</small>
       </article>
       <article class="metric-card">
-        <span>Packet rate</span>
+        <span>Actual benchmark packet rate</span>
         <strong id="packetRate">0</strong>
-        <small>packets/s</small>
+        <small>packet transactions/s</small>
+      </article>
+      <article class="metric-card">
+        <span>Core processing ceiling</span>
+        <strong id="corePacketCeiling">0</strong>
+        <small>packet process ops/s, single lane</small>
       </article>
       <article class="metric-card">
         <span>Return payload</span>
@@ -129,7 +134,7 @@
 
       <div class="charts">
         <article class="chart-card">
-          <div class="chart-title"><strong>Records per second</strong><span>submitted vs published</span></div>
+          <div class="chart-title"><strong>Logical records per second</strong><span>batch contents, not network packet count</span></div>
           <canvas id="recordsChart"></canvas>
         </article>
         <article class="chart-card">
@@ -159,7 +164,7 @@
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
-      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. Allocation telemetry is process-wide and sampled once per second; at high packet rates, steady-state DHMP should converge near 0 B/packet. The four allocation probes are isolated single-thread measurements over 250,000 calls using one outer allocation counter; the full-path probe uses Unlimited + No confirm to isolate baseline DHMP overhead.  This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
+      <p class="telemetry-note"><strong>Interpretation:</strong> logical records/s scales with records per batch and must not be read as packets/s. The actual benchmark packet rate is the measured number of packet transactions per second. Core processing ceiling is derived from 1 second divided by the single-thread core ns/packet result and therefore does not depend on batch size. Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. Allocation telemetry is process-wide and sampled once per second; at high packet rates, steady-state DHMP should converge near 0 B/packet. The four allocation probes are isolated single-thread measurements over 250,000 calls using one outer allocation counter; the full-path probe uses Unlimited + No confirm to isolate baseline DHMP overhead.  This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
     </section>
 
     <section class="explain">
