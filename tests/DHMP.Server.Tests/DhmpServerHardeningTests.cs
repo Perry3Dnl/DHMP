@@ -306,25 +306,24 @@ public sealed class DhmpServerHardeningTests
             new DhmpLatestStateWindow(
                 RecordSize);
 
-        using var cancellation =
-            new CancellationTokenSource(
-                TimeSpan.FromMilliseconds(500));
+        int stop = 0;
+        Exception? readerFailure = null;
 
-        Task writer =
-            Task.Run(() =>
+        var writer =
+            new Thread(() =>
             {
                 long sequence = 1;
-                Span<byte> record =
-                    stackalloc byte[RecordSize];
+                byte[] record =
+                    new byte[RecordSize];
 
-                while (!cancellation.IsCancellationRequested)
+                while (Volatile.Read(ref stop) == 0)
                 {
                     BitConverter.TryWriteBytes(
-                        record[..8],
+                        record.AsSpan(0, 8),
                         sequence);
 
                     BitConverter.TryWriteBytes(
-                        record[8..],
+                        record.AsSpan(8, 8),
                         ~sequence);
 
                     window.PublishValidatedPacket(
@@ -334,48 +333,78 @@ public sealed class DhmpServerHardeningTests
                 }
             });
 
-        Task reader =
-            Task.Run(() =>
+        var reader =
+            new Thread(() =>
             {
-                byte[] snapshot =
-                    new byte[
-                        RecordSize *
-                        DhmpLatestStateWindow.Capacity];
-
-                while (!cancellation.IsCancellationRequested)
+                try
                 {
-                    int count =
-                        window.CopyNewestTo(
-                            snapshot);
+                    byte[] snapshot =
+                        new byte[
+                            RecordSize *
+                            DhmpLatestStateWindow.Capacity];
 
-                    for (int index = 0;
-                         index < count;
-                         index++)
+                    for (int iteration = 0;
+                         iteration < 100_000;
+                         iteration++)
                     {
-                        ReadOnlySpan<byte> record =
-                            snapshot.AsSpan(
-                                index * RecordSize,
-                                RecordSize);
+                        int count =
+                            window.CopyNewestTo(
+                                snapshot);
 
-                        long sequence =
-                            BitConverter.ToInt64(
-                                record[..8]);
+                        for (int index = 0;
+                             index < count;
+                             index++)
+                        {
+                            ReadOnlySpan<byte> record =
+                                snapshot.AsSpan(
+                                    index * RecordSize,
+                                    RecordSize);
 
-                        long inverse =
-                            BitConverter.ToInt64(
-                                record[8..]);
+                            long sequence =
+                                BitConverter.ToInt64(
+                                    record[..8]);
 
-                        Assert.Equal(
-                            ~sequence,
-                            inverse);
+                            long inverse =
+                                BitConverter.ToInt64(
+                                    record[8..]);
+
+                            if (~sequence != inverse)
+                            {
+                                throw new InvalidOperationException(
+                                    "Ring-3 returned a torn record.");
+                            }
+                        }
                     }
+                }
+                catch (Exception exception)
+                {
+                    readerFailure = exception;
+                }
+                finally
+                {
+                    Volatile.Write(
+                        ref stop,
+                        1);
                 }
             });
 
+        writer.Start();
+        reader.Start();
+
         Assert.True(
-            Task.WaitAll(
-                [writer, reader],
+            reader.Join(
                 TimeSpan.FromSeconds(2)));
+
+        Volatile.Write(
+            ref stop,
+            1);
+
+        Assert.True(
+            writer.Join(
+                TimeSpan.FromSeconds(2)));
+
+        Assert.Null(
+            readerFailure);
     }
 
     [Fact]
