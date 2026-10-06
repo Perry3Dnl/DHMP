@@ -298,6 +298,116 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void CriticalFlow_Ring3ConcurrentReaderNeverReturnsTornRecords()
+    {
+        const int RecordSize = 16;
+
+        var window =
+            new DhmpLatestStateWindow(
+                RecordSize);
+
+        int stop = 0;
+        Exception? readerFailure = null;
+
+        var writer =
+            new Thread(() =>
+            {
+                long sequence = 1;
+                byte[] record =
+                    new byte[RecordSize];
+
+                while (Volatile.Read(ref stop) == 0)
+                {
+                    BitConverter.TryWriteBytes(
+                        record.AsSpan(0, 8),
+                        sequence);
+
+                    BitConverter.TryWriteBytes(
+                        record.AsSpan(8, 8),
+                        ~sequence);
+
+                    window.PublishValidatedPacket(
+                        record);
+
+                    sequence++;
+                }
+            });
+
+        var reader =
+            new Thread(() =>
+            {
+                try
+                {
+                    byte[] snapshot =
+                        new byte[
+                            RecordSize *
+                            DhmpLatestStateWindow.Capacity];
+
+                    for (int iteration = 0;
+                         iteration < 100_000;
+                         iteration++)
+                    {
+                        int count =
+                            window.CopyNewestTo(
+                                snapshot);
+
+                        for (int index = 0;
+                             index < count;
+                             index++)
+                        {
+                            ReadOnlySpan<byte> record =
+                                snapshot.AsSpan(
+                                    index * RecordSize,
+                                    RecordSize);
+
+                            long sequence =
+                                BitConverter.ToInt64(
+                                    record[..8]);
+
+                            long inverse =
+                                BitConverter.ToInt64(
+                                    record[8..]);
+
+                            if (~sequence != inverse)
+                            {
+                                throw new InvalidOperationException(
+                                    "Ring-3 returned a torn record.");
+                            }
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    readerFailure = exception;
+                }
+                finally
+                {
+                    Volatile.Write(
+                        ref stop,
+                        1);
+                }
+            });
+
+        writer.Start();
+        reader.Start();
+
+        Assert.True(
+            reader.Join(
+                TimeSpan.FromSeconds(2)));
+
+        Volatile.Write(
+            ref stop,
+            1);
+
+        Assert.True(
+            writer.Join(
+                TimeSpan.FromSeconds(2)));
+
+        Assert.Null(
+            readerFailure);
+    }
+
+    [Fact]
     public void CriticalFlow_LatestFilter_ResetRestoresInitialAcceptanceState()
     {
         var filter =

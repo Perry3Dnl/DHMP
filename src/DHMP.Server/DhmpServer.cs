@@ -10,35 +10,65 @@ public sealed class DhmpServer
     private readonly DhmpPacketProcessor _processor;
     private readonly DhmpLatestStateWindow? _latestStateWindow;
 
-    public DhmpServer(DhmpWireContract wireContract, DhmpReceivePolicy receivePolicy = default)
+    public DhmpServer(
+        DhmpWireContract wireContract,
+        DhmpReceivePolicy receivePolicy = default)
     {
         wireContract.Validate();
-        if (receivePolicy == default) receivePolicy = new DhmpReceivePolicy();
-        receivePolicy.Validate(wireContract);
 
-        _wireContract = wireContract;
-        _receivePolicy = receivePolicy;
-        _processor = new DhmpPacketProcessor(wireContract, receivePolicy);
+        if (receivePolicy == default)
+            receivePolicy =
+                new DhmpReceivePolicy();
+
+        receivePolicy.Validate(
+            wireContract);
+
+        _wireContract =
+            wireContract;
+
+        _receivePolicy =
+            receivePolicy;
+
+        _processor =
+            new DhmpPacketProcessor(
+                wireContract,
+                receivePolicy);
+
         if (receivePolicy.NativeSmoothing)
-            _latestStateWindow = new DhmpLatestStateWindow(wireContract.RecordSize);
+        {
+            _latestStateWindow =
+                new DhmpLatestStateWindow(
+                    wireContract.RecordSize);
+        }
     }
 
-    public DhmpWireContract WireContract => _wireContract;
-    public DhmpReceivePolicy ReceivePolicy => _receivePolicy;
-    public bool NativeSmoothingEnabled => _latestStateWindow is not null;
-    public int NativeSmoothingRecordCount => _latestStateWindow?.Count ?? 0;
+    public DhmpWireContract WireContract =>
+        _wireContract;
 
-    public void ProcessPacket(ReadOnlySpan<byte> packet, Action<ReadOnlySpan<byte>> publishBatch)
+    public DhmpReceivePolicy ReceivePolicy =>
+        _receivePolicy;
+
+    public bool NativeSmoothingEnabled =>
+        _latestStateWindow is not null;
+
+    public int NativeSmoothingRecordCount =>
+        _latestStateWindow?.Count ?? 0;
+
+    public void ProcessPacket(
+        ReadOnlySpan<byte> packet,
+        Action<ReadOnlySpan<byte>> publishBatch)
     {
-        if (_latestStateWindow is not null)
-        {
-            _wireContract.ValidatePacket(packet.Length, _receivePolicy.MaximumPayloadBytes);
-            _latestStateWindow.PublishPacket(packet);
-        }
-        _processor.Process(packet, publishBatch);
+        _processor.Process(
+            packet,
+            publishBatch,
+            _latestStateWindow is null
+                ? null
+                : _latestStateWindow.PublishValidatedPacket);
     }
 
     /// <summary>Copy retained N-2/N-1/N records in chronological order; returns zero when disabled.</summary>
-    public int CopyNativeSmoothingWindow(Span<byte> destination) =>
-        _latestStateWindow?.CopyNewestTo(destination) ?? 0;
+    public int CopyNativeSmoothingWindow(
+        Span<byte> destination) =>
+        _latestStateWindow?.CopyNewestTo(
+            destination) ?? 0;
 }

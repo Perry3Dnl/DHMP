@@ -40,46 +40,88 @@ public sealed class DhmpProtocolTests
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(3)]
-    [InlineData(5)]
-    [InlineData(17)]
-    public void InvalidPacket_IsRejectedBeforePublication(int length)
+    public void PartialOnlyInput_IsDroppedWithoutPublication(int length)
     {
-        var processor = new DhmpPacketProcessor(
-            new DhmpWireContract(4),
-            new DhmpReceivePolicy(
-                DhmpProcessingMode.Sequential,
-                16));
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    16));
 
         int calls = 0;
 
-        Assert.Throws<DhmpProtocolException>(() =>
-            processor.Process(new byte[length], _ => calls++));
+        processor.Process(
+            new byte[length],
+            _ => calls++);
 
-        Assert.Equal(0, calls);
+        Assert.Equal(
+            0,
+            calls);
+    }
+
+    [Theory]
+    [InlineData(5, 4)]
+    [InlineData(17, 16)]
+    public void CompleteRecordsBeforeTail_ArePublished(
+        int length,
+        int expectedBytes)
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    16));
+
+        byte[]? actual = null;
+
+        processor.Process(
+            Enumerable.Range(0, length)
+                .Select(i => (byte)i)
+                .ToArray(),
+            span => actual = span.ToArray());
+
+        Assert.NotNull(
+            actual);
+
+        Assert.Equal(
+            expectedBytes,
+            actual!.Length);
     }
 
     [Fact]
     public void SeparatePartialPackets_AreNeverReassembled()
     {
-        var processor = new DhmpPacketProcessor(
-            new DhmpWireContract(4));
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(4));
 
         int calls = 0;
-        Action<ReadOnlySpan<byte>> publish = _ => calls++;
+        Action<ReadOnlySpan<byte>> publish =
+            _ => calls++;
 
-        Assert.Throws<DhmpProtocolException>(() =>
-            processor.Process(new byte[] { 1 }, publish));
-        Assert.Throws<DhmpProtocolException>(() =>
-            processor.Process(new byte[] { 2, 3, 4 }, publish));
+        processor.Process(
+            new byte[] { 1 },
+            publish);
 
-        Assert.Equal(0, calls);
+        processor.Process(
+            new byte[] { 2, 3, 4 },
+            publish);
+
+        Assert.Equal(
+            0,
+            calls);
 
         byte[]? actual = null;
+
         processor.Process(
             new byte[] { 9, 8, 7, 6 },
             span => actual = span.ToArray());
 
-        Assert.Equal(new byte[] { 9, 8, 7, 6 }, actual);
+        Assert.Equal(
+            new byte[] { 9, 8, 7, 6 },
+            actual);
     }
 
     [Fact]
@@ -141,6 +183,69 @@ public sealed class DhmpProtocolTests
             span => actual = span.ToArray());
 
         Assert.Equal(new byte[] { 5, 6 }, actual);
+    }
+
+    [Fact]
+    public void Latest_IgnoresIncompleteTailAndPublishesNewestCompleteRecord()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16));
+
+        byte[]? actual = null;
+
+        processor.Process(
+            new byte[] { 1, 2, 3, 4, 9 },
+            span => actual = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 3, 4 },
+            actual);
+    }
+
+    [Fact]
+    public void Sequential_IgnoresIncompleteTail()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    maximumPayloadBytes: 16));
+
+        byte[]? actual = null;
+
+        processor.Process(
+            new byte[] { 1, 2, 3, 4, 9 },
+            span => actual = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 1, 2, 3, 4 },
+            actual);
+    }
+
+    [Fact]
+    public void ReceiveFastPath_DropsInputWithoutOneCompleteRecord()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16));
+
+        int callbacks = 0;
+
+        processor.Process(
+            new byte[] { 1, 2, 3 },
+            _ => callbacks++);
+
+        Assert.Equal(
+            0,
+            callbacks);
     }
 
     [Fact]
