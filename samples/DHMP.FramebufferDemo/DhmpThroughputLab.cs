@@ -5,7 +5,7 @@ using DHMP.Server;
 
 internal sealed class DhmpThroughputLab : BackgroundService
 {
-    public const int RecordSize = 16;
+    public const int RecordSize = 64;
     public const int MaximumPayloadBytes = 65_520;
 
     private readonly object _configurationGate = new();
@@ -16,6 +16,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
     private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.RejectWindow;
     private bool _nativeSmoothing;
+    private DhmpStressConfirmationMode _confirmationMode = DhmpStressConfirmationMode.None;
     private long _configurationVersion;
 
     private long _packetsSubmitted;
@@ -26,6 +27,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private long _bytesPublished;
     private long _sendTicks;
     private long _processTicks;
+    private long _confirmationRecordsReturned;
+    private long _confirmationBytesReturned;
     private long _workerFaults;
     private string _lastWorkerError = string.Empty;
 
@@ -34,7 +37,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
         int workers,
         DhmpProcessingMode receiveMode,
         DhmpRatePolicy ratePolicy,
-        bool nativeSmoothing)
+        bool nativeSmoothing,
+        DhmpStressConfirmationMode confirmationMode)
     {
         if (packetBytes < RecordSize ||
             packetBytes > MaximumPayloadBytes ||
@@ -58,6 +62,15 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 "Native smoothing requires Latest receive mode.",
                 nameof(nativeSmoothing));
 
+        if (!Enum.IsDefined(confirmationMode))
+            throw new ArgumentOutOfRangeException(nameof(confirmationMode));
+
+        if (confirmationMode != DhmpStressConfirmationMode.None &&
+            (receiveMode != DhmpProcessingMode.Sequential || nativeSmoothing))
+            throw new ArgumentException(
+                "Confirmation modes require Sequential receive mode without native smoothing.",
+                nameof(confirmationMode));
+
         lock (_configurationGate)
         {
             _packetBytes = packetBytes;
@@ -65,6 +78,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             _receiveMode = receiveMode;
             _ratePolicy = ratePolicy;
             _nativeSmoothing = nativeSmoothing;
+            _confirmationMode = confirmationMode;
             _configurationVersion++;
         }
     }
@@ -76,6 +90,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         DhmpProcessingMode receiveMode;
         DhmpRatePolicy ratePolicy;
         bool nativeSmoothing;
+        DhmpStressConfirmationMode confirmationMode;
         long version;
 
         lock (_configurationGate)
@@ -85,7 +100,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             receiveMode = _receiveMode;
             ratePolicy = _ratePolicy;
             nativeSmoothing = _nativeSmoothing;
-            nativeSmoothing = _nativeSmoothing;
+            confirmationMode = _confirmationMode;
             version = _configurationVersion;
         }
 
@@ -109,6 +124,9 @@ internal sealed class DhmpThroughputLab : BackgroundService
             receiveMode.ToString(),
             ratePolicy.ToString(),
             nativeSmoothing,
+            confirmationMode.ToString(),
+            Interlocked.Read(ref _confirmationRecordsReturned),
+            Interlocked.Read(ref _confirmationBytesReturned),
             receiveMode == DhmpProcessingMode.Latest
                 ? 1
                 : packetBytes / RecordSize,
@@ -235,6 +253,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         DhmpProcessingMode receiveMode;
         DhmpRatePolicy ratePolicy;
         bool nativeSmoothing;
+        DhmpStressConfirmationMode confirmationMode;
 
         lock (_configurationGate)
         {
@@ -242,6 +261,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             receiveMode = _receiveMode;
             ratePolicy = _ratePolicy;
             nativeSmoothing = _nativeSmoothing;
+            confirmationMode = _confirmationMode;
         }
 
         var wire = new DhmpWireContract(RecordSize);
@@ -257,6 +277,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         var sender = new InMemoryPacketSender(
             server,
             RecordSize,
+            confirmationMode,
             AddAccepted);
 
         var sendPolicy = new DhmpSendPolicy(
@@ -332,7 +353,9 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private void AddAccepted(
         int packetBytes,
         int publishedRecords,
-        long processingTicks)
+        long processingTicks,
+        int confirmationRecordsReturned,
+        int confirmationBytesReturned)
     {
         Interlocked.Increment(ref _packetsAccepted);
         Interlocked.Add(
@@ -344,6 +367,12 @@ internal sealed class DhmpThroughputLab : BackgroundService
         Interlocked.Add(
             ref _processTicks,
             processingTicks);
+        Interlocked.Add(
+            ref _confirmationRecordsReturned,
+            confirmationRecordsReturned);
+        Interlocked.Add(
+            ref _confirmationBytesReturned,
+            confirmationBytesReturned);
     }
 
     private void FlushSubmitted(
@@ -393,15 +422,27 @@ internal sealed class DhmpThroughputLab : BackgroundService
     {
         private readonly DhmpServer _server;
         private readonly int _recordSize;
-        private readonly Action<int, int, long> _accepted;
+        private readonly DhmpStressConfirmationMode _confirmationMode;
+        private readonly DhmpServer _returnServer;
+        private readonly byte[] _confirmationScratch =
+            new byte[DhmpThroughputLab.MaximumPayloadBytes];
+        private readonly Action<int, int, long, int, int> _accepted;
 
         public InMemoryPacketSender(
             DhmpServer server,
             int recordSize,
-            Action<int, int, long> accepted)
+            DhmpStressConfirmationMode confirmationMode,
+            Action<int, int, long, int, int> accepted)
         {
             _server = server;
             _recordSize = recordSize;
+            _confirmationMode = confirmationMode;
+            _returnServer =
+                new DhmpServer(
+                    new DhmpWireContract(recordSize),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Sequential,
+                        DhmpThroughputLab.MaximumPayloadBytes));
             _accepted = accepted;
         }
 
@@ -415,6 +456,9 @@ internal sealed class DhmpThroughputLab : BackgroundService
             cancellationToken.ThrowIfCancellationRequested();
 
             int publishedRecords = 0;
+            int confirmationRecordsReturned = 0;
+            int confirmationBytesReturned = 0;
+            ReadOnlyMemory<byte> published = ReadOnlyMemory<byte>.Empty;
             long started = Stopwatch.GetTimestamp();
 
             _server.ProcessPacket(
@@ -423,6 +467,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 {
                     publishedRecords +=
                         batch.Length / _recordSize;
+                    published = batch.ToArray();
                 });
 
             if (_server.NativeSmoothingEnabled)
@@ -436,13 +481,92 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     smoothingWindow);
             }
 
+            if (_confirmationMode == DhmpStressConfirmationMode.ApplicationId)
+            {
+                ReadOnlySpan<byte> records = published.Span;
+                int ids = records.Length / _recordSize;
+                int returnRecords =
+                    (ids + 7) / 8;
+                int returnBytes =
+                    returnRecords * _recordSize;
+
+                Span<byte> confirmation =
+                    _confirmationScratch.AsSpan(
+                        0,
+                        returnBytes);
+
+                confirmation.Clear();
+
+                for (int index = 0; index < ids; index++)
+                {
+                    records.Slice(
+                            index * _recordSize,
+                            8)
+                        .CopyTo(
+                            confirmation.Slice(
+                                index * 8,
+                                8));
+                }
+
+                int confirmed = 0;
+                _returnServer.ProcessPacket(
+                    confirmation,
+                    returned =>
+                    {
+                        for (int index = 0; index < ids; index++)
+                        {
+                            if (!returned.Slice(index * 8, 8)
+                                .SequenceEqual(
+                                    records.Slice(
+                                        index * _recordSize,
+                                        8)))
+                            {
+                                throw new InvalidDataException(
+                                    "Application ID confirmation mismatch.");
+                            }
+
+                            confirmed++;
+                        }
+                    });
+
+                if (confirmed != ids)
+                    throw new InvalidDataException(
+                        "Application ID confirmation count mismatch.");
+
+                confirmationRecordsReturned =
+                    returnRecords;
+                confirmationBytesReturned =
+                    returnBytes;
+            }
+            else if (_confirmationMode == DhmpStressConfirmationMode.FullEcho)
+            {
+                ReadOnlySpan<byte> records = published.Span;
+
+                _returnServer.ProcessPacket(
+                    records,
+                    returned =>
+                    {
+                        if (!returned.SequenceEqual(records))
+                            throw new InvalidDataException(
+                                "Full echo confirmation mismatch.");
+                    });
+
+                confirmationRecordsReturned =
+                    records.Length /
+                    _recordSize;
+                confirmationBytesReturned =
+                    records.Length;
+            }
+
             long ticks =
                 Stopwatch.GetTimestamp() - started;
 
             _accepted(
                 payload.Length,
                 publishedRecords,
-                ticks);
+                ticks,
+                confirmationRecordsReturned,
+                confirmationBytesReturned);
 
             return ValueTask.CompletedTask;
         }
@@ -469,6 +593,9 @@ internal sealed record DhmpThroughputSnapshot(
     string ReceiveMode,
     string RatePolicy,
     bool NativeSmoothing,
+    string ConfirmationMode,
+    long ConfirmationRecordsReturned,
+    long ConfirmationBytesReturned,
     int ExpectedPublishedRecordsPerPacket,
     long WorkerFaults,
     string LastWorkerError);
@@ -478,4 +605,13 @@ internal sealed record DhmpThroughputRequest(
     int Workers,
     string ReceiveMode,
     string RatePolicy,
-    bool NativeSmoothing);
+    bool NativeSmoothing,
+    string ConfirmationMode);
+
+
+internal enum DhmpStressConfirmationMode
+{
+    None = 0,
+    ApplicationId = 1,
+    FullEcho = 2
+}
