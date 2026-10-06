@@ -7,6 +7,8 @@
   const SPEED = 5;
   const SEND_INTERVAL_MS = 50;
   const RECEIVE_INTERVAL_MS = 100;
+  const INTERPOLATION_DELAY_MS = 150;
+  const MAX_REMOTE_SAMPLES = 24;
   const STATS_INTERVAL_MS = 1000;
   const keys = new Set();
   const touch = new Set();
@@ -125,6 +127,22 @@
     }
   }
 
+  function mergeRemoteSamples(existing, incoming) {
+    const bySequence = new Map();
+
+    for (const sample of existing || []) {
+      bySequence.set(sample.sequence, sample);
+    }
+
+    for (const sample of incoming) {
+      bySequence.set(sample.sequence, sample);
+    }
+
+    return Array.from(bySequence.values())
+      .sort((a, b) => a.sequence - b.sequence)
+      .slice(-MAX_REMOTE_SAMPLES);
+  }
+
   async function players() {
     if (receiveInFlight) return;
 
@@ -133,7 +151,7 @@
     try {
       serverPlayers = await request('/api/unity/players');
       const present = new Set();
-      const receivedAt = performance.now();
+      const receivedAtUnixMs = Date.now();
 
       for (const snapshot of serverPlayers) {
         present.add(snapshot.playerId);
@@ -153,49 +171,53 @@
               .sort((a, b) => a.sequence - b.sequence)
           : [];
 
-        const frames = nativeHistory.length
+        const incoming = nativeHistory.length
           ? nativeHistory
           : [snapshot];
 
-        const latest = frames[frames.length - 1];
-        const current = frames.length >= 2
-          ? frames[frames.length - 2]
-          : latest;
-        const previous = frames.length >= 3
-          ? frames[frames.length - 3]
-          : current;
+        const latest = incoming[incoming.length - 1];
+        const observedClockOffset =
+          latest.sentAtUnixMilliseconds - receivedAtUnixMs;
 
         const existing = renderedPlayers.get(snapshot.playerId);
 
         if (!existing) {
+          const samples = mergeRemoteSamples([], incoming);
+          const initial =
+            samples.length >= 2
+              ? samples[samples.length - 2]
+              : samples[0];
+
           renderedPlayers.set(snapshot.playerId, {
             playerId: snapshot.playerId,
-            x: current.x,
-            z: current.z,
+            x: initial.x,
+            z: initial.z,
             sequence: latest.sequence,
-            previous,
-            current,
-            future: latest,
-            segmentStartedAt: receivedAt,
-            segmentDuration: RECEIVE_INTERVAL_MS
+            samples,
+            // The freshest observed offset is the least polluted by HTTP/poll
+            // delay and gives us a stable mapping from client time to server time.
+            clockOffsetMs: observedClockOffset
           });
 
           continue;
         }
 
-        if (latest.sequence > existing.sequence) {
-          // Preserve visual continuity if the polling cadence skips more than
-          // one server state. N-2/N-1/N still define the authoritative curve,
-          // but the visible player never snaps backwards on a refresh.
-          existing.renderStartX = existing.x;
-          existing.renderStartZ = existing.z;
-          existing.previous = previous;
-          existing.current = current;
-          existing.future = latest;
-          existing.segmentStartedAt = receivedAt;
-          existing.segmentDuration = RECEIVE_INTERVAL_MS;
-          existing.sequence = latest.sequence;
-        }
+        existing.samples =
+          mergeRemoteSamples(
+            existing.samples,
+            incoming);
+
+        existing.sequence =
+          Math.max(
+            existing.sequence,
+            latest.sequence);
+
+        // Never reset the playback timeline when a poll arrives. Only refine
+        // the server/client clock mapping when we observe a fresher sample.
+        existing.clockOffsetMs =
+          Math.max(
+            existing.clockOffsetMs,
+            observedClockOffset);
       }
 
       for (const id of renderedPlayers.keys()) {
@@ -213,38 +235,85 @@
     await Promise.all([stats(), players()]);
   }
 
-  function smoothRemotePlayers(now) {
-    for (const remote of renderedPlayers.values()) {
-      const previous = remote.previous;
-      const current = remote.current;
-      const future = remote.future;
+  function smoothRemotePlayers() {
+    const clientNow = Date.now();
 
-      if (!current || !future) continue;
+    for (const remote of renderedPlayers.values()) {
+      const samples = remote.samples;
+
+      if (!Array.isArray(samples) || samples.length === 0) continue;
+
+      const renderTime =
+        clientNow +
+        remote.clockOffsetMs -
+        INTERPOLATION_DELAY_MS;
+
+      if (samples.length === 1 ||
+          renderTime <= samples[0].sentAtUnixMilliseconds) {
+        remote.x = samples[0].x;
+        remote.z = samples[0].z;
+        continue;
+      }
+
+      const newest = samples[samples.length - 1];
+
+      if (renderTime >= newest.sentAtUnixMilliseconds) {
+        // Never extrapolate past the newest authoritative DHMP state.
+        remote.x = newest.x;
+        remote.z = newest.z;
+        continue;
+      }
+
+      let rightIndex = 1;
+
+      while (
+        rightIndex < samples.length &&
+        samples[rightIndex].sentAtUnixMilliseconds < renderTime
+      ) {
+        rightIndex++;
+      }
+
+      const current = samples[rightIndex - 1];
+      const future = samples[rightIndex];
+      const previous =
+        rightIndex >= 2
+          ? samples[rightIndex - 2]
+          : current;
+
+      const segmentMs = Math.max(
+        1,
+        future.sentAtUnixMilliseconds -
+          current.sentAtUnixMilliseconds);
 
       const alpha = Math.min(
         1,
         Math.max(
           0,
-          (now - remote.segmentStartedAt) /
-            Math.max(1, remote.segmentDuration)));
+          (renderTime -
+            current.sentAtUnixMilliseconds) /
+            segmentMs));
 
-      const startX = Number.isFinite(remote.renderStartX)
-        ? remote.renderStartX
-        : current.x;
-      const startZ = Number.isFinite(remote.renderStartZ)
-        ? remote.renderStartZ
-        : current.z;
+      const previousMs = Math.max(
+        1,
+        current.sentAtUnixMilliseconds -
+          previous.sentAtUnixMilliseconds);
 
-      // Estimate the incoming tangent from N-2 -> N-1 and the outgoing
-      // tangent from N-1 -> N. This uses only authoritative Ring-3 states.
-      const incomingX = previous
-        ? current.x - previous.x
-        : future.x - current.x;
-      const incomingZ = previous
-        ? current.z - previous.z
-        : future.z - current.z;
-      const outgoingX = future.x - current.x;
-      const outgoingZ = future.z - current.z;
+      // N-2 -> N-1 gives the incoming velocity. N-1 -> N is the
+      // authoritative segment we are rendering. Scale the incoming velocity
+      // to this segment length, then use a cubic Hermite curve.
+      const incomingX =
+        ((current.x - previous.x) /
+          previousMs) *
+        segmentMs;
+      const incomingZ =
+        ((current.z - previous.z) /
+          previousMs) *
+        segmentMs;
+
+      const outgoingX =
+        future.x - current.x;
+      const outgoingZ =
+        future.z - current.z;
 
       const t2 = alpha * alpha;
       const t3 = t2 * alpha;
@@ -254,23 +323,16 @@
       const h11 = t3 - t2;
 
       remote.x =
-        h00 * startX +
+        h00 * current.x +
         h10 * incomingX +
         h01 * future.x +
         h11 * outgoingX;
 
       remote.z =
-        h00 * startZ +
+        h00 * current.z +
         h10 * incomingZ +
         h01 * future.z +
         h11 * outgoingZ;
-
-      if (alpha >= 1) {
-        remote.x = future.x;
-        remote.z = future.z;
-        remote.renderStartX = future.x;
-        remote.renderStartZ = future.z;
-      }
     }
   }
 
@@ -413,7 +475,7 @@
     const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
     lastFrame = now;
     updateMovement(dt, now);
-    smoothRemotePlayers(now);
+    smoothRemotePlayers();
     drawArena();
     requestAnimationFrame(frame);
   }
