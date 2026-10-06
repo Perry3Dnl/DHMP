@@ -9,6 +9,7 @@
   const RECEIVE_INTERVAL_MS = 50;
   const STATS_INTERVAL_MS = 1000;
   const SMOOTHING_RATE = 14;
+  const PREDICTION_SECONDS = 0.05;
   const keys = new Set();
   const touch = new Set();
 
@@ -142,19 +143,32 @@
           continue;
         }
 
+        const nativeHistory = Array.isArray(snapshot.nativeHistory)
+          ? snapshot.nativeHistory
+          : [];
+        const motion = deriveNativeMotion(nativeHistory, snapshot);
+        const targetX = snapshot.x + motion.vx * PREDICTION_SECONDS;
+        const targetZ = snapshot.z + motion.vz * PREDICTION_SECONDS;
+
         const existing = renderedPlayers.get(snapshot.playerId);
         if (!existing) {
           renderedPlayers.set(snapshot.playerId, {
             playerId: snapshot.playerId,
             x: snapshot.x,
             z: snapshot.z,
-            targetX: snapshot.x,
-            targetZ: snapshot.z,
+            targetX,
+            targetZ,
+            velocityX: motion.vx,
+            velocityZ: motion.vz,
+            historyFrames: nativeHistory.length,
             sequence: snapshot.sequence
           });
         } else if (snapshot.sequence >= existing.sequence) {
-          existing.targetX = snapshot.x;
-          existing.targetZ = snapshot.z;
+          existing.targetX = targetX;
+          existing.targetZ = targetZ;
+          existing.velocityX = motion.vx;
+          existing.velocityZ = motion.vz;
+          existing.historyFrames = nativeHistory.length;
           existing.sequence = snapshot.sequence;
         }
       }
@@ -178,6 +192,26 @@
       remote.x += (remote.targetX - remote.x) * alpha;
       remote.z += (remote.targetZ - remote.z) * alpha;
     }
+  }
+
+  function deriveNativeMotion(history, latest) {
+    const frames = history
+      .filter(frame => frame && Number.isFinite(frame.x) && Number.isFinite(frame.z))
+      .sort((a, b) => a.sequence - b.sequence);
+
+    if (frames.length < 2) return { vx: 0, vz: 0 };
+
+    const previous = frames[frames.length - 2];
+    const current = frames[frames.length - 1];
+    const deltaMs = current.sentAtUnixMilliseconds - previous.sentAtUnixMilliseconds;
+
+    if (!(deltaMs > 0)) return { vx: 0, vz: 0 };
+
+    const deltaSeconds = deltaMs / 1000;
+    return {
+      vx: (current.x - previous.x) / deltaSeconds,
+      vz: (current.z - previous.z) / deltaSeconds
+    };
   }
 
   function isMoving() {
