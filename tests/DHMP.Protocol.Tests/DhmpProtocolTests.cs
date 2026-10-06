@@ -511,19 +511,28 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
-    public void SmoothPacingPolicy_IsLocalAndValidated()
+    public void RatePolicies_AreLocalAndValidated()
     {
         var wire = new DhmpWireContract(32);
-        var policy = new DhmpSendPolicy(
-            pmax: 1000,
-            maximumPayloadBytes: 1408,
-            ratePolicy: DhmpRatePolicy.SmoothPacing);
 
-        policy.Validate(wire);
-
-        Assert.Equal(
+        foreach (DhmpRatePolicy mode in new[]
+        {
+            DhmpRatePolicy.RejectWindow,
             DhmpRatePolicy.SmoothPacing,
-            policy.RatePolicy);
+            DhmpRatePolicy.Unlimited
+        })
+        {
+            var policy = new DhmpSendPolicy(
+                pmax: 1000,
+                maximumPayloadBytes: 1408,
+                ratePolicy: mode);
+
+            policy.Validate(wire);
+
+            Assert.Equal(
+                mode,
+                policy.RatePolicy);
+        }
 
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new DhmpSendPolicy(

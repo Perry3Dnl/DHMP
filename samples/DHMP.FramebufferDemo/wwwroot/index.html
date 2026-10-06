@@ -71,10 +71,11 @@
       <div class="mode-group">
         <span class="control-label">Rate policy</span>
         <div class="mode-buttons" data-group="rate">
-          <button type="button" class="mode-button active" data-rate-policy="RejectWindow">RejectWindow</button>
+          <button type="button" class="mode-button active" data-rate-policy="Unlimited">Unlimited</button>
+          <button type="button" class="mode-button" data-rate-policy="RejectWindow">RejectWindow</button>
           <button type="button" class="mode-button" data-rate-policy="SmoothPacing">SmoothPacing</button>
         </div>
-        <p class="muted">RejectWindow runs flat-out until the local budget is exhausted. SmoothPacing spaces packet submissions over time.</p>
+        <p class="muted">Unlimited bypasses local rate accounting and submits as fast as the worker/backend can run. RejectWindow enforces a one-second Pmax budget. SmoothPacing deliberately spaces submissions over time.</p>
       </div>
     </section>
 
@@ -144,7 +145,7 @@
         <div><span>Native smoothing</span><strong id="nativeSmoothing">OFF</strong></div>
         <div><span>Confirmation</span><strong id="confirmationMode">None</strong></div>
         <div><span>Return records</span><strong id="returnRecords">0/s</strong></div>
-        <div><span>Rate policy</span><strong id="ratePolicy">RejectWindow</strong></div>
+        <div><span>Rate policy</span><strong id="ratePolicy">Unlimited</strong></div>
         <div><span>Worker restarts</span><strong id="workerFaults">0</strong></div>
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>

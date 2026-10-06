@@ -65,7 +65,8 @@ public sealed class DhmpClient
                     ? adaptiveRateController.CurrentMessagesPerSecond
                     : sendPolicy.Pmax);
         }
-        else
+        else if (sendPolicy.RatePolicy ==
+                 DhmpRatePolicy.RejectWindow)
         {
             _budget =
                 new DhmpPmaxBudget(
@@ -162,7 +163,9 @@ public sealed class DhmpClient
                 cancellationToken)
             .ConfigureAwait(false);
         }
-        else if (!_budget!.TryConsume(messages))
+        else if (_sendPolicy.RatePolicy ==
+                 DhmpRatePolicy.RejectWindow &&
+                 !_budget!.TryConsume(messages))
         {
             throw new DhmpProtocolException(
                 "Configured local DHMP send budget exhausted.");
