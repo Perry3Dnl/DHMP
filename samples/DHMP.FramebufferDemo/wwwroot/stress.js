@@ -103,6 +103,12 @@
         const processTicks=Math.max(0,cur.processTicks-previous.processTicks);
         const packetDelta=Math.max(1,cur.packetsSubmitted-previous.packetsSubmitted);
         const nsPerTick=1e9/Math.max(1,cur.stopwatchFrequency);
+        const allocatedBytes=Math.max(0,Number(cur.totalAllocatedBytes)-Number(previous.totalAllocatedBytes));
+        const allocationRateBytes=allocatedBytes/sec;
+        const allocatedPerPacket=allocatedBytes/packetDelta;
+        const gen0Delta=Math.max(0,Number(cur.gen0Collections)-Number(previous.gen0Collections));
+        const gen1Delta=Math.max(0,Number(cur.gen1Collections)-Number(previous.gen1Collections));
+        const gen2Delta=Math.max(0,Number(cur.gen2Collections)-Number(previous.gen2Collections));
 
         $('recordsRate').textContent=Math.round(submitted).toLocaleString();
         $('gbps').textContent=gb.toFixed(2);
@@ -118,6 +124,9 @@
         $('publicationParity').textContent=parity.toFixed(3)+'%';
         $('sendNs').textContent=(sendTicks*nsPerTick/packetDelta).toFixed(1)+' ns/packet';
         $('processNs').textContent=(processTicks*nsPerTick/packetDelta).toFixed(1)+' ns/packet';
+        $('allocatedPerPacket').textContent=allocatedPerPacket.toFixed(3)+' B/packet';
+        $('allocationRate').textContent=(allocationRateBytes/1e6).toFixed(2)+' MB/s';
+        $('gcCollections').textContent=gen0Delta+' / '+gen1Delta+' / '+gen2Delta;
 
         recordsHistory.push({submitted,published});
         throughputHistory.push(gb);
