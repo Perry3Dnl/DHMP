@@ -1,5 +1,5 @@
 (() => {
-  const PACKETS=[16,256,1024,4096,16384,32768,65520];
+  const PACKETS=[16,32,64,128,256,512,1024,1408,4096,16384,65520];
   const $=id=>document.getElementById(id);
   const packetSlider=$('packetSize');
   const workerSlider=$('workers');
