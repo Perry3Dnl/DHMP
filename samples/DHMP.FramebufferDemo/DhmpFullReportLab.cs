@@ -126,7 +126,7 @@ internal sealed class DhmpFullReportLab
             Step("Confirmation overhead");
             var confirmations = RunConfirmationBenchmarks();
 
-            Step("Ring-3 consumer read");
+            Step("Latest sweeper / grabber");
             var ring3Consumer = RunRing3ConsumerBenchmark();
 
             Step("Allocation probes");
@@ -163,8 +163,10 @@ internal sealed class DhmpFullReportLab
                     "Packet rate is measured as complete benchmark packet transactions per second.",
                     "Records/s is the number of 16-byte application records represented by those packet transactions.",
                     "Latest publishes one newest record per packet; Sequential publishes every complete record.",
-                    "Latest + Ring-3 retains receive-side N-2/N-1/N while publishing only newest N.",
-                    "Ring-3 packet-path timings measure writes only. Consumer reads are benchmarked separately instead of reading the window after every packet."
+                    "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
+                    "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
+                    "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
+                    "Native Smoothing adds no per-packet Ring-3 copy. Sweeper and grabber costs are benchmarked separately."
                 });
 
             lock (_gate)
@@ -671,8 +673,6 @@ internal sealed class DhmpFullReportLab
 
     private static DhmpRing3ConsumerBenchmark RunRing3ConsumerBenchmark()
     {
-        const int packetBytes = 1408;
-
         var server =
             new DhmpServer(
                 new DhmpWireContract(RecordSize),
@@ -681,48 +681,84 @@ internal sealed class DhmpFullReportLab
                     MaximumPayloadBytes,
                     nativeSmoothing: true));
 
-        byte[] packet =
-            GC.AllocateUninitializedArray<byte>(
-                packetBytes);
+        // Prime one full physical three-slot sweep window. No packet-path
+        // observer is involved; these are the slots the grabber reads.
+        for (int index = 0;
+             index < DhmpLatestStateWindow.Capacity;
+             index++)
+        {
+            Span<byte> slot =
+                server.BeginLatestSweep();
 
-        server.ProcessPacket(
-            packet,
-            static _ => { });
+            slot.Clear();
+            slot[0] = (byte)(index + 1);
 
-        byte[] destination =
+            server.CommitLatestSweep();
+        }
+
+        byte[] latestDestination =
+            new byte[RecordSize];
+
+        byte[] smoothingDestination =
             new byte[
                 DhmpLatestStateWindow.Capacity *
                 RecordSize];
 
         for (int i = 0; i < WarmupIterations; i++)
         {
+            server.CopyLatest(
+                latestDestination);
+
             server.CopyNativeSmoothingWindow(
-                destination);
+                smoothingDestination);
         }
 
-        double[] samples =
+        double[] sweeperNs =
+            new double[Repetitions];
+
+        double[] latestGrabNs =
+            new double[Repetitions];
+
+        double[] smoothingGrabNs =
             new double[Repetitions];
 
         for (int repetition = 0;
              repetition < Repetitions;
              repetition++)
         {
-            samples[repetition] =
+            sweeperNs[repetition] =
+                MeasureNanosecondsPerCall(
+                    MeasuredIterations,
+                    () =>
+                    {
+                        server.BeginLatestSweep().Clear();
+                        server.CommitLatestSweep();
+                    });
+
+            latestGrabNs[repetition] =
+                MeasureNanosecondsPerCall(
+                    MeasuredIterations,
+                    () => server.CopyLatest(
+                        latestDestination));
+
+            smoothingGrabNs[repetition] =
                 MeasureNanosecondsPerCall(
                     MeasuredIterations,
                     () => server.CopyNativeSmoothingWindow(
-                        destination));
+                        smoothingDestination));
         }
 
-        DhmpSampleStats stats =
-            Stats(samples);
+        DhmpSampleStats smoothingStats =
+            Stats(smoothingGrabNs);
 
         return new DhmpRing3ConsumerBenchmark(
-            packetBytes,
+            RecordSize,
             DhmpLatestStateWindow.Capacity,
-            stats,
-            stats.Median * 60d,
-            stats.Median * 120d);
+            Stats(sweeperNs),
+            Stats(latestGrabNs),
+            smoothingStats,
+            smoothingStats.Median * 60d,
+            smoothingStats.Median * 120d);
     }
 
     private static DhmpAllocationBenchmark[] RunAllocationBenchmarks()
@@ -850,16 +886,65 @@ internal sealed class DhmpFullReportLab
             bool publicationOk =
                 published == expected;
 
-            bool ringOk =
-                !smoothing ||
-                server.NativeSmoothingRecordCount ==
-                    DhmpLatestStateWindow.Capacity;
+            bool grabberOk = true;
+            int grabbed = 0;
+
+            if (mode == DhmpProcessingMode.Latest)
+            {
+                // The sweeper is a separate stage. Populate exactly the same
+                // three slots regardless of which grabber mode is selected.
+                for (int index = 0;
+                     index < DhmpLatestStateWindow.Capacity;
+                     index++)
+                {
+                    Span<byte> slot =
+                        server.BeginLatestSweep();
+
+                    slot.Clear();
+                    slot[0] =
+                        (byte)(index + 1);
+
+                    server.CommitLatestSweep();
+                }
+
+                if (smoothing)
+                {
+                    byte[] destination =
+                        new byte[
+                            RecordSize *
+                            DhmpLatestStateWindow.Capacity];
+
+                    grabbed =
+                        server.CopyNativeSmoothingWindow(
+                            destination);
+
+                    grabberOk =
+                        grabbed ==
+                            DhmpLatestStateWindow.Capacity &&
+                        destination[0] == 1 &&
+                        destination[RecordSize] == 2 &&
+                        destination[RecordSize * 2] == 3;
+                }
+                else
+                {
+                    byte[] destination =
+                        new byte[RecordSize];
+
+                    grabbed =
+                        server.CopyLatest(
+                            destination);
+
+                    grabberOk =
+                        grabbed == 1 &&
+                        destination[0] == 3;
+                }
+            }
 
             checks.Add(
                 new DhmpCorrectnessCheck(
-                    $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} publication",
-                    publicationOk && ringOk,
-                    $"published={published}, expected={expected}, ring={server.NativeSmoothingRecordCount}"));
+                    $"{mode}{(smoothing ? " + Native Smoothing" : string.Empty)} publication/grab",
+                    publicationOk && grabberOk,
+                    $"published={published}, expected={expected}, grabbed={grabbed}, sweepSlots={(mode == DhmpProcessingMode.Latest ? DhmpLatestStateWindow.Capacity : 0)}"));
         }
 
         return checks.ToArray();
@@ -1205,11 +1290,13 @@ internal sealed record DhmpProtocolComparisonBenchmark(
     string Detail);
 
 internal sealed record DhmpRing3ConsumerBenchmark(
-    int PacketBytes,
-    int RetainedRecords,
-    DhmpSampleStats ReadNanoseconds,
-    double NanosecondsPerSecondAt60Hz,
-    double NanosecondsPerSecondAt120Hz);
+    int RecordBytes,
+    int SweepSlots,
+    DhmpSampleStats SweeperNanoseconds,
+    DhmpSampleStats LatestGrabNanoseconds,
+    DhmpSampleStats NativeSmoothingGrabNanoseconds,
+    double NativeSmoothingNanosecondsPerSecondAt60Hz,
+    double NativeSmoothingNanosecondsPerSecondAt120Hz);
 
 internal sealed record DhmpAllocationBenchmark(
     string ReceiveMode,

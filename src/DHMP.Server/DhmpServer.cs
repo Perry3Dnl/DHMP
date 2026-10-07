@@ -2,14 +2,16 @@ using DHMP.Protocol;
 
 namespace DHMP.Server;
 
-/// <summary>Receiver-side protocol facade for one configured DHMP wire contract and local receive policy.</summary>
+/// <summary>
+/// Receiver-side protocol facade for one configured DHMP wire contract and
+/// local receive policy.
+/// </summary>
 public sealed class DhmpServer
 {
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
-    private readonly DhmpLatestStateWindow? _latestStateWindow;
-    private readonly Action<ReadOnlySpan<byte>>? _completeRecordsObserver;
+    private readonly DhmpLatestStateWindow? _latestSweepSlots;
 
     public DhmpServer(
         DhmpWireContract wireContract,
@@ -35,14 +37,15 @@ public sealed class DhmpServer
                 wireContract,
                 receivePolicy);
 
-        if (receivePolicy.NativeSmoothing)
+        // Latest and Latest + Native Smoothing share the exact same three
+        // physical sweep slots. Native Smoothing only changes how the grabber
+        // consumes those already-completed slots.
+        if (receivePolicy.Mode ==
+            DhmpProcessingMode.Latest)
         {
-            _latestStateWindow =
+            _latestSweepSlots =
                 new DhmpLatestStateWindow(
                     wireContract.RecordSize);
-
-            _completeRecordsObserver =
-                _latestStateWindow.PublishValidatedPacketSingleWriter;
         }
     }
 
@@ -52,25 +55,81 @@ public sealed class DhmpServer
     public DhmpReceivePolicy ReceivePolicy =>
         _receivePolicy;
 
+    public bool LatestGrabberAvailable =>
+        _latestSweepSlots is not null;
+
     public bool NativeSmoothingEnabled =>
-        _latestStateWindow is not null;
+        _receivePolicy.NativeSmoothing;
 
     public int NativeSmoothingRecordCount =>
-        _latestStateWindow?.Count ?? 0;
+        NativeSmoothingEnabled
+            ? _latestSweepSlots?.Count ?? 0
+            : 0;
 
+    /// <summary>
+    /// Packet processing is deliberately identical for Latest and Latest +
+    /// Native Smoothing. Ring-3 is not maintained from the packet hot path.
+    /// </summary>
     public void ProcessPacket(
         ReadOnlySpan<byte> packet,
         Action<ReadOnlySpan<byte>> publishBatch)
     {
         _processor.Process(
             packet,
-            publishBatch,
-            _completeRecordsObserver);
+            publishBatch);
     }
 
-    /// <summary>Copy retained N-2/N-1/N records in chronological order; returns zero when disabled.</summary>
-    public int CopyNativeSmoothingWindow(
+    /// <summary>
+    /// Sweeper API: obtain the next physical Latest slot and write the complete
+    /// record directly into it. This does not depend on Native Smoothing.
+    /// </summary>
+    public Span<byte> BeginLatestSweep() =>
+        GetLatestSweepSlots()
+            .BeginSweep();
+
+    public void CommitLatestSweep() =>
+        GetLatestSweepSlots()
+            .CommitSweep();
+
+    public void CancelLatestSweep() =>
+        GetLatestSweepSlots()
+            .CancelSweep();
+
+    /// <summary>
+    /// Convenience path when a completed sweep record already exists elsewhere.
+    /// Direct integrations should prefer BeginLatestSweep/CommitLatestSweep.
+    /// </summary>
+    public void SweepLatest(
+        ReadOnlySpan<byte> record) =>
+        GetLatestSweepSlots()
+            .Sweep(record);
+
+    /// <summary>
+    /// Latest grabber: immediately copy the slot fully published at the moment
+    /// of the grab. It does not wait for a three-slot smoothing window.
+    /// </summary>
+    public int CopyLatest(
         Span<byte> destination) =>
-        _latestStateWindow?.CopyNewestTo(
-            destination) ?? 0;
+        GetLatestSweepSlots()
+            .CopyLatestTo(destination);
+
+    /// <summary>
+    /// Native-smoothing grabber: consume exactly the last three fully swept
+    /// slots. Returns zero until a complete three-slot window exists.
+    /// </summary>
+    public int CopyNativeSmoothingWindow(
+        Span<byte> destination)
+    {
+        if (!NativeSmoothingEnabled)
+            return 0;
+
+        return GetLatestSweepSlots()
+            .CopyCompletedWindow3To(
+                destination);
+    }
+
+    private DhmpLatestStateWindow GetLatestSweepSlots() =>
+        _latestSweepSlots ??
+        throw new InvalidOperationException(
+            "Latest sweep/grab APIs require DhmpProcessingMode.Latest.");
 }
