@@ -78,16 +78,97 @@ public sealed class DhmpServer
             : 0;
 
     /// <summary>
-    /// Packet processing is deliberately identical for Latest and Latest +
-    /// Native Smoothing. Ring-3 is not maintained from the packet hot path.
+    /// Canonical receive path. All modes pass through the shared three-slot
+    /// sweeper/grabber architecture; only the grabber policy differs.
+    /// Sequential moves every complete record through its FIFO backlog,
+    /// Latest publishes one completed slot, and Native Smoothing keeps the
+    /// exact same Latest packet path while exposing the three-slot window to
+    /// its downstream grabber.
     /// </summary>
     public void ProcessPacket(
         ReadOnlySpan<byte> packet,
         Action<ReadOnlySpan<byte>> publishBatch)
     {
-        _processor.Process(
-            packet,
+        ArgumentNullException.ThrowIfNull(
             publishBatch);
+
+        int recordSize =
+            _wireContract.RecordSize;
+
+        int completeBytes =
+            packet.Length /
+            recordSize *
+            recordSize;
+
+        if (completeBytes == 0)
+            return;
+
+        ReadOnlySpan<byte> complete =
+            packet[..completeBytes];
+
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.Sequential)
+        {
+            DhmpSequentialBacklog backlog =
+                GetSequentialBacklog();
+
+            for (int offset = 0;
+                 offset < complete.Length;
+                 offset += recordSize)
+            {
+                Span<byte> slot =
+                    _receiveSweepSlots.BeginSweep();
+
+                try
+                {
+                    complete.Slice(
+                            offset,
+                            recordSize)
+                        .CopyTo(slot);
+
+                    _receiveSweepSlots.CommitSweep();
+
+                    backlog.Enqueue(
+                        _receiveSweepSlots
+                            .GetLatestPublishedSlotSingleWriter());
+                }
+                catch
+                {
+                    _receiveSweepSlots.CancelSweep();
+                    throw;
+                }
+            }
+
+            while (backlog.TryConsume(
+                       publishBatch))
+            {
+            }
+
+            return;
+        }
+
+        ReadOnlySpan<byte> latest =
+            complete[^recordSize..];
+
+        Span<byte> latestSlot =
+            _receiveSweepSlots.BeginSweep();
+
+        try
+        {
+            latest.CopyTo(
+                latestSlot);
+
+            _receiveSweepSlots.CommitSweep();
+
+            _receiveSweepSlots
+                .ConsumeLatestPublishedSlotSingleWriter(
+                    publishBatch);
+        }
+        catch
+        {
+            _receiveSweepSlots.CancelSweep();
+            throw;
+        }
     }
 
     /// <summary>
