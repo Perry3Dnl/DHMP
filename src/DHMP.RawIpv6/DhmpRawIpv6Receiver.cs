@@ -120,7 +120,13 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
         try
         {
-            if (_decoder is null)
+            bool directRingReceive =
+                _decoder is null &&
+                (_server.ReceivePolicy.Mode ==
+                    DhmpProcessingMode.Sequential ||
+                 !_server.ReceivePolicy.NativeSmoothing);
+
+            if (directRingReceive)
             {
                 await RunPlaintextFixedSlotAsync(
                     publishBatch,
@@ -129,7 +135,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
             }
             else
             {
-                await RunProtectedAsync(
+                await RunBufferedReceiveAsync(
                     publishBatch,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -285,7 +291,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         }
     }
 
-    private async Task RunProtectedAsync(
+    private async Task RunBufferedReceiveAsync(
         Action<ReadOnlySpan<byte>> publishBatch,
         CancellationToken cancellationToken)
     {
@@ -317,8 +323,12 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
             if ((result.SocketFlags &
                  SocketFlags.Truncated) != 0)
             {
-                Interlocked.Increment(
-                    ref _rejectedPackets);
+                if (_decoder is not null)
+                {
+                    Interlocked.Increment(
+                        ref _rejectedPackets);
+                }
+
                 continue;
             }
 
