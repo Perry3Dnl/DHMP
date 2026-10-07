@@ -126,7 +126,7 @@
       <p class="eyebrow">MEASURED ON THIS MACHINE</p>
       <h2>Real I/O comparison from this exact benchmark run</h2>
       <div class="comparison-callout"><strong>DHMP is always shown in green.</strong> Every bar below was measured on this host during the same Full Report run with a 1,408-byte application payload. Blue bars are comparison paths; green bars are DHMP. The in-memory DHMP ceiling is kept out of this I/O comparison.</div>
-      <p class="muted">Higher is better. HTTP is request/response, TCP is a stream write, UDP and Raw IPv6 are packet-oriented paths, and AF_XDP is DHMP's kernel-bypass path. Use this section to compare measured I/O performance, not software-only processing headroom.</p>
+      <p class="muted">Higher is better. The comparison keeps each protocol's own framing in the measured unit. DHMP V1 contributes zero data-plane header bytes; protocols that require transport or application headers keep those bytes in their result.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
           <h3>DHMP vs other measured paths — operations per second</h3>
@@ -134,15 +134,15 @@
           <canvas id="protocolPacketRateChart"></canvas>
         </article>
         <article class="chart-card chart-wide">
-          <h3>DHMP vs other measured paths — payload throughput</h3>
-          <p class="muted">Higher is better. GB/s of application payload; protocol headers are not counted.</p>
+          <h3>DHMP vs other measured paths — complete protocol throughput</h3>
+          <p class="muted">Higher is better. Each bar counts the complete protocol unit used by that path instead of stripping headers away. DHMP's zero-byte V1 data-plane header therefore remains part of the comparison.</p>
           <canvas id="protocolThroughputChart"></canvas>
         </article>
 
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>Path</th><th>Scope</th><th>Class</th><th>Payload</th><th>Packets / tx per second</th><th>Payload GB/s</th><th>Kernel bypass</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Path</th><th>Scope</th><th>Class</th><th>Complete unit</th><th>Packets / tx per second</th><th>Complete GB/s</th><th>Kernel bypass</th><th>Accounting / detail</th></tr></thead>
           <tbody id="protocolComparisonBody"></tbody>
         </table>
       </div>
@@ -248,6 +248,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-chart-headroom"></script>
+<script src="/full-report.js?v=20261007-complete-protocol-units"></script>
 </body>
 </html>
