@@ -184,6 +184,34 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
+    /// Internal async-receive form of BeginSweep. The returned Memory aliases
+    /// the physical Ring-3 slot so a socket can receive directly into it.
+    /// </summary>
+    internal Memory<byte> BeginSweepMemorySingleWriter()
+    {
+        if (_sweepActive != 0)
+            throw new InvalidOperationException(
+                "A Latest sweep is already in progress.");
+
+        long sequence =
+            Volatile.Read(ref _publishedSequence) + 1;
+
+        int slot = _nextWriterSlot;
+
+        _sweepActive = 1;
+        _pendingSequence = sequence;
+        _pendingSlot = slot;
+
+        Volatile.Write(
+            ref _slotVersions[slot],
+            sequence * 2 - 1);
+
+        return _slots.AsMemory(
+            slot * _recordSize,
+            _recordSize);
+    }
+
+    /// <summary>
     /// Publish the arrival slot completed by <see cref="BeginSweep"/>. This is
     /// the only pointer advance required before the sweeper/grabber can observe
     /// the newly received record.
@@ -212,6 +240,40 @@ public sealed class DhmpLatestStateWindow
 
         _nextWriterSlot = slot;
         _sweepActive = 0;
+    }
+
+    /// <summary>
+    /// Commit an async/direct receive and return the exact physical slot that
+    /// was just published. The returned span is borrowed until the next write
+    /// reaches this Ring-3 slot.
+    /// </summary>
+    internal ReadOnlySpan<byte> CommitSweepAndGetSlotSingleWriter()
+    {
+        if (_sweepActive == 0)
+            throw new InvalidOperationException(
+                "No Latest sweep is in progress.");
+
+        long sequence = _pendingSequence;
+        int slot = _pendingSlot;
+
+        Volatile.Write(
+            ref _slotVersions[slot],
+            sequence * 2);
+
+        Volatile.Write(
+            ref _publishedSequence,
+            sequence);
+
+        int nextSlot = slot + 1;
+        if (nextSlot == Capacity)
+            nextSlot = 0;
+
+        _nextWriterSlot = nextSlot;
+        _sweepActive = 0;
+
+        return _slots.AsSpan(
+            slot * _recordSize,
+            _recordSize);
     }
 
     /// <summary>
