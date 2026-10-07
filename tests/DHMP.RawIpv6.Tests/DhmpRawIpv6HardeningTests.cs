@@ -264,7 +264,7 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
-    public void CriticalFlow_Router_RejectsDecodedPartialRecordAndClearsPlaintext()
+    public void CriticalFlow_Router_IgnoresDecodedWrongSizeAndClearsPlaintext()
     {
         var peer =
             IPAddress.Parse("2001:db8::11");
@@ -300,7 +300,7 @@ public sealed class DhmpRawIpv6HardeningTests
                 new byte[] { 1, 2, 3, 4 },
                 scratch));
 
-        Assert.Equal(1, router.RejectedPackets);
+        Assert.Equal(0, router.RejectedPackets);
         Assert.Equal(0, router.AcceptedPackets);
 
         Assert.Equal(
