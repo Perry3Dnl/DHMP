@@ -14,46 +14,69 @@ internal static class DhmpRawIpv6PayloadProcessor
     {
         protectionRejected = false;
         slotSizeIgnored = false;
-        int maximumPlaintext = server.ReceivePolicy.MaximumPayloadBytes;
-        if (networkPayload.IsEmpty || networkPayload.Length > checked(maximumPlaintext + (decoder?.OverheadBytes ?? 0)))
-            return false;
-        if (decoder is not null && plaintextScratch.Length < maximumPlaintext)
-            throw new ArgumentException("Plaintext scratch buffer is smaller than the receive policy.", nameof(plaintextScratch));
 
-        try
+        int recordSize =
+            server.WireContract.RecordSize;
+
+        // Canonical plaintext path: the handshake already fixed the slot size.
+        // A mismatched payload is simply ignored. No decoder/max-payload math,
+        // framing calculation or cleanup path is entered.
+        if (decoder is null)
         {
-            ReadOnlySpan<byte> payload = networkPayload;
-            if (decoder is not null)
-            {
-                if (!decoder.TryDecode(networkPayload, plaintextScratch, out int length) ||
-                    length <= 0 || length > maximumPlaintext || length > plaintextScratch.Length)
-                {
-                    protectionRejected = true;
-                    return false;
-                }
-                payload = plaintextScratch[..length];
-            }
-            int recordSize = server.WireContract.RecordSize;
-
-            // Negotiated fixed-slot fast path: one network payload is one
-            // application record. A size mismatch is simply ignored; no Ring-3
-            // write or downstream framing work is performed.
-            if (payload.Length != recordSize)
+            if (networkPayload.Length != recordSize)
             {
                 slotSizeIgnored = true;
                 return false;
             }
 
             server.ProcessNegotiatedRecord(
-                payload,
+                networkPayload,
+                publishBatch);
+            return true;
+        }
+
+        int maximumPlaintext =
+            server.ReceivePolicy.MaximumPayloadBytes;
+
+        if (networkPayload.IsEmpty ||
+            networkPayload.Length >
+                checked(maximumPlaintext + decoder.OverheadBytes))
+            return false;
+
+        if (plaintextScratch.Length < maximumPlaintext)
+            throw new ArgumentException(
+                "Plaintext scratch buffer is smaller than the receive policy.",
+                nameof(plaintextScratch));
+
+        try
+        {
+            if (!decoder.TryDecode(
+                    networkPayload,
+                    plaintextScratch,
+                    out int length) ||
+                length <= 0 ||
+                length > maximumPlaintext ||
+                length > plaintextScratch.Length)
+            {
+                protectionRejected = true;
+                return false;
+            }
+
+            if (length != recordSize)
+            {
+                slotSizeIgnored = true;
+                return false;
+            }
+
+            server.ProcessNegotiatedRecord(
+                plaintextScratch[..length],
                 publishBatch);
             return true;
         }
         finally
         {
-            // Includes malformed plaintext, decoder exceptions and writes beyond the reported length.
-            if (decoder is not null)
-                CryptographicOperations.ZeroMemory(plaintextScratch);
+            CryptographicOperations.ZeroMemory(
+                plaintextScratch);
         }
     }
 }
