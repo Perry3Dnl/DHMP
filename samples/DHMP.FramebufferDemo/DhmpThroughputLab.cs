@@ -16,14 +16,16 @@ internal sealed class DhmpThroughputLab : BackgroundService
     private readonly Stopwatch _uptime = Stopwatch.StartNew();
 
     private int _packetBytes = 65_520;
-    private int _workers = Math.Max(1, Environment.ProcessorCount);
+    private int _workers = Math.Min(4, Math.Max(1, Environment.ProcessorCount));
     private DhmpProcessingMode _receiveMode = DhmpProcessingMode.Sequential;
     private DhmpRatePolicy _ratePolicy = DhmpRatePolicy.Unlimited;
     private bool _nativeSmoothing;
     private DhmpStressConfirmationMode _confirmationMode = DhmpStressConfirmationMode.None;
     private long _packetRateCap;
     private long _configurationVersion;
-    private bool _enabled = true;
+    // The public demo must not saturate every CPU simply because the host
+    // started. Benchmark pages explicitly configure/start the lab when opened.
+    private bool _enabled;
 
     private WorkerMetrics[] _workerMetrics = [];
     private double _coreProcessNanosecondsPerPacket;
@@ -266,13 +268,17 @@ internal sealed class DhmpThroughputLab : BackgroundService
                 int workerId = index;
                 WorkerMetrics workerMetrics = metrics[index];
 
-                tasks[index] = Task.Run(
-                    () => RunWorkerGuardedAsync(
-                        workerId,
-                        version,
-                        workerMetrics,
-                        linked.Token),
-                    linked.Token);
+                tasks[index] =
+                    Task.Factory.StartNew(
+                        () => RunWorkerGuardedAsync(
+                            workerId,
+                            version,
+                            workerMetrics,
+                            linked.Token),
+                        linked.Token,
+                        TaskCreationOptions.LongRunning,
+                        TaskScheduler.Default)
+                    .Unwrap();
             }
 
             Task allWorkers =
