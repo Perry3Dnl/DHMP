@@ -1,12 +1,12 @@
 namespace DHMP.Server;
 
 /// <summary>
-/// Three fixed record slots shared by the Latest sweeper and grabber.
-/// The sweeper writes directly into the next slot and only advances the
-/// published pointer after that slot is complete. Latest grabs one completed
-/// slot immediately; Native Smoothing grabs the last three completed slots.
-/// The grabber may retry when it races an overwrite, but the sweeper never
-/// waits for a grabber.
+/// Three fixed receive slots forming the arrival Ring-3 before the sweeper/grabber.
+/// The receive path writes each complete arriving record into the next physical
+/// slot and publishes it only after the slot is complete. The sweeper/grabber
+/// then reads the completed arrival state: Latest consumes the newest slot and
+/// Native Smoothing consumes N-2/N-1/N. Readers may retry when racing an
+/// overwrite, but the receive writer never waits for a reader.
 /// </summary>
 public sealed class DhmpLatestStateWindow
 {
@@ -48,9 +48,10 @@ public sealed class DhmpLatestStateWindow
             RecordsObserved - Capacity);
 
     /// <summary>
-    /// Begin one sweeper pass. The returned span is the next physical Ring-3
-    /// slot itself; callers should write the completed record directly into it
-    /// and then call <see cref="CommitSweep"/>.
+    /// Begin filling the next physical arrival slot in Ring-3. The returned
+    /// span is the receive slot itself; callers write one complete received
+    /// record into it and then call <see cref="CommitSweep"/>. The historical
+    /// method name is retained for API compatibility.
     /// </summary>
     public Span<byte> BeginSweep()
     {
@@ -79,8 +80,9 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Publish the slot completed by <see cref="BeginSweep"/>. This is the
-    /// only pointer advance required by the sweeper.
+    /// Publish the arrival slot completed by <see cref="BeginSweep"/>. This is
+    /// the only pointer advance required before the sweeper/grabber can observe
+    /// the newly received record.
     /// </summary>
     public void CommitSweep()
     {
@@ -104,9 +106,9 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Abandon an uncommitted sweep. The partially written slot remains
-    /// unavailable to grabbers until a later completed sweep replaces it.
-    /// This never rolls back or blocks the published Latest pointer.
+    /// Abandon an uncommitted arrival write. The partially written slot remains
+    /// unavailable to the sweeper/grabbers until a later complete arrival
+    /// replaces it. This never rolls back or blocks the published pointer.
     /// </summary>
     public void CancelSweep()
     {
@@ -124,9 +126,10 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Convenience path for callers that already have a completed swept
-    /// record. The core zero-copy integration should prefer BeginSweep /
-    /// CommitSweep so the sweeper writes directly into the physical slot.
+    /// Convenience path for callers that already have one complete received
+    /// record. Direct receive integrations should prefer BeginSweep /
+    /// CommitSweep so the transport writes directly into the physical arrival
+    /// slot.
     /// </summary>
     public void Sweep(ReadOnlySpan<byte> record)
     {
@@ -150,8 +153,9 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Grab the exact Latest slot that was fully published when the grabber
-    /// looked. An in-progress next sweep does not delay this operation.
+    /// Grab the newest fully received slot visible when the grabber looks.
+    /// An in-progress write into the next arrival slot does not delay this
+    /// operation.
     /// </summary>
     public int CopyLatestTo(Span<byte> destination)
     {
@@ -257,9 +261,9 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Native-smoothing grab. Returns zero until three complete sweeps exist.
-    /// Once available, copies exactly N-2/N-1/N in chronological order.
-    /// A race may delay/retry this grabber, but never the sweeper.
+    /// Native-smoothing sweep/grab. Returns zero until three complete arrivals
+    /// exist. Once available, copies exactly N-2/N-1/N in chronological order.
+    /// A race may delay/retry the reader, but never the receive writer.
     /// </summary>
     public int CopyCompletedWindow3To(
         Span<byte> destination)
