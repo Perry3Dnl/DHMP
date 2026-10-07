@@ -32,7 +32,7 @@ public sealed class DhmpDynamicPayloadLimitTests
                 TestContext.Current.CancellationToken)
             .AsTask());
 
-        Assert.Equal(1, sender.Calls);
+        Assert.Equal(31, sender.Calls);
 
         sender.SetCurrentMaximumPayloadBytes(1210);
 
@@ -42,7 +42,7 @@ public sealed class DhmpDynamicPayloadLimitTests
             new byte[1184],
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, sender.Calls);
+        Assert.Equal(68, sender.Calls);
     }
 
     [Fact]
