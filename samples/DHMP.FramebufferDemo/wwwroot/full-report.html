@@ -216,9 +216,9 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">RING-3 CONSUMER COST</p>
-      <h2>Read the retained N-2 / N-1 / N window separately</h2>
-      <p class="muted">This cost is intentionally separate from the packet hot path. A real consumer reads on its own cadence instead of copying Ring-3 after every incoming packet.</p>
+      <p class="eyebrow">LATEST SWEEPER / GRABBER</p>
+      <h2>One fixed three-slot sweep, two grabber modes</h2>
+      <p class="muted">Latest and Latest + Native Smoothing use the same sweeper and the same three physical slots. Latest grabs the currently completed slot immediately. Native Smoothing grabs the complete N-2 / N-1 / N window. Neither mode adds Ring-3 work to the packet hot path.</p>
       <div id="ring3ConsumerGrid" class="report-grid"></div>
     </section>
 
@@ -253,6 +253,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261006-2358"></script>
+<script src="/full-report.js?v=20261007-sweeper-grabber"></script>
 </body>
 </html>
