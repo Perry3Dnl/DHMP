@@ -991,7 +991,7 @@ internal sealed class DhmpFullReportLab
                      (DhmpProcessingMode.Latest, true)
                  })
         {
-            const int packetBytes = 1408;
+            const int packetBytes = RecordSize;
 
             var wire =
                 new DhmpWireContract(RecordSize);
@@ -1041,13 +1041,13 @@ internal sealed class DhmpFullReportLab
 
             double serverBytes =
                 MeasureAllocatedBytesPerCall(
-                    () => server.ProcessPacket(
+                    () => server.ProcessNegotiatedRecord(
                         packet,
                         publish));
 
             double fullPathBytes =
                 MeasureAllocatedBytesPerCall(
-                    () => client.SendBatchAsync(packet)
+                    () => client.SendAsync(packet)
                         .GetAwaiter()
                         .GetResult());
 
@@ -1076,9 +1076,7 @@ internal sealed class DhmpFullReportLab
                      (DhmpProcessingMode.Latest, true)
                  })
         {
-            const int packetBytes = 1408;
-            int recordsPerPacket =
-                packetBytes / RecordSize;
+            const int packetBytes = RecordSize;
 
             var server =
                 new DhmpServer(
@@ -1090,16 +1088,13 @@ internal sealed class DhmpFullReportLab
 
             int published = 0;
 
-            server.ProcessPacket(
+            server.ProcessNegotiatedRecord(
                 new byte[packetBytes],
                 span =>
                     published +=
                         span.Length / RecordSize);
 
-            int expected =
-                mode == DhmpProcessingMode.Latest
-                    ? 1
-                    : recordsPerPacket;
+            const int expected = 1;
 
             bool publicationOk =
                 published == expected;
