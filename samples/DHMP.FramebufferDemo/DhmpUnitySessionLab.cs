@@ -405,6 +405,7 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
     {
         private readonly DhmpServer _server;
         private readonly Action<ReadOnlySpan<byte>> _publish;
+        private readonly Action<ReadOnlySpan<byte>> _publishSwept;
 
         public LoopbackSender(
             DhmpServer server,
@@ -412,6 +413,7 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
         {
             _server = server;
             _publish = publish;
+            _publishSwept = PublishSwept;
         }
 
         public int MaximumPayloadBytes =>
@@ -425,9 +427,19 @@ public sealed class DhmpUnitySessionLab : IAsyncDisposable
 
             _server.ProcessPacket(
                 payload.Span,
-                _publish);
+                _publishSwept);
 
             return ValueTask.CompletedTask;
+        }
+
+        private void PublishSwept(
+            ReadOnlySpan<byte> latest)
+        {
+            // The Unity lab's loopback callback is its sweeper boundary.
+            // Both Latest and Native Smoothing use this same completed slot;
+            // only the later grabber decides whether to consume one or three.
+            _server.SweepLatest(latest);
+            _publish(latest);
         }
     }
 
