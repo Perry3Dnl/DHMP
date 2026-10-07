@@ -19,7 +19,6 @@
   let configurationPending=false;
   let configurationInFlight=0;
   let configurationRevision=0;
-  let appliedConfigurationRevision=0;
   let selectedReceiveMode='Sequential';
   let selectedNativeSmoothing=false;
   let selectedRatePolicy='Unlimited';
@@ -112,7 +111,6 @@
       // Ignore completion from an older overlapping configure request.
       if(revision!==configurationRevision)return;
 
-      appliedConfigurationRevision=revision;
       selectedReceiveMode=applied.receiveMode;
       selectedNativeSmoothing=Boolean(applied.nativeSmoothing);
       selectedRatePolicy=applied.ratePolicy;
@@ -131,6 +129,7 @@
   }
 
   async function poll(){
+    const pollRevision=configurationRevision;
     try{
       const response=await fetch('/api/stress/stats',{cache:'no-store'});
       if(!response.ok)throw new Error('HTTP '+response.status);
@@ -145,7 +144,11 @@
       $('ratePolicy').textContent=cur.ratePolicy;
       $('confirmationMode').textContent=cur.confirmationMode;
       $('packetRateCapOut').textContent=cur.packetRateCap>0?compact(cur.packetRateCap)+'/s':'Unlimited';
-      if(!configurationPending && configurationInFlight===0){
+      if(
+        !configurationPending &&
+        configurationInFlight===0 &&
+        pollRevision===configurationRevision
+      ){
         selectedReceiveMode=cur.receiveMode;
         selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
         selectedRatePolicy=cur.ratePolicy;
