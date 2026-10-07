@@ -259,8 +259,10 @@ Latest or Sequential publication -> typed/application boundary.
 - One IP packet carries one or more whole records.
 - A record never continues in another packet.
 - Invalid or incomplete packets are rejected as a whole.
-- Sequential publishes complete records in receive order.
-- Latest publishes the final record of the received packet.
+- Sequential can use the same three-slot receive sweeper as Latest, but its grabber moves every completed record into an ordered FIFO backlog.
+- The Sequential backlog is configured locally in `DhmpReceivePolicy`: `SequentialBacklogMillions = N` means `N × 1,000,000` records. Fixed storage is segmented and preallocated; call `PrepareSequentialBacklog()` during setup to keep that allocation out of first-packet latency.
+- Sequential overflow policy is explicit: `Backpressure` waits only when the fixed FIFO is full, `DropOldest` advances the read side and keeps the producer moving, and `Unbounded` grows memory instead of throttling.
+- Latest publishes the final record of the received packet. Latest + Native Smoothing uses the same three physical sweep slots; only the grabber changes from one completed slot to N-2/N-1/N.
 - V1 has no protocol-owned cross-packet sequence field. Optional `DhmpLatestGenerationFilter` can use an application-owned 64-bit generation inside the record to drop stale/duplicate Latest state without adding DHMP bytes.
 - DHMP adds no protocol-owned delivery ACK, retransmission, replay history or hidden reliable queue. Optional application-owned confirmation tracking can reuse an application's existing ID without adding DHMP wire bytes; full-record echo remains a separate opt-in application profile.
 - Buffer ownership must be explicit across asynchronous boundaries.
@@ -284,7 +286,8 @@ Latest or Sequential publication -> typed/application boundary.
 | Full-record echo confirmation | Implemented opt-in DECO/1 application profile; no retransmission and no DHMP framing change |
 | Smooth local pacing | Implemented opt-in Pmax pacing with experimental authenticated pressure adaptation |
 | IPv6 path-MTU budgeting | Known-PMTU budgeting + authenticated DPLPMTUD search/confirmation + live raw/protected/client payload adaptation; periodic maintenance/raise timer still pending |
-| Bounded async receive overload | Implemented: Latest replaces one pending batch; Sequential rejects when bounded queue is full |
+| Sequential sweeper backlog | Implemented: fixed N×1M-record FIFO with Backpressure or DropOldest, plus explicit Unbounded growth mode |
+| Bounded async receive overload | Implemented legacy application dispatcher: Latest replaces one pending batch; Sequential rejects when its dispatcher queue is full |
 | PSK secure packet profile | Experimental ChaCha20-Poly1305/HKDF/HMAC profile with V2 challenge/confirm setup; independent review pending |
 | Authenticated receiver backpressure | Implemented experimental pressure feedback + bounded adaptive pacing |
 | Secure path telemetry | Implemented rolling protected-packet loss window + authenticated RTT probe/echo |
