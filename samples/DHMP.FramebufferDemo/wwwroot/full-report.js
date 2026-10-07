@@ -72,7 +72,8 @@
     if (!canvas || !categories.length || !series.length) return;
 
     const { ctx, width, height } = prepareCanvas(canvas);
-    const maxValue = Math.max(1, ...series.flatMap(s => s.values.map(Number)));
+    const dataMax = Math.max(1, ...series.flatMap(s => s.values.map(Number)));
+    const maxValue = dataMax * 1.15;
     const a = drawAxes(ctx, width, height, maxValue, valueFormatter);
     const groupWidth = a.plotWidth / categories.length;
     const innerWidth = Math.min(groupWidth * 0.82, 100);
@@ -129,7 +130,8 @@
 
     const { ctx, width, height } = prepareCanvas(canvas);
     const values = rows.map(row => Number(valueSelector(row) || 0));
-    const maxValue = Math.max(1, ...values);
+    const dataMax = Math.max(1, ...values);
+    const maxValue = dataMax * 1.15;
     const a = drawAxes(ctx, width, height, maxValue, valueFormatter);
     const groupWidth = a.plotWidth / rows.length;
     const barWidth = Math.min(groupWidth * 0.62, 100);
