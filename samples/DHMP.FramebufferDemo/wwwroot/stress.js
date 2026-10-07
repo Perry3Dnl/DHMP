@@ -18,6 +18,7 @@
   let configureTimer=0;
   let configurationPending=false;
   let configurationInFlight=0;
+  let configurationRevision=0;
   let selectedReceiveMode='Sequential';
   let selectedNativeSmoothing=false;
   let selectedRatePolicy='Unlimited';
@@ -50,9 +51,31 @@
     draw($('throughputChart'),[throughputHistory],['GB/s']);
   }
 
+
+  function renderSelectedControls(){
+    receiveButtons.forEach(button=>{
+      const smoothing=button.dataset.nativeSmoothing==='true';
+      button.classList.toggle(
+        'active',
+        button.dataset.receiveMode===selectedReceiveMode &&
+        smoothing===selectedNativeSmoothing);
+    });
+
+    rateButtons.forEach(button=>
+      button.classList.toggle(
+        'active',
+        button.dataset.ratePolicy===selectedRatePolicy));
+
+    confirmationButtons.forEach(button=>
+      button.classList.toggle(
+        'active',
+        button.dataset.confirmationMode===selectedConfirmationMode));
+  }
+
   async function configure(){
     configurationPending=false;
     configurationInFlight++;
+    const revision=++configurationRevision;
 
     const packetBytes=PACKETS[Number(packetSlider.value)];
     const workers=Number(workerSlider.value);
@@ -83,6 +106,19 @@
 
       if(!response.ok)throw new Error('HTTP '+response.status);
 
+      const applied=await response.json();
+
+      // Ignore completion from an older overlapping configure request.
+      if(revision!==configurationRevision)return;
+
+      selectedReceiveMode=applied.receiveMode;
+      selectedNativeSmoothing=Boolean(applied.nativeSmoothing);
+      selectedRatePolicy=applied.ratePolicy;
+      selectedConfirmationMode=applied.confirmationMode;
+      selectedPacketRateCap=Number(applied.packetRateCap||0);
+
+      renderSelectedControls();
+
       previous=null;
       recordsHistory.length=0;
       throughputHistory.length=0;
@@ -93,6 +129,7 @@
   }
 
   async function poll(){
+    const pollRevision=configurationRevision;
     try{
       const response=await fetch('/api/stress/stats',{cache:'no-store'});
       if(!response.ok)throw new Error('HTTP '+response.status);
@@ -107,7 +144,11 @@
       $('ratePolicy').textContent=cur.ratePolicy;
       $('confirmationMode').textContent=cur.confirmationMode;
       $('packetRateCapOut').textContent=cur.packetRateCap>0?compact(cur.packetRateCap)+'/s':'Unlimited';
-      if(!configurationPending && configurationInFlight===0){
+      if(
+        !configurationPending &&
+        configurationInFlight===0 &&
+        pollRevision===configurationRevision
+      ){
         selectedReceiveMode=cur.receiveMode;
         selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
         selectedRatePolicy=cur.ratePolicy;
@@ -119,20 +160,7 @@
           packetRateCapLabel.textContent=selectedPacketRateCap>0?compact(selectedPacketRateCap)+'/s':'Unlimited';
         }
 
-        receiveButtons.forEach(button=>{
-          const smoothing=button.dataset.nativeSmoothing==='true';
-          button.classList.toggle('active',button.dataset.receiveMode===selectedReceiveMode&&smoothing===selectedNativeSmoothing);
-        });
-
-        rateButtons.forEach(button=>
-          button.classList.toggle(
-            'active',
-            button.dataset.ratePolicy===selectedRatePolicy));
-
-        confirmationButtons.forEach(button=>
-          button.classList.toggle(
-            'active',
-            button.dataset.confirmationMode===selectedConfirmationMode));
+        renderSelectedControls();
       }
       $('coreProcessNs').textContent=Number(cur.coreProcessNanosecondsPerPacket||0).toFixed(2)+' ns/packet';
       $('allocProcessor').textContent=Number(cur.processorAllocatedBytesPerPacket||0).toFixed(3)+' B/call';
@@ -242,12 +270,12 @@
   receiveButtons.forEach(button=>button.addEventListener('click',()=>{
     selectedReceiveMode=button.dataset.receiveMode;
     selectedNativeSmoothing=button.dataset.nativeSmoothing==='true';
-    receiveButtons.forEach(item=>item.classList.toggle('active',item===button));
+    renderSelectedControls();
     queueConfigure();
   }));
   rateButtons.forEach(button=>button.addEventListener('click',()=>{
     selectedRatePolicy=button.dataset.ratePolicy;
-    rateButtons.forEach(item=>item.classList.toggle('active',item===button));
+    renderSelectedControls();
     queueConfigure();
   }));
   confirmationButtons.forEach(button=>button.addEventListener('click',()=>{
@@ -257,7 +285,7 @@
       selectedNativeSmoothing=false;
       receiveButtons.forEach(item=>item.classList.toggle('active',item.dataset.receiveMode==='Sequential'&&item.dataset.nativeSmoothing!=='true'));
     }
-    confirmationButtons.forEach(item=>item.classList.toggle('active',item===button));
+    renderSelectedControls();
     queueConfigure();
   }));
   window.addEventListener('resize',renderCharts);

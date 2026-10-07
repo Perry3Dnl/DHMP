@@ -834,16 +834,6 @@ internal sealed class DhmpThroughputLab : BackgroundService
             int publishedRecords =
                 _publishedRecordsCurrent;
 
-            if (_server.NativeSmoothingEnabled)
-            {
-                Span<byte> smoothingWindow =
-                    stackalloc byte[
-                        DhmpLatestStateWindow.Capacity *
-                        DhmpThroughputLab.RecordSize];
-
-                _server.CopyNativeSmoothingWindow(
-                    smoothingWindow);
-            }
 
             if (_confirmationMode == DhmpStressConfirmationMode.ApplicationId)
             {
