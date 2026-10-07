@@ -26,6 +26,7 @@ public sealed class DhmpLatestStateWindow
     private long _pendingSequence;
     private int _pendingSlot;
     private long _publishedSequence;
+    private int _nextWriterSlot;
 
     public DhmpLatestStateWindow(int recordSize)
     {
@@ -53,6 +54,63 @@ public sealed class DhmpLatestStateWindow
             RecordsObserved - Capacity);
 
     /// <summary>
+    /// Canonical single-writer Latest hot path. Each complete received record
+    /// is copied once from transport-owned packet storage into the physical
+    /// arrival Ring-3. Slot rotation is maintained as 0->1->2->0 without a
+    /// modulo/division. Sweeper/grabber publication is metadata-only.
+    /// </summary>
+    internal void ReceiveLatestPacketSingleWriter(
+        ReadOnlySpan<byte> completeRecords,
+        Action<ReadOnlySpan<byte>> consumer)
+    {
+        int recordSize = _recordSize;
+        int slot = _nextWriterSlot;
+        long sequence = _publishedSequence;
+
+        for (int offset = 0;
+             offset < completeRecords.Length;
+             offset += recordSize)
+        {
+            sequence++;
+
+            Volatile.Write(
+                ref _slotVersions[slot],
+                sequence * 2 - 1);
+
+            completeRecords.Slice(
+                    offset,
+                    recordSize)
+                .CopyTo(
+                    _slots.AsSpan(
+                        slot * recordSize,
+                        recordSize));
+
+            Volatile.Write(
+                ref _slotVersions[slot],
+                sequence * 2);
+
+            slot++;
+            if (slot == Capacity)
+                slot = 0;
+        }
+
+        _nextWriterSlot = slot;
+        Volatile.Write(
+            ref _publishedSequence,
+            sequence);
+
+        int newestSlot =
+            slot == 0
+                ? Capacity - 1
+                : slot - 1;
+
+        consumer(
+            _slots.AsSpan(
+                newestSlot * recordSize,
+                recordSize));
+    }
+
+    /// <summary>
     /// Begin filling the next physical arrival slot in Ring-3. The returned
     /// span is the receive slot itself; callers write one complete received
     /// record into it and then call <see cref="CommitSweep"/>. The historical
@@ -67,8 +125,7 @@ public sealed class DhmpLatestStateWindow
         long sequence =
             Volatile.Read(ref _publishedSequence) + 1;
 
-        int slot =
-            (int)((sequence - 1) % Capacity);
+        int slot = _nextWriterSlot;
 
         _sweepActive = 1;
         _pendingSequence = sequence;
@@ -107,6 +164,11 @@ public sealed class DhmpLatestStateWindow
             ref _publishedSequence,
             sequence);
 
+        slot++;
+        if (slot == Capacity)
+            slot = 0;
+
+        _nextWriterSlot = slot;
         _sweepActive = 0;
     }
 
