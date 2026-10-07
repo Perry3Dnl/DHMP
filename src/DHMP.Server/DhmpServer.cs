@@ -40,10 +40,11 @@ public sealed class DhmpServer
                 wireContract,
                 receivePolicy);
 
-        // All receive modes share the same physical three-slot sweeper.
-        // Mode only changes grabber behavior after a slot is complete:
-        // Latest grabs one, Native Smoothing grabs three, Sequential moves
-        // every completed slot into its FIFO backlog.
+        // All receive modes share the same physical three-slot arrival ring.
+        // The transport/packet path fills this ring first. The sweeper/grabber
+        // then consumes completed arrival slots: Latest grabs the newest one,
+        // Native Smoothing reads N-2/N-1/N, and Sequential moves every
+        // completed arrival through its FIFO backlog.
         _receiveSweepSlots =
             new DhmpLatestStateWindow(
                 wireContract.RecordSize);
@@ -86,12 +87,11 @@ public sealed class DhmpServer
             : 0;
 
     /// <summary>
-    /// Canonical receive path. All modes pass through the shared three-slot
-    /// sweeper/grabber architecture; only the grabber policy differs.
-    /// Sequential moves every complete record through its FIFO backlog,
-    /// Latest publishes one completed slot, and Native Smoothing keeps the
-    /// exact same Latest packet path while exposing the three-slot window to
-    /// its downstream grabber.
+    /// Canonical receive path. Complete records first enter the shared
+    /// three-slot arrival ring. The sweeper/grabber policy then consumes those
+    /// completed slots. Sequential moves every record through its FIFO backlog,
+    /// Latest publishes the newest completed slot, and Native Smoothing exposes
+    /// the completed N-2/N-1/N arrival window to its downstream grabber.
     /// </summary>
     public void ProcessPacket(
         ReadOnlySpan<byte> packet,
@@ -196,28 +196,36 @@ public sealed class DhmpServer
             return;
         }
 
-        ReadOnlySpan<byte> latest =
-            complete[^recordSize..];
-
-        Span<byte> latestSlot =
-            _receiveSweepSlots.BeginSweep();
-
-        try
+        // Arrival always fills the physical Ring-3 first. Do not skip older
+        // records from the same payload before they reach the ring: the
+        // sweeper must observe the actual receive sequence N, N+1, N+2.
+        // Latest publication still exposes only the newest completed record.
+        for (int offset = 0;
+             offset < complete.Length;
+             offset += recordSize)
         {
-            latest.CopyTo(
-                latestSlot);
+            Span<byte> receiveSlot =
+                _receiveSweepSlots.BeginSweep();
 
-            _receiveSweepSlots.CommitSweep();
+            try
+            {
+                complete.Slice(
+                        offset,
+                        recordSize)
+                    .CopyTo(receiveSlot);
 
-            _receiveSweepSlots
-                .ConsumeLatestPublishedSlotSingleWriter(
-                    publishBatch);
+                _receiveSweepSlots.CommitSweep();
+            }
+            catch
+            {
+                _receiveSweepSlots.CancelSweep();
+                throw;
+            }
         }
-        catch
-        {
-            _receiveSweepSlots.CancelSweep();
-            throw;
-        }
+
+        _receiveSweepSlots
+            .ConsumeLatestPublishedSlotSingleWriter(
+                publishBatch);
     }
 
     /// <summary>
