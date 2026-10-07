@@ -4,12 +4,15 @@ namespace DHMP.Server;
 
 /// <summary>
 /// FIFO storage used by the Sequential grabber after a record leaves the
-/// three-slot receive sweep window.
+/// three-slot receive arrival ring.
 /// </summary>
 /// <remarks>
-/// Fixed Backpressure/DropOldest modes allocate segmented ring storage once
-/// and perform no per-record managed allocation. Unbounded mode intentionally
-/// grows and therefore may allocate/produce GC pressure.
+/// The fixed Backpressure mode is an SPSC ring: one receive producer and one
+/// consumer. Its normal enqueue/consume path does not take a monitor lock and
+/// advances cached segment/record cursors without division or modulo.
+/// A monitor is entered only when the producer actually reaches a full FIFO.
+/// DropOldest retains a synchronized path because producer-side eviction can
+/// race the consumer. Unbounded intentionally grows and may allocate.
 /// </remarks>
 internal sealed class DhmpSequentialBacklog
 {
@@ -23,7 +26,12 @@ internal sealed class DhmpSequentialBacklog
     private readonly byte[][]? _segments;
     private readonly Queue<byte[]>? _unbounded;
 
-    private long _head;
+    private int _headSegment;
+    private int _headRecord;
+    private int _tailSegment;
+    private int _tailRecord;
+    private int _backpressureWaiters;
+
     private long _count;
     private long _recordsEnqueued;
     private long _recordsDequeued;
@@ -55,11 +63,7 @@ internal sealed class DhmpSequentialBacklog
             throw new ArgumentOutOfRangeException(nameof(capacityRecords));
 
         _capacityRecords = capacityRecords;
-
-        _recordsPerSegment =
-            Math.Max(
-                1,
-                TargetSegmentBytes / recordSize);
+        _recordsPerSegment = Math.Max(1, TargetSegmentBytes / recordSize);
 
         long segmentCountLong =
             (capacityRecords + _recordsPerSegment - 1) /
@@ -72,20 +76,14 @@ internal sealed class DhmpSequentialBacklog
                 "Sequential backlog requires too many fixed storage segments.");
         }
 
-        _segments =
-            new byte[checked((int)segmentCountLong)][];
+        _segments = new byte[checked((int)segmentCountLong)][];
 
         long remaining = capacityRecords;
 
-        for (int index = 0;
-             index < _segments.Length;
-             index++)
+        for (int index = 0; index < _segments.Length; index++)
         {
             int records =
-                checked(
-                    (int)Math.Min(
-                        remaining,
-                        _recordsPerSegment));
+                checked((int)Math.Min(remaining, _recordsPerSegment));
 
             _segments[index] =
                 GC.AllocateUninitializedArray<byte>(
@@ -102,14 +100,8 @@ internal sealed class DhmpSequentialBacklog
 
     public long CapacityRecords => _capacityRecords;
 
-    public long Count
-    {
-        get
-        {
-            lock (_gate)
-                return _count;
-        }
-    }
+    public long Count =>
+        Interlocked.Read(ref _count);
 
     public long RecordsEnqueued =>
         Interlocked.Read(ref _recordsEnqueued);
@@ -130,6 +122,12 @@ internal sealed class DhmpSequentialBacklog
                 $"Sequential backlog requires exactly {_recordSize} bytes.",
                 nameof(record));
 
+        if (_overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
+        {
+            EnqueueBackpressure(record);
+            return;
+        }
+
         if (IsUnbounded)
         {
             byte[] owned = record.ToArray();
@@ -137,51 +135,86 @@ internal sealed class DhmpSequentialBacklog
             lock (_gate)
             {
                 _unbounded!.Enqueue(owned);
-                _count++;
+                Interlocked.Increment(ref _count);
             }
 
             Interlocked.Increment(ref _recordsEnqueued);
             return;
         }
 
+        // DropOldest must synchronize producer-side head movement with the
+        // consumer because both may advance the oldest-record cursor.
         lock (_gate)
         {
-            while (_count == _capacityRecords &&
-                   _overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
-            {
-                Interlocked.Increment(ref _backpressureWaits);
-                Monitor.Wait(_gate);
-            }
-
             if (_count == _capacityRecords)
             {
-                _head = (_head + 1) % _capacityRecords;
-                _count--;
+                AdvanceHeadFixed();
+                Interlocked.Decrement(ref _count);
                 Interlocked.Increment(ref _recordsDropped);
             }
 
-            long tail =
-                (_head + _count) %
-                _capacityRecords;
-
-            record.CopyTo(
-                GetFixedRecordSpan(tail));
-
-            _count++;
+            record.CopyTo(GetTailFixedSpan());
+            AdvanceTailFixed();
+            Interlocked.Increment(ref _count);
         }
 
         Interlocked.Increment(ref _recordsEnqueued);
     }
 
+    private void EnqueueBackpressure(ReadOnlySpan<byte> record)
+    {
+        while (Interlocked.Read(ref _count) == _capacityRecords)
+        {
+            Interlocked.Increment(ref _backpressureWaits);
+            Interlocked.Increment(ref _backpressureWaiters);
+
+            try
+            {
+                lock (_gate)
+                {
+                    while (Interlocked.Read(ref _count) == _capacityRecords)
+                        Monitor.Wait(_gate);
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _backpressureWaiters);
+            }
+        }
+
+        // SPSC invariant: only the producer mutates the tail cursor.
+        record.CopyTo(GetTailFixedSpan());
+        AdvanceTailFixed();
+
+        // Publish the completed FIFO slot only after its bytes are stable.
+        Interlocked.Increment(ref _count);
+        Interlocked.Increment(ref _recordsEnqueued);
+    }
+
     /// <summary>
-    /// Consume the oldest FIFO record in-place. The callback executes while
-    /// the record owns its ring slot and must not retain the span. Fixed modes
-    /// perform no copy or allocation on this synchronous handoff.
+    /// Consume the oldest FIFO record in-place. The callback must not retain
+    /// the span. Fixed Backpressure mode performs no copy, allocation or lock
+    /// while capacity is available.
     /// </summary>
     public bool TryConsume(
         Action<ReadOnlySpan<byte>> consumer)
     {
         ArgumentNullException.ThrowIfNull(consumer);
+
+        if (_overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
+        {
+            if (Interlocked.Read(ref _count) == 0)
+                return false;
+
+            consumer(GetHeadFixedSpan());
+            AdvanceHeadFixed();
+
+            Interlocked.Decrement(ref _count);
+            WakeBackpressuredProducerIfNeeded();
+
+            Interlocked.Increment(ref _recordsDequeued);
+            return true;
+        }
 
         lock (_gate)
         {
@@ -190,25 +223,16 @@ internal sealed class DhmpSequentialBacklog
 
             if (IsUnbounded)
             {
-                byte[] owned =
-                    _unbounded!.Dequeue();
-
+                byte[] owned = _unbounded!.Dequeue();
                 consumer(owned);
-                _count--;
             }
             else
             {
-                consumer(
-                    GetFixedRecordSpan(_head));
-
-                _head =
-                    (_head + 1) %
-                    _capacityRecords;
-
-                _count--;
-
-                Monitor.Pulse(_gate);
+                consumer(GetHeadFixedSpan());
+                AdvanceHeadFixed();
             }
+
+            Interlocked.Decrement(ref _count);
         }
 
         Interlocked.Increment(ref _recordsDequeued);
@@ -222,6 +246,21 @@ internal sealed class DhmpSequentialBacklog
                 $"Destination must fit {_recordSize} bytes.",
                 nameof(destination));
 
+        if (_overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
+        {
+            if (Interlocked.Read(ref _count) == 0)
+                return false;
+
+            GetHeadFixedSpan().CopyTo(destination[.._recordSize]);
+            AdvanceHeadFixed();
+
+            Interlocked.Decrement(ref _count);
+            WakeBackpressuredProducerIfNeeded();
+
+            Interlocked.Increment(ref _recordsDequeued);
+            return true;
+        }
+
         lock (_gate)
         {
             if (_count == 0)
@@ -229,53 +268,82 @@ internal sealed class DhmpSequentialBacklog
 
             if (IsUnbounded)
             {
-                byte[] owned =
-                    _unbounded!.Dequeue();
-
-                owned.AsSpan().CopyTo(
-                    destination[.._recordSize]);
-
-                _count--;
+                _unbounded!.Dequeue()
+                    .AsSpan()
+                    .CopyTo(destination[.._recordSize]);
             }
             else
             {
-                GetFixedRecordSpan(_head)
-                    .CopyTo(
-                        destination[.._recordSize]);
-
-                _head =
-                    (_head + 1) %
-                    _capacityRecords;
-
-                _count--;
-
-                Monitor.Pulse(_gate);
+                GetHeadFixedSpan()
+                    .CopyTo(destination[.._recordSize]);
+                AdvanceHeadFixed();
             }
+
+            Interlocked.Decrement(ref _count);
         }
 
         Interlocked.Increment(ref _recordsDequeued);
         return true;
     }
 
-    private Span<byte> GetFixedRecordSpan(
-        long logicalIndex)
+    private void WakeBackpressuredProducerIfNeeded()
     {
-        long segmentIndexLong =
-            logicalIndex /
-            _recordsPerSegment;
+        if (Volatile.Read(ref _backpressureWaiters) == 0)
+            return;
 
-        int segmentIndex =
-            checked((int)segmentIndexLong);
+        lock (_gate)
+            Monitor.Pulse(_gate);
+    }
 
-        int recordInSegment =
-            checked(
-                (int)(
-                    logicalIndex %
-                    _recordsPerSegment));
-
-        return _segments![segmentIndex]
+    private Span<byte> GetHeadFixedSpan() =>
+        _segments![_headSegment]
             .AsSpan(
-                checked(recordInSegment * _recordSize),
+                _headRecord * _recordSize,
                 _recordSize);
+
+    private Span<byte> GetTailFixedSpan() =>
+        _segments![_tailSegment]
+            .AsSpan(
+                _tailRecord * _recordSize,
+                _recordSize);
+
+    private void AdvanceHeadFixed()
+    {
+        int nextRecord = _headRecord + 1;
+        byte[] segment = _segments![_headSegment];
+
+        if (nextRecord * _recordSize == segment.Length)
+        {
+            _headRecord = 0;
+
+            int nextSegment = _headSegment + 1;
+            if (nextSegment == _segments.Length)
+                nextSegment = 0;
+
+            _headSegment = nextSegment;
+            return;
+        }
+
+        _headRecord = nextRecord;
+    }
+
+    private void AdvanceTailFixed()
+    {
+        int nextRecord = _tailRecord + 1;
+        byte[] segment = _segments![_tailSegment];
+
+        if (nextRecord * _recordSize == segment.Length)
+        {
+            _tailRecord = 0;
+
+            int nextSegment = _tailSegment + 1;
+            if (nextSegment == _segments.Length)
+                nextSegment = 0;
+
+            _tailSegment = nextSegment;
+            return;
+        }
+
+        _tailRecord = nextRecord;
     }
 }
