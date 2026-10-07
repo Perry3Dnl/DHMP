@@ -41,7 +41,9 @@ public sealed class DhmpPacketIntegrationTests
                 DhmpProcessingMode.Sequential,
                 maximumPayloadBytes: 32));
 
-        byte[]? actual = null;
+        var actual =
+            new List<byte>();
+
         int callbacks = 0;
 
         var sender = new TestSender
@@ -50,7 +52,8 @@ public sealed class DhmpPacketIntegrationTests
                 receiver.ProcessPacket(packet.Span, batch =>
                 {
                     callbacks++;
-                    actual = batch.ToArray();
+                    actual.AddRange(
+                        batch.ToArray());
                 })
         };
 
@@ -67,9 +70,9 @@ public sealed class DhmpPacketIntegrationTests
             data,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(data, actual);
-        Assert.Equal(1, callbacks);
-        Assert.Equal(1, sender.Calls);
+        Assert.Equal(data, actual.ToArray());
+        Assert.Equal(2, callbacks);
+        Assert.Equal(2, sender.Calls);
         Assert.Equal(16, client.SendPolicy.MaximumPayloadBytes);
         Assert.Equal(32, receiver.ReceivePolicy.MaximumPayloadBytes);
     }
@@ -158,7 +161,7 @@ public sealed class DhmpPacketIntegrationTests
                 new byte[4],
                 TestContext.Current.CancellationToken).AsTask());
 
-        Assert.Equal(1, sender.Calls);
+        Assert.Equal(2, sender.Calls);
     }
 
     [Fact]
