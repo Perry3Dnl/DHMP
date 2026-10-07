@@ -31,6 +31,7 @@ internal sealed class DhmpSequentialBacklog
     private int _tailSegment;
     private int _tailRecord;
     private int _backpressureWaiters;
+    private int _dataWaiters;
 
     private long _count;
     private long _recordsEnqueued;
@@ -132,11 +133,16 @@ internal sealed class DhmpSequentialBacklog
         {
             byte[] owned = record.ToArray();
 
+            long newCount;
+
             lock (_gate)
             {
                 _unbounded!.Enqueue(owned);
-                Interlocked.Increment(ref _count);
+                newCount = Interlocked.Increment(ref _count);
             }
+
+            if (newCount == 1)
+                WakeDataConsumerIfNeeded();
 
             Interlocked.Increment(ref _recordsEnqueued);
             return;
@@ -155,7 +161,12 @@ internal sealed class DhmpSequentialBacklog
 
             record.CopyTo(GetTailFixedSpan());
             AdvanceTailFixed();
-            Interlocked.Increment(ref _count);
+
+            long newCount =
+                Interlocked.Increment(ref _count);
+
+            if (newCount == 1)
+                Monitor.Pulse(_gate);
         }
 
         Interlocked.Increment(ref _recordsEnqueued);
@@ -187,7 +198,12 @@ internal sealed class DhmpSequentialBacklog
         AdvanceTailFixed();
 
         // Publish the completed FIFO slot only after its bytes are stable.
-        Interlocked.Increment(ref _count);
+        long newCount =
+            Interlocked.Increment(ref _count);
+
+        if (newCount == 1)
+            WakeDataConsumerIfNeeded();
+
         Interlocked.Increment(ref _recordsEnqueued);
     }
 
@@ -237,6 +253,48 @@ internal sealed class DhmpSequentialBacklog
 
         Interlocked.Increment(ref _recordsDequeued);
         return true;
+    }
+
+    /// <summary>
+    /// Blocking SPSC consumer used by a decoupled receive pump. The normal
+    /// producer only enters the monitor when the FIFO transitions from empty
+    /// while a consumer is actually waiting.
+    /// </summary>
+    public void ConsumeUntilCancelled(
+        Action<ReadOnlySpan<byte>> consumer,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(consumer);
+
+        while (true)
+        {
+            while (TryConsume(consumer))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            Interlocked.Increment(ref _dataWaiters);
+
+            try
+            {
+                lock (_gate)
+                {
+                    while (Interlocked.Read(ref _count) == 0 &&
+                           !cancellationToken.IsCancellationRequested)
+                    {
+                        Monitor.Wait(
+                            _gate,
+                            millisecondsTimeout: 50);
+                    }
+                }
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _dataWaiters);
+            }
+        }
     }
 
     public bool TryDequeue(Span<byte> destination)
@@ -289,6 +347,15 @@ internal sealed class DhmpSequentialBacklog
     private void WakeBackpressuredProducerIfNeeded()
     {
         if (Volatile.Read(ref _backpressureWaiters) == 0)
+            return;
+
+        lock (_gate)
+            Monitor.Pulse(_gate);
+    }
+
+    private void WakeDataConsumerIfNeeded()
+    {
+        if (Volatile.Read(ref _dataWaiters) == 0)
             return;
 
         lock (_gate)
