@@ -207,10 +207,20 @@ public sealed class DhmpClient
                 "Configured local DHMP send budget exhausted.");
         }
 
-        await _sender.SendPacketAsync(
-            packet,
-            cancellationToken)
-        .ConfigureAwait(false);
+        int recordSize =
+            _wireContract.RecordSize;
+
+        for (int offset = 0;
+             offset < packet.Length;
+             offset += recordSize)
+        {
+            await _sender.SendPacketAsync(
+                packet.Slice(
+                    offset,
+                    recordSize),
+                cancellationToken)
+            .ConfigureAwait(false);
+        }
     }
 
     private async ValueTask PaceAsync(
