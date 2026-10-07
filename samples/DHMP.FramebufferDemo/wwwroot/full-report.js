@@ -258,26 +258,6 @@
       }],
       value => fullDecimal(value, 3));
 
-    const afxdp = ioRows.find(row =>
-      String(row.protocol || '').toLowerCase().includes('af_xdp'));
-
-    if (afxdp) {
-      const rawIpv6 = ioRows.find(row =>
-        String(row.protocol || '').toLowerCase().includes('raw ipv6'));
-      const rawRate = Number(rawIpv6?.packetRate || 0);
-
-      if (rawIpv6 && rawRate > 0) {
-        drawGroupedBarChart(
-          'protocolSpeedupChart',
-          ['DHMP Raw IPv6'],
-          [{
-            label: 'AF_XDP rate multiple',
-            values: [Number(afxdp.packetRate || 0) / rawRate]
-          }],
-          value => fullDecimal(value, 2) + '×');
-      }
-    }
-
     const body = $('protocolComparisonBody');
     if (body) {
       body.innerHTML = rows.map(row => {
@@ -309,34 +289,12 @@
 
     if (!scaling.length) return;
 
-    const workers = scaling.map(row => String(row.workers));
-
     drawLineChart(
       'softwareThroughputChart',
-      workers,
+      scaling.map(row => String(row.workers)),
       scaling.map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)),
       'Workers → logical payload GB/s (software ceiling)',
       value => fullDecimal(value, 1));
-
-    const oneWorkerRate = Number(scaling[0].packetRate || 0);
-    drawGroupedBarChart(
-      'workerSpeedupChart',
-      workers.map(value => value + ' worker' + (value === '1' ? '' : 's')),
-      [{
-        label: 'Speedup vs 1 worker',
-        values: scaling.map(row =>
-          oneWorkerRate > 0
-            ? Number(row.packetRate || 0) / oneWorkerRate
-            : 0)
-      }],
-      value => fullDecimal(value, 2) + '×');
-
-    drawLineChart(
-      'recordsScalingChart',
-      workers,
-      scaling.map(row => Number(row.logicalRecordsPerSecond || 0)),
-      'Workers → logical records/s',
-      fullInteger);
   }
 
   function renderCharts(report) {
@@ -387,7 +345,7 @@
       'workerScalingChart',
       report.workerScaling.map(r => String(r.workers)),
       report.workerScaling.map(r => Number(r.packetRate)),
-      'Workers → packet transactions/s',
+      'Workers → packet transactions/s (software path)',
       fullInteger);
 
     drawGroupedBarChart(
@@ -457,6 +415,38 @@
       ' B/call</strong><small>' +
       (s.allCorrectnessChecksPassed ? 'All correctness checks passed.' : 'One or more correctness checks failed.') +
       '</small></article>';
+
+    const http = protocolRows.find(row =>
+      String(row.protocol || '').toLowerCase().startsWith('http/'));
+    const tcp = protocolRows.find(row =>
+      String(row.protocol || '').toLowerCase().startsWith('tcp/'));
+    const udp = protocolRows.find(row =>
+      String(row.protocol || '').toLowerCase().startsWith('udp/'));
+
+    const advantage = $('advantageGrid');
+    if (advantage) {
+      const afxdpRate = Number(afxdp?.packetRate || 0);
+      const rawRate = Number(rawIpv6?.packetRate || 0);
+      const udpRate = Number(udp?.packetRate || 0);
+      const tcpRate = Number(tcp?.packetRate || 0);
+      const httpRate = Number(http?.packetRate || 0);
+
+      advantage.innerHTML =
+        '<article class="proof-card"><span>Kernel bypass gain</span><strong>' +
+        (rawRate > 0 ? fullDecimal(afxdpRate / rawRate, 2) + '×' : '—') +
+        '</strong><small>DHMP AF_XDP versus DHMP Raw IPv6 in the same run.</small></article>' +
+        '<article class="proof-card"><span>Measured AF_XDP rate</span><strong>' +
+        (afxdpRate > 0 ? fullInteger(afxdpRate) : '—') +
+        '</strong><small>Packet operations per second on the measured kernel-bypass path.</small></article>' +
+        '<article class="proof-card"><span>Software headroom</span><strong>' +
+        fullDecimal(bestScaling, 1) +
+        ' GB/s</strong><small>In-memory logical payload processing ceiling; not physical wire speed.</small></article>' +
+        '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
+        fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
+        ' B/call</strong><small>' +
+        (s.allCorrectnessChecksPassed ? 'All correctness checks passed.' : 'Correctness checks require attention.') +
+        '</small></article>';
+    }
 
     $('summaryGrid').innerHTML =
       metric('Fastest core', Number(s.fastestCoreNanosecondsPerPacket).toFixed(2), 'ns/packet') +
