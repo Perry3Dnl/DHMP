@@ -399,6 +399,7 @@ public sealed class DhmpRawIpv6PeerRouter
         Span<byte> plaintextScratch)
     {
         bool sawProtectionRejection = false;
+        bool sawSlotSizeIgnored = false;
 
         foreach (PeerRegistration registration in registrations)
         {
@@ -414,7 +415,8 @@ public sealed class DhmpRawIpv6PeerRouter
                         binding,
                         networkPayload,
                         plaintextScratch,
-                        out bool protectionRejected))
+                        out bool protectionRejected,
+                        out bool slotSizeIgnored))
                 {
                     Interlocked.Increment(
                         ref _acceptedPackets);
@@ -423,6 +425,9 @@ public sealed class DhmpRawIpv6PeerRouter
 
                 sawProtectionRejection |=
                     protectionRejected;
+
+                sawSlotSizeIgnored |=
+                    slotSizeIgnored;
             }
             finally
             {
@@ -431,11 +436,15 @@ public sealed class DhmpRawIpv6PeerRouter
         }
 
         if (sawProtectionRejection)
+        {
             Interlocked.Increment(
                 ref _protectionRejectedPackets);
-        else
+        }
+        else if (!sawSlotSizeIgnored)
+        {
             Interlocked.Increment(
                 ref _rejectedPackets);
+        }
 
         return false;
     }
@@ -444,9 +453,11 @@ public sealed class DhmpRawIpv6PeerRouter
         DhmpRawIpv6PeerBinding binding,
         ReadOnlySpan<byte> networkPayload,
         Span<byte> plaintextScratch,
-        out bool protectionRejected)
+        out bool protectionRejected,
+        out bool slotSizeIgnored)
     {
         protectionRejected = false;
+        slotSizeIgnored = false;
 
         ulong expectedId =
             binding.ConnectionId ??
@@ -458,6 +469,33 @@ public sealed class DhmpRawIpv6PeerRouter
             throw new InvalidOperationException(
                 "Duplicate-source routing requires a ConnectionId field offset.");
 
+        int recordSize =
+            binding.Server.WireContract.RecordSize;
+
+        if (binding.Decoder is null)
+        {
+            if (networkPayload.Length != recordSize)
+            {
+                slotSizeIgnored = true;
+                return false;
+            }
+
+            ulong actualId =
+                BinaryPrimitives.ReadUInt64BigEndian(
+                    networkPayload.Slice(
+                        connectionIdOffset,
+                        sizeof(ulong)));
+
+            if (actualId != expectedId)
+                return false;
+
+            binding.Server.ProcessNegotiatedRecord(
+                networkPayload,
+                binding.PublishBatch);
+
+            return true;
+        }
+
         int maximumPlaintext =
             binding.Server.ReceivePolicy.MaximumPayloadBytes;
 
@@ -465,68 +503,47 @@ public sealed class DhmpRawIpv6PeerRouter
             networkPayload.Length >
                 checked(
                     maximumPlaintext +
-                    (binding.Decoder?.OverheadBytes ?? 0)))
+                    binding.Decoder.OverheadBytes))
             return false;
 
-        ReadOnlySpan<byte> payload =
-            networkPayload;
+        if (plaintextScratch.Length <
+            maximumPlaintext)
+        {
+            throw new ArgumentException(
+                "Plaintext scratch buffer is smaller than the receive policy.",
+                nameof(plaintextScratch));
+        }
 
         try
         {
-            if (binding.Decoder is not null)
+            if (!binding.Decoder.TryDecode(
+                    networkPayload,
+                    plaintextScratch,
+                    out int plaintextBytes))
             {
-                if (plaintextScratch.Length <
-                    maximumPlaintext)
-                    throw new ArgumentException(
-                        "Plaintext scratch buffer is smaller than the receive policy.",
-                        nameof(plaintextScratch));
-
-                if (!binding.Decoder.TryDecode(
-                        networkPayload,
-                        plaintextScratch,
-                        out int plaintextBytes))
-                {
-                    protectionRejected = true;
-                    return false;
-                }
-
-                if (plaintextBytes <= 0 ||
-                    plaintextBytes > maximumPlaintext ||
-                    plaintextBytes > plaintextScratch.Length)
-                    return false;
-
-                payload =
-                    plaintextScratch[
-                        ..plaintextBytes];
+                protectionRejected = true;
+                return false;
             }
 
-            int recordSize =
-                binding.Server.WireContract.RecordSize;
+            if (plaintextBytes != recordSize)
+            {
+                slotSizeIgnored = true;
+                return false;
+            }
 
-            if (payload.Length < recordSize ||
-                payload.Length > maximumPlaintext)
+            ReadOnlySpan<byte> payload =
+                plaintextScratch[..plaintextBytes];
+
+            ulong actualId =
+                BinaryPrimitives.ReadUInt64BigEndian(
+                    payload.Slice(
+                        connectionIdOffset,
+                        sizeof(ulong)));
+
+            if (actualId != expectedId)
                 return false;
 
-            int completeBytes =
-                payload.Length /
-                recordSize *
-                recordSize;
-
-            for (int offset = 0;
-                 offset < completeBytes;
-                 offset += recordSize)
-            {
-                ulong actualId =
-                    BinaryPrimitives.ReadUInt64BigEndian(
-                        payload.Slice(
-                            offset + connectionIdOffset,
-                            sizeof(ulong)));
-
-                if (actualId != expectedId)
-                    return false;
-            }
-
-            binding.Server.ProcessPacket(
+            binding.Server.ProcessNegotiatedRecord(
                 payload,
                 binding.PublishBatch);
 
@@ -534,9 +551,8 @@ public sealed class DhmpRawIpv6PeerRouter
         }
         finally
         {
-            if (binding.Decoder is not null)
-                CryptographicOperations.ZeroMemory(
-                    plaintextScratch);
+            CryptographicOperations.ZeroMemory(
+                plaintextScratch);
         }
     }
 
