@@ -9,9 +9,11 @@ internal static class DhmpRawIpv6PayloadProcessor
 {
     internal static bool TryProcess(DhmpServer server, IDhmpPacketDecoder? decoder,
         ReadOnlySpan<byte> networkPayload, Span<byte> plaintextScratch,
-        Action<ReadOnlySpan<byte>> publishBatch, out bool protectionRejected)
+        Action<ReadOnlySpan<byte>> publishBatch, out bool protectionRejected,
+        out bool slotSizeIgnored)
     {
         protectionRejected = false;
+        slotSizeIgnored = false;
         int maximumPlaintext = server.ReceivePolicy.MaximumPayloadBytes;
         if (networkPayload.IsEmpty || networkPayload.Length > checked(maximumPlaintext + (decoder?.OverheadBytes ?? 0)))
             return false;
@@ -34,10 +36,13 @@ internal static class DhmpRawIpv6PayloadProcessor
             int recordSize = server.WireContract.RecordSize;
 
             // Negotiated fixed-slot fast path: one network payload is one
-            // application record. Any size mismatch is dropped at ingress.
-            // Downstream DHMP processing performs no framing calculation.
+            // application record. A size mismatch is simply ignored; no Ring-3
+            // write or downstream framing work is performed.
             if (payload.Length != recordSize)
+            {
+                slotSizeIgnored = true;
                 return false;
+            }
 
             server.ProcessNegotiatedRecord(
                 payload,
