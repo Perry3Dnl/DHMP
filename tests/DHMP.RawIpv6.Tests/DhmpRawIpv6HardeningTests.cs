@@ -213,7 +213,7 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
-    public void HappyFlow_Router_AcceptsExactlyOneNegotiatedSlotAndDropsWrongSize()
+    public void HappyFlow_Router_AcceptsExactlyOneNegotiatedSlotAndIgnoresWrongSize()
     {
         var peer =
             IPAddress.Parse("2001:db8::44");
@@ -257,6 +257,10 @@ public sealed class DhmpRawIpv6HardeningTests
                 peer,
                 new byte[] { 5, 6, 7, 8, 9 },
                 Span<byte>.Empty));
+
+        Assert.Equal(
+            0,
+            router.RejectedPackets);
     }
 
     [Fact]
