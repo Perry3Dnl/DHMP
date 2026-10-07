@@ -98,15 +98,32 @@ forbidden = re.compile(
     r"|\bProtocolType\s*\.\s*(?:Tcp|Udp)\b"
 )
 
+comparison_benchmark_files = {
+    "samples/DHMP.FramebufferDemo/ProtocolComparisonBenchmarks.cs",
+}
+
 for file in files:
     relative = file.relative_to(ROOT).as_posix()
 
     if file.suffix == ".cs":
         text = file.read_text(encoding="utf-8-sig")
-        if re.search(r"\bHttpClient\b", text) and relative not in {"src/DHMP.AspNetCore/Api/DhmpApiHttpMessageHandler.cs", "tests/DHMP.AspNetCore.Tests/DhmpApiIntegrationTests.cs"}:
+        is_comparison_benchmark = relative in comparison_benchmark_files
+
+        if (
+            re.search(r"\bHttpClient\b", text)
+            and relative not in {
+                "src/DHMP.AspNetCore/Api/DhmpApiHttpMessageHandler.cs",
+                "tests/DHMP.AspNetCore.Tests/DhmpApiIntegrationTests.cs",
+            }
+            and not is_comparison_benchmark
+        ):
             errors.append(f"HTTP client outside the explicit API application facade in {relative}")
-        if forbidden.search(text):
+
+        # TCP/UDP/HTTP are allowed only inside an explicitly named comparison
+        # fixture. They remain forbidden as DHMP runtime/data-plane fallbacks.
+        if forbidden.search(text) and not is_comparison_benchmark:
             errors.append(f"Legacy transport/stream implementation in {relative}")
+
         if re.search(r"\b(?:namespace|using)\s+Dhmp\.", text):
             errors.append(f"Noncanonical namespace in {relative}")
 
