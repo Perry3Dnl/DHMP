@@ -141,26 +141,22 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">SAME-RUN PROTOCOL COMPARISON</p>
-      <h2>Measured I/O paths on this host</h2>
-      <div class="comparison-callout"><strong>Fair-comparison rule:</strong> the charts below contain measured transport/network paths only. The DHMP in-memory full path is intentionally excluded and shown later as software headroom, because it is not physical wire throughput.</div>
-      <p class="muted">All rows use a 1,408-byte application payload in this Full Report run. HTTP is request/response, TCP is a stream write, UDP and Raw IPv6 are datagrams/packets, and AF_XDP is kernel-bypass packet I/O. Those semantics differ, so the table keeps the exact scope visible.</p>
+      <p class="eyebrow">MEASURED ON THIS MACHINE</p>
+      <h2>Real I/O comparison from this exact benchmark run</h2>
+      <div class="comparison-callout"><strong>What this graph means:</strong> every bar below was measured on this host during the same Full Report run with a 1,408-byte application payload. The in-memory DHMP ceiling is not included here.</div>
+      <p class="muted">Higher is better. HTTP is request/response, TCP is a stream write, UDP and Raw IPv6 are packet-oriented paths, and AF_XDP is DHMP's kernel-bypass path. Use this section to compare measured I/O performance, not software-only processing headroom.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Measured operation rate</h3>
-          <p class="muted">Operations per second for only the I/O-backed paths measured in this run.</p>
+          <h3>How many operations each path completes per second</h3>
+          <p class="muted">Higher is better. This is the clearest same-run performance comparison.</p>
           <canvas id="protocolPacketRateChart"></canvas>
         </article>
         <article class="chart-card chart-wide">
-          <h3>Measured application payload throughput</h3>
-          <p class="muted">Application payload GB/s for the same I/O-backed rows. Protocol headers are excluded.</p>
+          <h3>How much application payload each path moves</h3>
+          <p class="muted">Higher is better. GB/s of application payload; protocol headers are not counted.</p>
           <canvas id="protocolThroughputChart"></canvas>
         </article>
-        <article class="chart-card chart-wide">
-          <h3>Kernel-bypass gain inside DHMP</h3>
-          <p class="muted">AF_XDP operation rate divided only by DHMP Raw IPv6 from the same run. This keeps the ratio inside the two closest DHMP transport scopes.</p>
-          <canvas id="protocolSpeedupChart"></canvas>
-        </article>
+
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
@@ -171,27 +167,28 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">DHMP HEADROOM & SCALE</p>
-      <h2>What the package can process before network I/O becomes the limiter</h2>
-      <p class="muted"><span class="scope-badge ceiling">SOFTWARE CEILING</span> These graphs are intentionally separated from the transport comparison. They measure DHMP's in-memory processing path and worker scaling, not NIC or physical-link throughput.</p>
+      <p class="eyebrow">DHMP ADVANTAGE</p>
+      <h2>What DHMP is doing well in this run</h2>
+      <p class="muted">Simple product-level takeaways from the same measured report. These cards do not mix external benchmark data into the result.</p>
+      <div id="advantageGrid" class="proof-strip"></div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">SOFTWARE PROCESSING HEADROOM</p>
+      <h2>How much DHMP can process before network I/O becomes the limiter</h2>
+      <div class="comparison-callout"><strong>Software ceiling — not physical wire throughput.</strong> These numbers measure the in-memory DHMP processing path. They tell you how much CPU-side headroom the package has; they are not NIC speed claims.</div>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Logical payload processing by worker count</h3>
-          <p class="muted">Aggregate 1,408-byte in-memory full-path payload processing. Useful for sizing CPU-side headroom.</p>
+          <h3>Payload processing as workers increase</h3>
+          <p class="muted">Logical application payload processed by the in-memory full path. Higher is better.</p>
           <canvas id="softwareThroughputChart"></canvas>
         </article>
-        <article class="chart-card">
-          <h3>Worker scaling speedup</h3>
-          <p class="muted">Measured aggregate packet-rate multiple versus the 1-worker result.</p>
-          <canvas id="workerSpeedupChart"></canvas>
-        </article>
-        <article class="chart-card">
-          <h3>Records processed per second</h3>
-          <p class="muted">Logical 16-byte application records represented by the 1,408-byte worker-scaling path.</p>
-          <canvas id="recordsScalingChart"></canvas>
+        <article class="chart-card chart-wide">
+          <h3>Packet processing scale by worker count</h3>
+          <p class="muted">Measured aggregate packet transactions per second. This shows how the software path scales across CPU workers.</p>
+          <canvas id="workerScalingChart"></canvas>
         </article>
       </div>
-      <div class="comparison-callout"><strong>Why this matters:</strong> DHMP keeps substantial CPU-side processing headroom available while the actual transport path remains bounded by the selected kernel/NIC path. That distinction makes the result useful for capacity planning instead of turning a software ceiling into a fake wire-speed claim.</div>
     </section>
 
     <section class="report-section">
@@ -263,6 +260,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-performance-story-2"></script>
+<script src="/full-report.js?v=20261007-clear-comparison"></script>
 </body>
 </html>
