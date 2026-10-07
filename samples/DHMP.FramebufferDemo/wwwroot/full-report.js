@@ -193,7 +193,7 @@
     if (!allZero) {
       drawGroupedBarChart(
         canvasId,
-        rows.map(row => row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : '')),
+        rows.map(row => row.receiveMode + (row.nativeSmoothing ? ' + Native Smoothing' : '')),
         [{
           label: 'Full path B/call',
           values
@@ -252,7 +252,7 @@
       ctx.font = '11px system-ui, sans-serif';
       ctx.textAlign = 'right';
       ctx.fillText(
-        row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : ''),
+        row.receiveMode + (row.nativeSmoothing ? ' + Native Smoothing' : ''),
         0,
         0);
       ctx.restore();
@@ -447,7 +447,7 @@
 
   function renderCharts(report) {
     const packetSizes = [...new Set(report.pathMatrix.map(r => Number(r.packetBytes)))];
-    const modeLabels = ['Sequential', 'Latest', 'Latest + Ring-3'];
+    const modeLabels = ['Sequential', 'Latest', 'Latest + Native Smoothing'];
 
     function rowsForMode(label) {
       return report.pathMatrix.filter(row => modeName(row) === label);
@@ -522,7 +522,7 @@
   }
 
   function modeName(row) {
-    return row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : '');
+    return row.receiveMode + (row.nativeSmoothing ? ' + Native Smoothing' : '');
   }
 
   function render(report) {
@@ -588,15 +588,15 @@
 
     const ring = report.ring3Consumer;
     $('ring3ConsumerGrid').innerHTML =
-      metric('Median Ring-3 read', fullDecimal(ring.readNanoseconds.median, 2), 'ns/read') +
-      metric('Min Ring-3 read', fullDecimal(ring.readNanoseconds.min, 2), 'ns/read') +
-      metric('Max Ring-3 read', fullDecimal(ring.readNanoseconds.max, 2), 'ns/read') +
-      metric('Read CV', fullDecimal(ring.readNanoseconds.coefficientOfVariationPercent, 2), '%') +
-      metric('60 Hz consumer cost', fullDecimal(ring.nanosecondsPerSecondAt60Hz, 2), 'ns CPU time/s') +
-      metric('120 Hz consumer cost', fullDecimal(ring.nanosecondsPerSecondAt120Hz, 2), 'ns CPU time/s');
+      metric('Sweeper slot publish', fullDecimal(ring.sweeperNanoseconds.median, 2), 'ns/sweep') +
+      metric('Latest grab', fullDecimal(ring.latestGrabNanoseconds.median, 2), 'ns/grab') +
+      metric('Native Smoothing grab', fullDecimal(ring.nativeSmoothingGrabNanoseconds.median, 2), 'ns/grab') +
+      metric('Smoothing grab CV', fullDecimal(ring.nativeSmoothingGrabNanoseconds.coefficientOfVariationPercent, 2), '%') +
+      metric('60 Hz smoothing cost', fullDecimal(ring.nativeSmoothingNanosecondsPerSecondAt60Hz, 2), 'ns CPU time/s') +
+      metric('120 Hz smoothing cost', fullDecimal(ring.nativeSmoothingNanosecondsPerSecondAt120Hz, 2), 'ns CPU time/s');
 
     $('allocationBody').innerHTML = report.allocations.map(row =>
-      '<tr><td>' + row.receiveMode + (row.nativeSmoothing ? ' + Ring-3' : '') +
+      '<tr><td>' + row.receiveMode + (row.nativeSmoothing ? ' + Native Smoothing' : '') +
       '</td><td>' + row.packetBytes + '</td><td>' +
       Number(row.processorBytesPerCall).toFixed(3) + '</td><td>' +
       Number(row.serverBytesPerCall).toFixed(3) + '</td><td>' +
