@@ -276,4 +276,30 @@ public sealed class DhmpSequentialBacklogTests
         Assert.Throws<InvalidOperationException>(
             () => latest.BeginSequentialSweep());
     }
+
+    [Fact]
+    public void CompatibilityPublishKeepsNextRingWriterSlotSynchronized()
+    {
+        var window =
+            new DhmpLatestStateWindow(
+                recordSize: 1);
+
+        window.PublishPacket(
+            new byte[] { 1, 2, 3, 4 });
+
+        window.Sweep(
+            new byte[] { 5 });
+
+        Span<byte> newest =
+            stackalloc byte[3];
+
+        Assert.Equal(
+            3,
+            window.CopyNewestTo(
+                newest));
+
+        Assert.Equal(
+            new byte[] { 3, 4, 5 },
+            newest.ToArray());
+    }
 }
