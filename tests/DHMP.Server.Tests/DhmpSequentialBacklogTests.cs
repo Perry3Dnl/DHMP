@@ -249,7 +249,7 @@ public sealed class DhmpSequentialBacklogTests
             },
             span => published = span.ToArray());
 
-        Assert.Equal(1, server.ReceiveSweepRecordsObserved);
+        Assert.Equal(4, server.ReceiveSweepRecordsObserved);
         Assert.Equal(new byte[] { 4, 4 }, published);
     }
 
