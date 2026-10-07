@@ -60,8 +60,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         int workers)
     {
         if (payloadBytes <= 0 ||
-            payloadBytes > 1408 ||
-            payloadBytes % DhmpThroughputLab.RecordSize != 0)
+            payloadBytes > 1408)
             throw new ArgumentOutOfRangeException(nameof(payloadBytes));
 
         if (workers <= 0 ||
@@ -108,7 +107,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
             Interlocked.Read(ref _runs),
             Interlocked.Read(ref _failures),
             payloadBytes,
-            payloadBytes / DhmpThroughputLab.RecordSize,
+            1,
             PacketsPerWorkerSample,
             workers,
             MaxWorkers,
@@ -127,8 +126,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         CancellationToken cancellationToken = default)
     {
         if (payloadBytes <= 0 ||
-            payloadBytes > 1408 ||
-            payloadBytes % DhmpThroughputLab.RecordSize != 0)
+            payloadBytes > 1408)
             throw new ArgumentOutOfRangeException(nameof(payloadBytes));
 
         if (workers <= 0 ||
@@ -473,11 +471,10 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
 
         var contract =
             new DhmpWireContract(
-                DhmpThroughputLab.RecordSize);
+                payloadBytes);
 
-        contract.ValidatePacket(
-            payload.Length,
-            payloadBytes);
+        contract.ValidateRecord(
+            payload.Length);
 
         EndPoint target =
             new IPEndPoint(
