@@ -298,10 +298,19 @@ public sealed class DhmpServerHardeningTests
             latestPublished,
             smoothingPublished);
 
-        // Native Smoothing is downstream of packet processing. Processing a
-        // packet does not maintain a second Ring-3 or copy history.
+        // Both modes traverse the same physical sweeper. Native Smoothing does
+        // not maintain a second Ring-3; after one packet exactly one shared
+        // completed sweep slot exists in either mode.
         Assert.Equal(
-            0,
+            1,
+            latest.ReceiveSweepRecordsObserved);
+
+        Assert.Equal(
+            latest.ReceiveSweepRecordsObserved,
+            smoothing.ReceiveSweepRecordsObserved);
+
+        Assert.Equal(
+            1,
             smoothing.NativeSmoothingRecordCount);
     }
 
