@@ -25,17 +25,17 @@ public sealed class DhmpTransportResolverTests
 
         DhmpTransportCandidate raw =
             Assert.Single(
-                candidates.Where(
-                    candidate =>
-                        candidate.Kind ==
-                        DhmpTransportKind.RawIpv6));
+                candidates,
+                candidate =>
+                    candidate.Kind ==
+                    DhmpTransportKind.RawIpv6);
 
         DhmpTransportCandidate udp =
             Assert.Single(
-                candidates.Where(
-                    candidate =>
-                        candidate.Kind ==
-                        DhmpTransportKind.UdpCompatibility));
+                candidates,
+                candidate =>
+                    candidate.Kind ==
+                    DhmpTransportKind.UdpCompatibility);
 
         Assert.False(raw.LocallyAvailable);
         Assert.True(udp.LocallyAvailable);
