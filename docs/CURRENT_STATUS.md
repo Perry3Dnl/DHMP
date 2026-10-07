@@ -1,6 +1,6 @@
 # DHMP current status
 
-Updated 2026-10-02.
+Updated 2026-10-07.
 
 Authoritative direction: [direct DHMP over IP](DIRECT_TRANSPORT_DIRECTION.md).
 Active data-plane contract: [DHMP wire contract V1](WIRE_CONTRACT_V1.md).
@@ -14,9 +14,9 @@ Release objective: [finish the existing feature set into a stable base](STABLE_B
 - `DhmpWireContract` contains only protocol version and fixed record size.
 - `DhmpSendPolicy` contains local Pmax, `RejectWindow`/`SmoothPacing` behavior and outbound packet ceiling. `DhmpAdaptiveRateController` can now reduce/recover SmoothPacing from authenticated receiver pressure without exceeding local Pmax.
 - `DhmpReceivePolicy` contains local Sequential/Latest mode and inbound packet ceiling.
-- `DhmpPacketProcessor` consumes a headerless payload containing complete fixed records only.
-- Sequential publishes the complete received batch.
-- Latest publishes the final record from the received packet. Optional `DhmpLatestGenerationFilter` drops stale/duplicate Latest state across packets using an application-owned 64-bit generation field.
+- The canonical raw data path consumes exactly one negotiated fixed record per packet. `DhmpPacketProcessor` remains a local compatibility/batch helper.
+- Sequential moves every received record through the shared arrival Ring-3 into its FIFO backlog; the raw plaintext producer and consumer are decoupled.
+- Latest publishes the received record as the newest state. Optional `DhmpLatestGenerationFilter` drops stale/duplicate Latest state across packets using an application-owned 64-bit generation field.
 - The V1 framing core has no carry storage or cross-packet record reassembly. The explicit DAPI/1 application schema may assemble bounded application messages from complete fixed records above that core.
 - `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
 - `DhmpServer` uses the same wire contract with its own local receive policy.
@@ -36,10 +36,7 @@ The V1 DHMP packet payload contains application records only.
 
 There are no DHMP packet header bytes, per-record headers, separators or trailers.
 
-Record boundaries are recovered from:
-
-1. the session's fixed record size; and
-2. the received IP payload length.
+The session handshake establishes the fixed record size before steady-state data processing. The canonical raw data payload must equal that size exactly; the receive path does not calculate a record count from packet length.
 
 The current raw IPv6 research work uses experimental protocol / Next Header `253` for data and `254` for control. Neither is a permanent protocol assignment.
 
