@@ -87,6 +87,43 @@ public sealed class DhmpServer
             : 0;
 
     /// <summary>
+    /// Prevalidated exact-one-record hot path for negotiated fixed-slot
+    /// transports. The caller must supply exactly one negotiated record.
+    /// No packet framing/record-count calculation is performed here.
+    /// </summary>
+    public void ProcessNegotiatedRecord(
+        ReadOnlySpan<byte> record,
+        Action<ReadOnlySpan<byte>> publishBatch)
+    {
+        if (_receivePolicy.Mode == DhmpProcessingMode.Latest)
+        {
+            _receiveSweepSlots.ReceiveLatestRecordSingleWriter(
+                record,
+                publishBatch);
+            return;
+        }
+
+        DhmpSequentialBacklog backlog =
+            GetSequentialBacklog();
+
+        Span<byte> slot =
+            _receiveSweepSlots.BeginSweep();
+
+        record.CopyTo(slot);
+        _receiveSweepSlots.CommitSweep();
+
+        backlog.Enqueue(
+            _receiveSweepSlots
+                .GetLatestPublishedSlotSingleWriter());
+
+        if (!backlog.TryConsume(publishBatch))
+        {
+            throw new InvalidOperationException(
+                "Sequential grabber lost a negotiated record before synchronous publication.");
+        }
+    }
+
+    /// <summary>
     /// Canonical receive path. Complete records first enter the shared
     /// three-slot arrival ring. The sweeper/grabber policy then consumes those
     /// completed slots. Sequential moves every record through its FIFO backlog,
