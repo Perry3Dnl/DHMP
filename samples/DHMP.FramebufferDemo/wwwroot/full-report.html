@@ -94,16 +94,16 @@
     <section class="report-section">
       <p class="eyebrow">CANONICAL WIRE PATH</p>
       <h2>One negotiated record = one DHMP packet</h2>
-      <p class="muted">These rows measure the canonical DHMP data-plane invariant directly: exactly one negotiated fixed-size record per packet. With this run's 16-byte record contract, every row is a real 16-byte DHMP packet transaction. No local multi-record batch is presented here as a wire packet.</p>
+      <p class="muted">These rows measure the canonical DHMP data-plane invariant directly: exactly one negotiated fixed-size record per packet. The negotiated record size varies across the rows, so a 1,408-byte row is one 1,408-byte record in one DHMP packet — never 88 smaller records disguised as one packet.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
           <h3>Canonical packet rate by receive mode</h3>
-          <p class="muted">Exact one-record DHMP packet transactions per second.</p>
+          <p class="muted">Exact one-record DHMP packet transactions per second across negotiated record sizes.</p>
           <canvas id="packetRateModeChart"></canvas>
         </article>
         <article class="chart-card">
           <h3>Core processing time</h3>
-          <p class="muted">Median ns per one-record packet by receive mode.</p>
+          <p class="muted">Median ns per one-record packet by receive mode and negotiated record size.</p>
           <canvas id="coreTimingModeChart"></canvas>
         </article>
         <article class="chart-card">
