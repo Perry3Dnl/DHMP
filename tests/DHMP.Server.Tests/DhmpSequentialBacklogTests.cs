@@ -78,11 +78,13 @@ public sealed class DhmpSequentialBacklogTests
             new ManualResetEventSlim(false);
 
         Task producer =
-            Task.Run(() =>
-            {
-                entered.Set();
-                backlog.Enqueue(new byte[] { 2 });
-            });
+            Task.Run(
+                () =>
+                {
+                    entered.Set();
+                    backlog.Enqueue(new byte[] { 2 });
+                },
+                TestContext.Current.CancellationToken);
 
         entered.Wait(
             TestContext.Current.CancellationToken);
