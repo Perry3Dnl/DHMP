@@ -32,11 +32,14 @@ internal static class DhmpRawIpv6PayloadProcessor
                 payload = plaintextScratch[..length];
             }
             int recordSize = server.WireContract.RecordSize;
-            if (payload.Length < recordSize ||
-                payload.Length > maximumPlaintext)
+
+            // Negotiated fixed-slot fast path: one network payload is one
+            // application record. Any size mismatch is dropped at ingress.
+            // Downstream DHMP processing performs no framing calculation.
+            if (payload.Length != recordSize)
                 return false;
 
-            server.ProcessPacket(
+            server.ProcessNegotiatedRecord(
                 payload,
                 publishBatch);
             return true;
