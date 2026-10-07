@@ -120,16 +120,52 @@ public sealed class DhmpClient
         }
     }
 
-    public ValueTask SendAsync(
+    public async ValueTask SendAsync(
         ReadOnlyMemory<byte> record,
         CancellationToken cancellationToken = default)
     {
-        _wireContract.ValidateRecord(
-            record.Length);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        return SendBatchAsync(
+        int recordSize = _wireContract.RecordSize;
+
+        if (record.Length != recordSize)
+            throw new DhmpProtocolException(
+                $"Expected one {recordSize}-byte DHMP record; received {record.Length} bytes.");
+
+        int senderMaximum = _sender.MaximumPayloadBytes;
+
+        if (_sender is IDhmpDynamicPacketSender dynamicSender)
+        {
+            int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
+            if (liveMaximum < senderMaximum)
+                senderMaximum = liveMaximum;
+        }
+
+        if (_sendPolicy.MaximumPayloadBytes < senderMaximum)
+            senderMaximum = _sendPolicy.MaximumPayloadBytes;
+
+        if (senderMaximum < recordSize)
+            throw new DhmpProtocolException(
+                "Current DHMP path budget cannot fit one complete record.");
+
+        if (_sendPolicy.RatePolicy == DhmpRatePolicy.SmoothPacing)
+        {
+            await PaceAsync(
+                1,
+                cancellationToken)
+            .ConfigureAwait(false);
+        }
+        else if (_sendPolicy.RatePolicy == DhmpRatePolicy.RejectWindow &&
+                 !_budget!.TryConsume(1))
+        {
+            throw new DhmpProtocolException(
+                "Configured local DHMP send budget exhausted.");
+        }
+
+        await _sender.SendPacketAsync(
             record,
-            cancellationToken);
+            cancellationToken)
+        .ConfigureAwait(false);
     }
 
     public async ValueTask SendBatchAsync(
