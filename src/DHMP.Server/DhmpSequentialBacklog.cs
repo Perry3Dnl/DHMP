@@ -1,0 +1,188 @@
+using DHMP.Protocol;
+
+namespace DHMP.Server;
+
+/// <summary>
+/// FIFO storage used by the Sequential grabber after a record leaves the
+/// three-slot receive sweep window.
+/// </summary>
+/// <remarks>
+/// Fixed Backpressure/DropOldest modes allocate one ring once at construction
+/// and perform no per-record managed allocation. Unbounded mode intentionally
+/// grows and therefore may allocate/produce GC pressure.
+/// </remarks>
+internal sealed class DhmpSequentialBacklog
+{
+    private readonly object _gate = new();
+    private readonly int _recordSize;
+    private readonly DhmpSequentialBacklogOverflowPolicy _overflowPolicy;
+    private readonly int _capacityRecords;
+    private readonly byte[]? _fixedRing;
+    private readonly Queue<byte[]>? _unbounded;
+
+    private int _head;
+    private int _count;
+    private long _recordsEnqueued;
+    private long _recordsDequeued;
+    private long _recordsDropped;
+    private long _backpressureWaits;
+
+    public DhmpSequentialBacklog(
+        int recordSize,
+        int capacityRecords,
+        DhmpSequentialBacklogOverflowPolicy overflowPolicy)
+    {
+        if (recordSize <= 0 || recordSize > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(recordSize));
+
+        if (!Enum.IsDefined(overflowPolicy))
+            throw new ArgumentOutOfRangeException(nameof(overflowPolicy));
+
+        _recordSize = recordSize;
+        _overflowPolicy = overflowPolicy;
+
+        if (overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Unbounded)
+        {
+            _capacityRecords = 0;
+            _unbounded = new Queue<byte[]>();
+            return;
+        }
+
+        if (capacityRecords <= 0)
+            throw new ArgumentOutOfRangeException(nameof(capacityRecords));
+
+        int bytes = checked(capacityRecords * recordSize);
+
+        _capacityRecords = capacityRecords;
+        _fixedRing = GC.AllocateUninitializedArray<byte>(bytes);
+    }
+
+    public int RecordSize => _recordSize;
+
+    public bool IsUnbounded =>
+        _overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Unbounded;
+
+    public int CapacityRecords =>
+        IsUnbounded ? int.MaxValue : _capacityRecords;
+
+    public int Count
+    {
+        get
+        {
+            lock (_gate)
+                return _count;
+        }
+    }
+
+    public long RecordsEnqueued =>
+        Interlocked.Read(ref _recordsEnqueued);
+
+    public long RecordsDequeued =>
+        Interlocked.Read(ref _recordsDequeued);
+
+    public long RecordsDropped =>
+        Interlocked.Read(ref _recordsDropped);
+
+    public long BackpressureWaits =>
+        Interlocked.Read(ref _backpressureWaits);
+
+    /// <summary>
+    /// Append exactly one record. Backpressure waits only after the fixed FIFO
+    /// is actually full. DropOldest advances the read side in O(1).
+    /// </summary>
+    public void Enqueue(ReadOnlySpan<byte> record)
+    {
+        if (record.Length != _recordSize)
+            throw new ArgumentException(
+                $"Sequential backlog requires exactly {_recordSize} bytes.",
+                nameof(record));
+
+        if (IsUnbounded)
+        {
+            byte[] owned = record.ToArray();
+
+            lock (_gate)
+            {
+                _unbounded!.Enqueue(owned);
+                _count++;
+            }
+
+            Interlocked.Increment(ref _recordsEnqueued);
+            return;
+        }
+
+        lock (_gate)
+        {
+            while (_count == _capacityRecords &&
+                   _overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
+            {
+                Interlocked.Increment(ref _backpressureWaits);
+                Monitor.Wait(_gate);
+            }
+
+            if (_count == _capacityRecords)
+            {
+                // Drop the oldest unread record. No bytes are shifted.
+                _head = (_head + 1) % _capacityRecords;
+                _count--;
+                Interlocked.Increment(ref _recordsDropped);
+            }
+
+            int tail = (_head + _count) % _capacityRecords;
+
+            record.CopyTo(
+                _fixedRing!.AsSpan(
+                    tail * _recordSize,
+                    _recordSize));
+
+            _count++;
+        }
+
+        Interlocked.Increment(ref _recordsEnqueued);
+    }
+
+    /// <summary>
+    /// Copy and remove the oldest unread record. Removing one fixed-ring item
+    /// immediately frees one producer slot and wakes a backpressured sweeper.
+    /// </summary>
+    public bool TryDequeue(Span<byte> destination)
+    {
+        if (destination.Length < _recordSize)
+            throw new ArgumentException(
+                $"Destination must fit {_recordSize} bytes.",
+                nameof(destination));
+
+        lock (_gate)
+        {
+            if (_count == 0)
+                return false;
+
+            if (IsUnbounded)
+            {
+                byte[] owned = _unbounded!.Dequeue();
+
+                owned.AsSpan().CopyTo(
+                    destination[.._recordSize]);
+
+                _count--;
+            }
+            else
+            {
+                _fixedRing!.AsSpan(
+                        _head * _recordSize,
+                        _recordSize)
+                    .CopyTo(
+                        destination[.._recordSize]);
+
+                _head = (_head + 1) % _capacityRecords;
+                _count--;
+
+                // Wake a producer only after storage has actually been freed.
+                Monitor.Pulse(_gate);
+            }
+        }
+
+        Interlocked.Increment(ref _recordsDequeued);
+        return true;
+    }
+}
