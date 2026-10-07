@@ -173,6 +173,48 @@ internal sealed class DhmpSequentialBacklog
         Interlocked.Increment(ref _recordsEnqueued);
     }
 
+    /// <summary>
+    /// Consume the oldest FIFO record in-place. The callback executes while
+    /// the record owns its ring slot and must not retain the span. Fixed modes
+    /// perform no copy or allocation on this synchronous handoff.
+    /// </summary>
+    public bool TryConsume(
+        Action<ReadOnlySpan<byte>> consumer)
+    {
+        ArgumentNullException.ThrowIfNull(consumer);
+
+        lock (_gate)
+        {
+            if (_count == 0)
+                return false;
+
+            if (IsUnbounded)
+            {
+                byte[] owned =
+                    _unbounded!.Dequeue();
+
+                consumer(owned);
+                _count--;
+            }
+            else
+            {
+                consumer(
+                    GetFixedRecordSpan(_head));
+
+                _head =
+                    (_head + 1) %
+                    _capacityRecords;
+
+                _count--;
+
+                Monitor.Pulse(_gate);
+            }
+        }
+
+        Interlocked.Increment(ref _recordsDequeued);
+        return true;
+    }
+
     public bool TryDequeue(Span<byte> destination)
     {
         if (destination.Length < _recordSize)
