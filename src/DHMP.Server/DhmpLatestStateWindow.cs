@@ -680,8 +680,14 @@ public sealed class DhmpLatestStateWindow
                 stableVersion);
         }
 
+        long finalSequence =
+            baseSequence + records;
+
+        _nextWriterSlot =
+            (int)(finalSequence % Capacity);
+
         Volatile.Write(
             ref _publishedSequence,
-            baseSequence + records);
+            finalSequence);
     }
 }
