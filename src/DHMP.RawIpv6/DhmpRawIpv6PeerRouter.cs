@@ -543,11 +543,11 @@ public sealed class DhmpRawIpv6PeerRouter
     private sealed class PeerRegistration(
         DhmpRawIpv6PeerBinding binding)
     {
-        private readonly object _gate = new();
         private readonly TaskCompletionSource _drained =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+
         private int _activeRoutes;
-        private bool _retired;
+        private int _retired;
 
         public DhmpRawIpv6PeerBinding Binding { get; } =
             binding;
@@ -557,37 +557,38 @@ public sealed class DhmpRawIpv6PeerRouter
 
         public bool TryAcquire()
         {
-            lock (_gate)
-            {
-                if (_retired)
-                    return false;
+            if (Volatile.Read(ref _retired) != 0)
+                return false;
 
-                _activeRoutes++;
+            Interlocked.Increment(ref _activeRoutes);
+
+            // Retirement may race the increment. In that case this lease never
+            // enters the packet path and immediately releases itself.
+            if (Volatile.Read(ref _retired) == 0)
                 return true;
-            }
+
+            Release();
+            return false;
         }
 
         public void Release()
         {
-            lock (_gate)
-            {
-                _activeRoutes--;
+            int remaining =
+                Interlocked.Decrement(ref _activeRoutes);
 
-                if (_retired &&
-                    _activeRoutes == 0)
-                    _drained.TrySetResult();
+            if (remaining == 0 &&
+                Volatile.Read(ref _retired) != 0)
+            {
+                _drained.TrySetResult();
             }
         }
 
         public void Retire()
         {
-            lock (_gate)
-            {
-                _retired = true;
+            Interlocked.Exchange(ref _retired, 1);
 
-                if (_activeRoutes == 0)
-                    _drained.TrySetResult();
-            }
+            if (Volatile.Read(ref _activeRoutes) == 0)
+                _drained.TrySetResult();
         }
     }
 }
