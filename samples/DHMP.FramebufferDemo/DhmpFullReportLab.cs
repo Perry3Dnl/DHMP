@@ -771,7 +771,7 @@ internal sealed class DhmpFullReportLab
         {
             sweeperNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    measuredIterations,
+                    MeasuredIterations,
                     () =>
                     {
                         server.BeginLatestSweep().Clear();
@@ -780,13 +780,13 @@ internal sealed class DhmpFullReportLab
 
             latestGrabNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    measuredIterations,
+                    MeasuredIterations,
                     () => server.CopyLatest(
                         latestDestination));
 
             smoothingGrabNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    measuredIterations,
+                    MeasuredIterations,
                     () => server.CopyNativeSmoothingWindow(
                         smoothingDestination));
         }
