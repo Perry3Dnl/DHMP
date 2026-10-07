@@ -123,24 +123,6 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">PARALLEL SCALING</p>
-      <h2>Aggregate 1,408-byte full-path scaling</h2>
-      <div class="chart-grid">
-        <article class="chart-card chart-wide">
-          <h3>Packet rate by worker count</h3>
-          <p class="muted">Aggregate packet transactions per second as worker count increases.</p>
-          <canvas id="workerScalingChart"></canvas>
-        </article>
-      </div>
-      <div class="report-table-wrap">
-        <table class="report-table">
-          <thead><tr><th>Workers</th><th>Payload</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th><th>Elapsed</th></tr></thead>
-          <tbody id="scalingBody"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="report-section">
       <p class="eyebrow">MEASURED ON THIS MACHINE</p>
       <h2>Real I/O comparison from this exact benchmark run</h2>
       <div class="comparison-callout"><strong>What this graph means:</strong> every bar below was measured on this host during the same Full Report run with a 1,408-byte application payload. The in-memory DHMP ceiling is not included here.</div>
@@ -188,6 +170,12 @@
           <p class="muted">Measured aggregate packet transactions per second. This shows how the software path scales across CPU workers.</p>
           <canvas id="workerScalingChart"></canvas>
         </article>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Workers</th><th>Payload</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th><th>Elapsed</th></tr></thead>
+          <tbody id="scalingBody"></tbody>
+        </table>
       </div>
     </section>
 
@@ -260,6 +248,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-clear-comparison"></script>
+<script src="/full-report.js?v=20261007-clear-comparison-2"></script>
 </body>
 </html>
