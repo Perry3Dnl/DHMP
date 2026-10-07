@@ -14,8 +14,8 @@ internal sealed class DhmpFullReportLab
     private const int Repetitions = 5;
     private const int ReferencePacketBytes = 1408;
 
-    private static readonly int[] PacketSizes =
-        [16, 256, 1024, 1408, 4096, 16384, 65520];
+    private static readonly int[] LocalBatchSizes =
+        [256, 1024, 1408, 4096, 16384, 65520];
 
     private readonly object _gate = new();
     private readonly DhmpThroughputLab _throughputLab;
@@ -90,27 +90,52 @@ internal sealed class DhmpFullReportLab
             CompleteStep();
 
             var matrix = new List<DhmpPathBenchmark>();
-            foreach (int packetBytes in PacketSizes)
+
+            foreach ((DhmpProcessingMode mode, bool smoothing) in new[]
+                     {
+                         (DhmpProcessingMode.Sequential, false),
+                         (DhmpProcessingMode.Latest, false),
+                         (DhmpProcessingMode.Latest, true)
+                     })
             {
-                SetPhase($"Sequential {packetBytes:N0} B");
-                matrix.Add(RunPathBenchmark(
-                    packetBytes,
-                    DhmpProcessingMode.Sequential,
-                    nativeSmoothing: false));
+                SetPhase(
+                    $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} canonical {RecordSize:N0} B record");
+
+                matrix.Add(
+                    RunCanonicalPathBenchmark(
+                        mode,
+                        smoothing));
+
+                CompleteStep();
+            }
+
+            var localBatchMatrix =
+                new List<DhmpLocalBatchBenchmark>();
+
+            foreach (int batchBytes in LocalBatchSizes)
+            {
+                SetPhase($"Local Sequential batch {batchBytes:N0} B");
+                localBatchMatrix.Add(
+                    RunLocalBatchBenchmark(
+                        batchBytes,
+                        DhmpProcessingMode.Sequential,
+                        nativeSmoothing: false));
                 CompleteStep();
 
-                SetPhase($"Latest {packetBytes:N0} B");
-                matrix.Add(RunPathBenchmark(
-                    packetBytes,
-                    DhmpProcessingMode.Latest,
-                    nativeSmoothing: false));
+                SetPhase($"Local Latest batch {batchBytes:N0} B");
+                localBatchMatrix.Add(
+                    RunLocalBatchBenchmark(
+                        batchBytes,
+                        DhmpProcessingMode.Latest,
+                        nativeSmoothing: false));
                 CompleteStep();
 
-                SetPhase($"Latest + Ring-3 {packetBytes:N0} B");
-                matrix.Add(RunPathBenchmark(
-                    packetBytes,
-                    DhmpProcessingMode.Latest,
-                    nativeSmoothing: true));
+                SetPhase($"Local Latest + Ring-3 batch {batchBytes:N0} B");
+                localBatchMatrix.Add(
+                    RunLocalBatchBenchmark(
+                        batchBytes,
+                        DhmpProcessingMode.Latest,
+                        nativeSmoothing: true));
                 CompleteStep();
             }
 
@@ -149,6 +174,7 @@ internal sealed class DhmpFullReportLab
                 environment,
                 summary,
                 matrix.ToArray(),
+                localBatchMatrix.ToArray(),
                 scaling,
                 ratePolicies,
                 confirmations,
@@ -159,12 +185,12 @@ internal sealed class DhmpFullReportLab
                 new[]
                 {
                     "Core processor ceiling is a software processing ceiling, not physical wire throughput.",
-                    "Logical payload GB/s represents bytes processed in-memory by the benchmark path.",
-                    "65,520-byte payload rows are large logical/in-memory batches and are not typical MTU-sized wire packets.",
-                    "1,408-byte rows are included as the network-oriented payload reference used by the raw IPv6 / AF_XDP lab.",
-                    "Packet rate is measured as complete benchmark packet transactions per second.",
-                    "Records/s is the number of 16-byte application records represented by those packet transactions.",
-                    "Latest publishes one newest record per packet; Sequential publishes every complete record.",
+                    "Canonical pathMatrix rows measure exactly one negotiated record per DHMP packet.",
+                    "localBatchMatrix rows are software-only compatibility/batch calls and are never wire packet-rate claims.",
+                    "Logical payload GB/s in localBatchMatrix represents bytes processed by local batch APIs, not raw DHMP wire throughput.",
+                    "1,408-byte raw IPv6 / AF_XDP rows are transport-I/O reference payloads and are separate from the 16-byte negotiated record benchmark.",
+                    "Canonical packet rate is one negotiated record transaction per second.",
+                    "Latest and Sequential both receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
@@ -227,89 +253,104 @@ internal sealed class DhmpFullReportLab
             RecordSize,
             MaximumPayloadBytes);
 
-    private static DhmpPathBenchmark RunPathBenchmark(
-        int packetBytes,
+    private static DhmpPathBenchmark RunCanonicalPathBenchmark(
         DhmpProcessingMode mode,
         bool nativeSmoothing)
     {
-        var wire = new DhmpWireContract(RecordSize);
-        var policy = new DhmpReceivePolicy(
-            mode,
-            MaximumPayloadBytes,
-            nativeSmoothing);
+        var wire =
+            new DhmpWireContract(
+                RecordSize);
 
-        byte[] packet =
-            GC.AllocateUninitializedArray<byte>(packetBytes);
+        var policy =
+            new DhmpReceivePolicy(
+                mode,
+                MaximumPayloadBytes,
+                nativeSmoothing);
+
+        byte[] record =
+            GC.AllocateUninitializedArray<byte>(
+                RecordSize);
 
         int published = 0;
+
         Action<ReadOnlySpan<byte>> publish =
             span => published += span.Length / RecordSize;
 
-        var processor = new DhmpPacketProcessor(
-            wire,
-            policy);
+        var processor =
+            new DhmpPacketProcessor(
+                wire,
+                policy);
 
-        var server = new DhmpServer(
-            wire,
-            policy);
+        var server =
+            new DhmpServer(
+                wire,
+                policy);
 
-        var sender = new ReportSender(
-            server,
-            publish);
+        var sender =
+            new ReportSender(
+                server,
+                publish);
 
-        var client = new DhmpClient(
-            sender,
-            wire,
-            new DhmpSendPolicy(
-                long.MaxValue,
-                MaximumPayloadBytes,
-                DhmpRatePolicy.Unlimited));
+        var client =
+            new DhmpClient(
+                sender,
+                wire,
+                new DhmpSendPolicy(
+                    long.MaxValue,
+                    MaximumPayloadBytes,
+                    DhmpRatePolicy.Unlimited));
 
-        int warmupIterations =
-            ScaledIterations(
-                WarmupIterations,
-                packetBytes);
-
-        int measuredIterations =
-            ScaledIterations(
-                MeasuredIterations,
-                packetBytes);
-
-        for (int i = 0; i < warmupIterations; i++)
+        for (int i = 0; i < WarmupIterations; i++)
         {
-            processor.Process(packet, publish);
-            server.ProcessPacket(packet, publish);
-            client.SendBatchAsync(packet).GetAwaiter().GetResult();
+            processor.Process(
+                record,
+                publish);
+
+            server.ProcessNegotiatedRecord(
+                record,
+                publish);
+
+            client.SendAsync(record)
+                .GetAwaiter()
+                .GetResult();
         }
 
-        double[] processorNs = new double[Repetitions];
-        double[] serverNs = new double[Repetitions];
-        double[] clientNs = new double[Repetitions];
+        double[] processorNs =
+            new double[Repetitions];
 
-        for (int repetition = 0; repetition < Repetitions; repetition++)
+        double[] serverNs =
+            new double[Repetitions];
+
+        double[] clientNs =
+            new double[Repetitions];
+
+        for (int repetition = 0;
+             repetition < Repetitions;
+             repetition++)
         {
             processorNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    measuredIterations,
-                    () => processor.Process(packet, publish));
+                    MeasuredIterations,
+                    () => processor.Process(
+                        record,
+                        publish));
 
             serverNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    measuredIterations,
-                    () => server.ProcessPacket(packet, publish));
+                    MeasuredIterations,
+                    () => server.ProcessNegotiatedRecord(
+                        record,
+                        publish));
 
             clientNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    measuredIterations,
-                    () => client.SendBatchAsync(packet)
+                    MeasuredIterations,
+                    () => client.SendAsync(record)
                         .GetAwaiter()
                         .GetResult());
         }
 
         GC.KeepAlive(published);
-
-        int recordsPerPacket =
-            packetBytes / RecordSize;
 
         double clientMedian =
             Median(clientNs);
@@ -319,19 +360,153 @@ internal sealed class DhmpFullReportLab
             clientMedian;
 
         return new DhmpPathBenchmark(
-            packetBytes,
-            recordsPerPacket,
+            RecordSize,
+            1,
             mode.ToString(),
             nativeSmoothing,
             Stats(processorNs),
             Stats(serverNs),
             Stats(clientNs),
             packetRate,
-            packetRate * recordsPerPacket,
-            packetRate * packetBytes / 1_000_000_000d,
+            packetRate,
+            packetRate * RecordSize / 1_000_000_000d,
+            1);
+    }
+
+    private static DhmpLocalBatchBenchmark RunLocalBatchBenchmark(
+        int batchBytes,
+        DhmpProcessingMode mode,
+        bool nativeSmoothing)
+    {
+        var wire =
+            new DhmpWireContract(
+                RecordSize);
+
+        var policy =
+            new DhmpReceivePolicy(
+                mode,
+                MaximumPayloadBytes,
+                nativeSmoothing);
+
+        byte[] batch =
+            GC.AllocateUninitializedArray<byte>(
+                batchBytes);
+
+        int published = 0;
+
+        Action<ReadOnlySpan<byte>> publish =
+            span => published += span.Length / RecordSize;
+
+        var processor =
+            new DhmpPacketProcessor(
+                wire,
+                policy);
+
+        var server =
+            new DhmpServer(
+                wire,
+                policy);
+
+        var sender =
+            new ReportSender(
+                server,
+                publish);
+
+        var client =
+            new DhmpClient(
+                sender,
+                wire,
+                new DhmpSendPolicy(
+                    long.MaxValue,
+                    MaximumPayloadBytes,
+                    DhmpRatePolicy.Unlimited));
+
+        int warmupIterations =
+            ScaledIterations(
+                WarmupIterations,
+                batchBytes);
+
+        int measuredIterations =
+            ScaledIterations(
+                MeasuredIterations,
+                batchBytes);
+
+        for (int i = 0; i < warmupIterations; i++)
+        {
+            processor.Process(
+                batch,
+                publish);
+
+            server.ProcessPacket(
+                batch,
+                publish);
+
+            client.SendBatchAsync(batch)
+                .GetAwaiter()
+                .GetResult();
+        }
+
+        double[] processorNs =
+            new double[Repetitions];
+
+        double[] serverNs =
+            new double[Repetitions];
+
+        double[] clientNs =
+            new double[Repetitions];
+
+        for (int repetition = 0;
+             repetition < Repetitions;
+             repetition++)
+        {
+            processorNs[repetition] =
+                MeasureNanosecondsPerCall(
+                    measuredIterations,
+                    () => processor.Process(
+                        batch,
+                        publish));
+
+            serverNs[repetition] =
+                MeasureNanosecondsPerCall(
+                    measuredIterations,
+                    () => server.ProcessPacket(
+                        batch,
+                        publish));
+
+            clientNs[repetition] =
+                MeasureNanosecondsPerCall(
+                    measuredIterations,
+                    () => client.SendBatchAsync(batch)
+                        .GetAwaiter()
+                        .GetResult());
+        }
+
+        GC.KeepAlive(published);
+
+        int recordsPerBatch =
+            batchBytes / RecordSize;
+
+        double clientMedian =
+            Median(clientNs);
+
+        double batchRate =
+            1_000_000_000d /
+            clientMedian;
+
+        return new DhmpLocalBatchBenchmark(
+            batchBytes,
+            recordsPerBatch,
+            mode.ToString(),
+            nativeSmoothing,
+            Stats(processorNs),
+            Stats(serverNs),
+            Stats(clientNs),
+            batchRate,
+            batchRate * recordsPerBatch,
+            batchRate * batchBytes / 1_000_000_000d,
             mode == DhmpProcessingMode.Latest
                 ? 1
-                : recordsPerPacket);
+                : recordsPerBatch);
     }
 
     private static int ScaledIterations(
@@ -371,8 +546,8 @@ internal sealed class DhmpFullReportLab
 
         foreach (int workerCount in workers)
         {
-            const int packetBytes = 1408;
-            const int iterationsPerWorker = 100_000;
+            const int packetBytes = RecordSize;
+            const int iterationsPerWorker = 500_000;
 
             var startGate =
                 new ManualResetEventSlim(false);
@@ -417,7 +592,7 @@ internal sealed class DhmpFullReportLab
 
                     for (int i = 0; i < 5_000; i++)
                     {
-                        client.SendBatchAsync(packet)
+                        client.SendAsync(packet)
                             .GetAwaiter()
                             .GetResult();
                     }
@@ -431,7 +606,7 @@ internal sealed class DhmpFullReportLab
                          i < iterationsPerWorker;
                          i++)
                     {
-                        client.SendBatchAsync(packet)
+                        client.SendAsync(packet)
                             .GetAwaiter()
                             .GetResult();
                     }
@@ -464,8 +639,8 @@ internal sealed class DhmpFullReportLab
                     workerCount,
                     packetBytes,
                     pps,
-                    pps * (packetBytes / RecordSize),
-                    pps * packetBytes / 1_000_000_000d,
+                    pps,
+                    pps * RecordSize / 1_000_000_000d,
                     seconds));
         }
 
@@ -567,7 +742,7 @@ internal sealed class DhmpFullReportLab
                      DhmpRatePolicy.SmoothPacing
                  })
         {
-            const int packetBytes = 256;
+            const int packetBytes = RecordSize;
 
             var wire =
                 new DhmpWireContract(RecordSize);
@@ -602,7 +777,7 @@ internal sealed class DhmpFullReportLab
 
             for (int i = 0; i < WarmupIterations; i++)
             {
-                client.SendBatchAsync(packet)
+                client.SendAsync(packet)
                     .GetAwaiter()
                     .GetResult();
             }
@@ -617,7 +792,7 @@ internal sealed class DhmpFullReportLab
                 samples[repetition] =
                     MeasureNanosecondsPerCall(
                         MeasuredIterations,
-                        () => client.SendBatchAsync(packet)
+                        () => client.SendAsync(packet)
                             .GetAwaiter()
                             .GetResult());
             }
@@ -1148,10 +1323,18 @@ internal sealed class DhmpFullReportLab
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            _server.ProcessPacket(
-                payload.Span,
-                _publish);
-
+            if (payload.Length == RecordSize)
+            {
+                _server.ProcessNegotiatedRecord(
+                    payload.Span,
+                    _publish);
+            }
+            else
+            {
+                _server.ProcessPacket(
+                    payload.Span,
+                    _publish);
+            }
 
             return ValueTask.CompletedTask;
         }
@@ -1254,6 +1437,7 @@ internal sealed record DhmpFullReport(
     DhmpReportEnvironment Environment,
     DhmpReportSummary Summary,
     DhmpPathBenchmark[] PathMatrix,
+    DhmpLocalBatchBenchmark[] LocalBatchMatrix,
     DhmpWorkerScalingBenchmark[] WorkerScaling,
     DhmpRatePolicyBenchmark[] RatePolicies,
     DhmpConfirmationBenchmark[] ConfirmationModes,
@@ -1300,6 +1484,19 @@ internal sealed record DhmpPathBenchmark(
     double LogicalRecordsPerSecond,
     double LogicalPayloadGigabytesPerSecond,
     int PublishedRecordsPerPacket);
+
+internal sealed record DhmpLocalBatchBenchmark(
+    int BatchBytes,
+    int RecordsPerBatch,
+    string ReceiveMode,
+    bool NativeSmoothing,
+    DhmpSampleStats ProcessorNanoseconds,
+    DhmpSampleStats ServerNanoseconds,
+    DhmpSampleStats ClientNanoseconds,
+    double BatchRate,
+    double LogicalRecordsPerSecond,
+    double LogicalPayloadGigabytesPerSecond,
+    int PublishedRecordsPerBatch);
 
 internal sealed record DhmpWorkerScalingBenchmark(
     int Workers,
