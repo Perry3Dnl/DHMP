@@ -19,7 +19,7 @@
     <header class="hero">
       <p class="eyebrow">DHMP HIGH-THROUGHPUT STRESS LAB</p>
       <h1>Push the protocol until the server runs out of headroom.</h1>
-      <p class="lead">This page drives the real <code>DhmpClient → transport boundary → DhmpServer</code> path entirely on the server. The browser only receives one compact telemetry snapshot per second.</p>
+      <p class="lead">This page drives the real <code>DhmpClient → transport boundary → DhmpServer</code> path entirely on the server. Each selected payload size is negotiated as one fixed DHMP record, so every benchmark transaction is exactly one record in one DHMP packet. The browser only receives one compact telemetry snapshot per second.</p>
     </header>
 
     <section class="status">
@@ -33,7 +33,7 @@
     <section class="controls card">
       <div class="control-block">
         <div>
-          <span class="control-label">DHMP packet payload</span>
+          <span class="control-label">Negotiated DHMP record / packet payload</span>
           <strong id="packetLabel">65,520 bytes</strong>
         </div>
         <input id="packetSize" type="range" min="0" max="6" step="1" value="6">
@@ -80,7 +80,7 @@
           <button type="button" class="mode-button" data-confirmation-mode="ApplicationId">Application ID confirm</button>
           <button type="button" class="mode-button" data-confirmation-mode="FullEcho">Full echo</button>
         </div>
-        <p class="muted">No confirm is the normal one-way path. Application ID confirm reuses the existing 64-bit application ID already present in each 16-byte stress record and packs two IDs into each 16-byte return record. Full echo returns and byte-compares the same 16-byte records. Forward packet shape never changes. Confirmation modes require Sequential receive mode.</p>
+        <p class="muted">No confirm is the normal one-way path. Application ID confirm reuses the first 64-bit application ID field inside the selected fixed-size record and returns it inside one fixed-size confirmation record. Full echo returns and byte-compares the complete selected record. Forward packet shape never changes. Confirmation modes require Sequential receive mode.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Rate policy</span>
@@ -133,8 +133,8 @@
           <h2>End-to-end DHMP API throughput</h2>
         </div>
         <div class="server-totals">
-          <span><strong id="packetBytes">0</strong> bytes/packet</span>
-          <span><strong id="recordsPerPacket">0</strong> records/packet</span>
+          <span><strong id="packetBytes">0</strong> bytes/record + packet</span>
+          <span><strong id="recordsPerPacket">0</strong> record/packet</span>
           <span><strong id="activeWorkers">0</strong> workers</span>
           <span><strong id="logicalProcessors">0</strong> logical CPUs</span>
         </div>
@@ -146,7 +146,7 @@
           <canvas id="recordsChart"></canvas>
         </article>
         <article class="chart-card">
-          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of 16-byte application records</span></div>
+          <div class="chart-title"><strong>Payload throughput</strong><span>GB/s of negotiated application-record payload</span></div>
           <canvas id="throughputChart"></canvas>
         </article>
       </div>
@@ -173,7 +173,7 @@
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
-      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. Allocation telemetry is process-wide and sampled once per second; at high packet rates, steady-state DHMP should converge near 0 B/packet. The four allocation probes are isolated single-thread measurements over 250,000 calls using one outer allocation counter; the full-path probe uses Unlimited + No confirm to isolate baseline DHMP overhead.  This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
+      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement using one outer timer around millions of DhmpPacketProcessor calls, comparable to the historical core-sanity benchmark. Instrumented server path includes the server facade, publication callback and per-sample timing. Allocation telemetry is process-wide and sampled once per second; at high packet rates, steady-state DHMP should converge near 0 B/packet. The four allocation probes use the currently selected record size and scale their call count down for large records so the probe remains bounded; the full-path probe uses Unlimited + No confirm to isolate baseline DHMP overhead. This is an in-process server stress benchmark. It exercises the actual DHMP client validation/send path and server packet processing through an in-memory direct-IP boundary so NIC, browser and HTTPS speed do not cap the protocol measurement. It is not a raw IPv6 wire-throughput result.</p>
     </section>
 
     <section class="explain">
@@ -182,12 +182,12 @@
         <p>Only one JSON snapshot per second crosses HTTPS. The high-rate records never go to the browser.</p>
       </div>
       <div>
-        <strong>Large packets expose throughput</strong>
-        <p>Each packet contains only fixed 16-byte DHMP application records. Larger packets reduce per-packet call overhead and reveal aggregate processing capacity.</p>
+        <strong>Record size is the packet payload</strong>
+        <p>The selected size is negotiated as one fixed DHMP application record and one DHMP packet payload. A 65,520-byte selection therefore means one 65,520-byte record, not thousands of smaller records hidden inside one packet.</p>
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
-        <p>Sequential expects every record to be published. Latest expects exactly one published record per accepted packet. Native Smoothing does not change that publication count or add work to the packet hot path. Confirmation modes use Sequential publication: Application ID returns compact batched IDs, while Full Echo returns the full record bytes.</p>
+        <p>Sequential and Latest both receive exactly one negotiated record per accepted packet in this benchmark. Native Smoothing does not change that publication count. Confirmation modes use Sequential publication: Application ID returns the application ID inside a fixed-size confirmation record, while Full Echo returns the complete record bytes.</p>
       </div>
     </section>
 
@@ -195,6 +195,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/stress.js?v=20261007-server-version-fix"></script>
+  <script src="/stress.js?v=20261007-canonical-records"></script>
 </body>
 </html>
