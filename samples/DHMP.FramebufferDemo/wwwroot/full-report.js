@@ -307,14 +307,17 @@
 
     if (!rows.length) return;
 
-    const labels = rows.map(row => row.protocol);
+    const ioRows = rows.filter(
+      row => !String(row.protocol || '').toLowerCase().includes('in-memory'));
+
+    const labels = ioRows.map(row => row.protocol);
 
     drawGroupedBarChart(
       'protocolPacketRateChart',
       labels,
       [{
-        label: 'Packets / transactions per second',
-        values: rows.map(row => Number(row.packetRate || 0))
+        label: 'Measured operations/s',
+        values: ioRows.map(row => Number(row.packetRate || 0))
       }],
       fullInteger);
 
@@ -323,126 +326,87 @@
       labels,
       [{
         label: 'Application payload GB/s',
-        values: rows.map(row => Number(row.payloadGigabytesPerSecond || 0))
+        values: ioRows.map(row => Number(row.payloadGigabytesPerSecond || 0))
       }],
-      value => fullDecimal(value, 2));
+      value => fullDecimal(value, 3));
+
+    const afxdp = ioRows.find(row =>
+      String(row.protocol || '').toLowerCase().includes('af_xdp'));
+
+    if (afxdp) {
+      const baselines = ioRows.filter(row => row !== afxdp);
+      drawGroupedBarChart(
+        'protocolSpeedupChart',
+        baselines.map(row => row.protocol),
+        [{
+          label: 'AF_XDP operation-rate multiple',
+          values: baselines.map(row => {
+            const base = Number(row.packetRate || 0);
+            return base > 0 ? Number(afxdp.packetRate || 0) / base : 0;
+          })
+        }],
+        value => fullDecimal(value, 2) + '×');
+    }
 
     const body = $('protocolComparisonBody');
     if (body) {
-      body.innerHTML = rows.map(row =>
-        '<tr>' +
-        '<td>' + row.protocol + '</td>' +
-        '<td style="text-align:left;white-space:normal;min-width:220px">' + row.scope + '</td>' +
-        '<td>' + fullInteger(row.packetBytes) + ' B</td>' +
-        '<td>' + fullInteger(row.packetRate) + '</td>' +
-        '<td>' + fullDecimal(row.payloadGigabytesPerSecond, 3) + '</td>' +
-        '<td>' + (row.kernelBypass ? 'Yes — AF_XDP' : 'No') + '</td>' +
-        '<td style="text-align:left;white-space:normal;min-width:300px">' + row.detail + '</td>' +
-        '</tr>').join('');
+      body.innerHTML = rows.map(row => {
+        const isCeiling =
+          String(row.protocol || '').toLowerCase().includes('in-memory');
+        const classLabel = isCeiling
+          ? '<span class="scope-badge ceiling">Software ceiling</span>'
+          : '<span class="scope-badge">Measured I/O</span>';
+
+        return '<tr>' +
+          '<td>' + row.protocol + '</td>' +
+          '<td style="text-align:left;white-space:normal;min-width:220px">' + row.scope + '</td>' +
+          '<td>' + classLabel + '</td>' +
+          '<td>' + fullInteger(row.packetBytes) + ' B</td>' +
+          '<td>' + fullInteger(row.packetRate) + '</td>' +
+          '<td>' + fullDecimal(row.payloadGigabytesPerSecond, 3) + '</td>' +
+          '<td>' + (row.kernelBypass ? 'Yes — AF_XDP' : 'No') + '</td>' +
+          '<td style="text-align:left;white-space:normal;min-width:300px">' + row.detail + '</td>' +
+          '</tr>';
+      }).join('');
     }
   }
 
 
-  function renderPublishedComparison(report) {
-    const rateRows =
-      publishedReferences.filter(row => Number.isFinite(row.rateMillions));
+  function renderDhmpValueStory(report) {
+    const scaling = Array.isArray(report.workerScaling)
+      ? report.workerScaling
+      : [];
 
+    if (!scaling.length) return;
+
+    const workers = scaling.map(row => String(row.workers));
+
+    drawLineChart(
+      'softwareThroughputChart',
+      workers,
+      scaling.map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)),
+      'Workers → logical payload GB/s (software ceiling)',
+      value => fullDecimal(value, 1));
+
+    const oneWorkerRate = Number(scaling[0].packetRate || 0);
     drawGroupedBarChart(
-      'publishedRateChart',
-      rateRows.map(row => row.label),
+      'workerSpeedupChart',
+      workers.map(value => value + ' worker' + (value === '1' ? '' : 's')),
       [{
-        label: 'Million ops/s',
-        values: rateRows.map(row => row.rateMillions)
-      }],
-      value => fullDecimal(value, 2) + ' M');
-
-    const dhmpBestGb =
-      Math.max(
-        0,
-        ...(report.workerScaling || [])
-          .map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)));
-
-    const throughputRows =
-      publishedReferences.filter(row => Number.isFinite(row.throughputGb));
-
-    const throughputLabels =
-      ['DHMP software ceiling', ...throughputRows.map(row => row.label)];
-
-    const throughputValues =
-      [dhmpBestGb, ...throughputRows.map(row => row.throughputGb)];
-
-    drawGroupedBarChart(
-      'publishedThroughputChart',
-      throughputLabels,
-      [{
-        label: 'GB/s',
-        values: throughputValues
-      }],
-      value => fullDecimal(value, 2));
-
-    drawGroupedBarChart(
-      'publishedMultipleChart',
-      throughputRows.map(row => row.label),
-      [{
-        label: 'DHMP multiple',
-        values: throughputRows.map(
-          row => row.throughputGb > 0
-            ? dhmpBestGb / row.throughputGb
+        label: 'Speedup vs 1 worker',
+        values: scaling.map(row =>
+          oneWorkerRate > 0
+            ? Number(row.packetRate || 0) / oneWorkerRate
             : 0)
       }],
-      value => fullDecimal(value, 1) + '×');
+      value => fullDecimal(value, 2) + '×');
 
-
-    const dhmpRows =
-      (report.pathMatrix || [])
-        .filter(row => row.receiveMode === 'Sequential' && !row.nativeSmoothing);
-
-    const scalingSizes =
-      publishedDpdkCurve.map(row => row.bytes);
-
-    const nearestDhmpRate = size => {
-      if (!dhmpRows.length) return 0;
-
-      const nearest =
-        dhmpRows.reduce(
-          (best, row) =>
-            Math.abs(Number(row.packetBytes) - size) <
-            Math.abs(Number(best.packetBytes) - size)
-              ? row
-              : best,
-          dhmpRows[0]);
-
-      return Number(nearest.packetRate || 0);
-    };
-
-    drawGroupedBarChart(
-      'dpdkScalingChart',
-      scalingSizes.map(size => fullInteger(size) + ' B'),
-      [
-        {
-          label: 'DHMP Full Report (nearest payload)',
-          values: scalingSizes.map(nearestDhmpRate)
-        },
-        {
-          label: 'Intel DPDK testpmd host PF',
-          values: publishedDpdkCurve.map(row => row.packetRate)
-        }
-      ],
+    drawLineChart(
+      'recordsScalingChart',
+      workers,
+      scaling.map(row => Number(row.logicalRecordsPerSecond || 0)),
+      'Workers → logical records/s',
       fullInteger);
-
-    const body = $('publishedComparisonBody');
-    if (body) {
-      body.innerHTML =
-        publishedReferences.map(row =>
-          '<tr>' +
-          '<td>' + row.label + '</td>' +
-          '<td>' + row.result + '</td>' +
-          '<td>' + row.payload + '</td>' +
-          '<td style="text-align:left;white-space:normal;min-width:280px">' + row.scope + '</td>' +
-          '<td><a href="' + row.sourceUrl + '" target="_blank" rel="noopener noreferrer">' +
-          row.sourceLabel + '</a></td>' +
-          '</tr>').join('');
-    }
   }
 
   function renderCharts(report) {
@@ -513,7 +477,7 @@
       report.allocations);
 
     renderProtocolComparison(report);
-    renderPublishedComparison(report);
+    renderDhmpValueStory(report);
   }
 
   function metric(label, value, unit = '') {
@@ -531,6 +495,39 @@
     $('downloadJson').disabled = false;
 
     const s = report.summary;
+
+    const protocolRows = Array.isArray(report.protocolComparisons)
+      ? report.protocolComparisons
+      : [];
+    const afxdp = protocolRows.find(row =>
+      String(row.protocol || '').toLowerCase().includes('af_xdp'));
+    const rawIpv6 = protocolRows.find(row =>
+      String(row.protocol || '').toLowerCase().includes('raw ipv6'));
+    const bestScaling = Math.max(
+      0,
+      ...(report.workerScaling || [])
+        .map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)));
+    const rawToAfxdp =
+      afxdp && rawIpv6 && Number(rawIpv6.packetRate || 0) > 0
+        ? Number(afxdp.packetRate || 0) / Number(rawIpv6.packetRate || 0)
+        : 0;
+
+    $('proofStrip').innerHTML =
+      '<article class="proof-card"><span>Measured kernel bypass</span><strong>' +
+      (afxdp ? fullInteger(afxdp.packetRate) : '—') +
+      '</strong><small>AF_XDP packet operations/s from this Full Report run.</small></article>' +
+      '<article class="proof-card"><span>AF_XDP vs Raw IPv6</span><strong>' +
+      (rawToAfxdp > 0 ? fullDecimal(rawToAfxdp, 2) + '×' : '—') +
+      '</strong><small>Same-run operation-rate multiple at a 1,408-byte application payload.</small></article>' +
+      '<article class="proof-card"><span>Software processing ceiling</span><strong>' +
+      fullDecimal(bestScaling, 1) +
+      ' GB/s</strong><small>Logical in-memory payload processing; explicitly not physical wire throughput.</small></article>' +
+      '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
+      fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
+      ' B/call</strong><small>' +
+      (s.allCorrectnessChecksPassed ? 'All correctness checks passed.' : 'One or more correctness checks failed.') +
+      '</small></article>';
+
     $('summaryGrid').innerHTML =
       metric('Fastest core', Number(s.fastestCoreNanosecondsPerPacket).toFixed(2), 'ns/packet') +
       metric('Core processing ceiling', fullInteger(s.fastestCorePacketCeiling), 'packet-process ops/s') +
