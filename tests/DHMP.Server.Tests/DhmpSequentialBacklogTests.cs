@@ -210,15 +210,17 @@ public sealed class DhmpSequentialBacklogTests
         Assert.Equal(4, server.ReceiveSweepRecordsObserved);
         Assert.Equal(0, server.SequentialBacklogCount);
 
+        Assert.Single(published);
+
         Assert.Equal(
-            new[]
+            new byte[]
             {
-                new byte[] { 1, 1 },
-                new byte[] { 2, 2 },
-                new byte[] { 3, 3 },
-                new byte[] { 4, 4 }
+                1, 1,
+                2, 2,
+                3, 3,
+                4, 4
             },
-            published);
+            published[0]);
     }
 
     [Theory]
