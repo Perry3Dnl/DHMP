@@ -298,11 +298,12 @@ public sealed class DhmpServerHardeningTests
             latestPublished,
             smoothingPublished);
 
-        // Both modes traverse the same physical sweeper. Native Smoothing does
-        // not maintain a second Ring-3; after one packet exactly one shared
-        // completed sweep slot exists in either mode.
+        // Every received record enters the shared physical Ring-3 before the
+        // grabber chooses Latest or Native Smoothing behavior. This payload
+        // contains three records, so the sweeper has observed N/N+1/N+2 and
+        // smoothing has a complete three-record window available.
         Assert.Equal(
-            1,
+            3,
             latest.ReceiveSweepRecordsObserved);
 
         Assert.Equal(
@@ -310,8 +311,20 @@ public sealed class DhmpServerHardeningTests
             smoothing.ReceiveSweepRecordsObserved);
 
         Assert.Equal(
-            1,
+            3,
             smoothing.NativeSmoothingRecordCount);
+
+        Span<byte> smoothingWindow =
+            stackalloc byte[6];
+
+        Assert.Equal(
+            3,
+            smoothing.CopyNativeSmoothingWindow(
+                smoothingWindow));
+
+        Assert.Equal(
+            packet,
+            smoothingWindow.ToArray());
     }
 
     [Fact]
