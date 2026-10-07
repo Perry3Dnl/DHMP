@@ -72,7 +72,7 @@
       <div id="progressFill" class="progress-fill"></div>
     </div>
     <p id="phase" class="muted">No report has been run yet.</p>
-    <p class="muted">The run is intentionally isolated: Throughput Lab and Kernel Bypass live loops are paused first. A full run performs warmups and repeated samples, so it can take a while.</p>
+    <p class="muted">The run is intentionally isolated: Throughput Lab and Kernel Bypass live loops are paused first. A full run performs warmups and repeated samples, so it can take a while. Local Sequential batch rows use a benchmark FIFO sized to hold one complete batch, preventing synthetic backpressure from blocking the benchmark itself.</p>
   </section>
 
   <section id="report" class="hidden">
