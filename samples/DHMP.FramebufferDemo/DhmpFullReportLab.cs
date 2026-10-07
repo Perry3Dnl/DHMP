@@ -909,8 +909,8 @@ internal sealed class DhmpFullReportLab
 
                 if (smoothing)
                 {
-                    Span<byte> destination =
-                        stackalloc byte[
+                    byte[] destination =
+                        new byte[
                             RecordSize *
                             DhmpLatestStateWindow.Capacity];
 
@@ -927,8 +927,8 @@ internal sealed class DhmpFullReportLab
                 }
                 else
                 {
-                    Span<byte> destination =
-                        stackalloc byte[RecordSize];
+                    byte[] destination =
+                        new byte[RecordSize];
 
                     grabbed =
                         server.CopyLatest(
