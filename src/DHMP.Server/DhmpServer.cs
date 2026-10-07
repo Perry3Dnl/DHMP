@@ -1,3 +1,4 @@
+using System.Buffers;
 using DHMP.Protocol;
 
 namespace DHMP.Server;
@@ -69,6 +70,13 @@ public sealed class DhmpServer
     public long SequentialBackpressureWaits =>
         _sequentialBacklog?.BackpressureWaits ?? 0;
 
+    /// <summary>
+    /// Number of records completed by the shared physical receive sweeper.
+    /// This advances for Sequential, Latest and Native Smoothing alike.
+    /// </summary>
+    public long ReceiveSweepRecordsObserved =>
+        _receiveSweepSlots.RecordsObserved;
+
     public bool NativeSmoothingEnabled =>
         _receivePolicy.NativeSmoothing;
 
@@ -78,16 +86,138 @@ public sealed class DhmpServer
             : 0;
 
     /// <summary>
-    /// Packet processing is deliberately identical for Latest and Latest +
-    /// Native Smoothing. Ring-3 is not maintained from the packet hot path.
+    /// Canonical receive path. All modes pass through the shared three-slot
+    /// sweeper/grabber architecture; only the grabber policy differs.
+    /// Sequential moves every complete record through its FIFO backlog,
+    /// Latest publishes one completed slot, and Native Smoothing keeps the
+    /// exact same Latest packet path while exposing the three-slot window to
+    /// its downstream grabber.
     /// </summary>
     public void ProcessPacket(
         ReadOnlySpan<byte> packet,
         Action<ReadOnlySpan<byte>> publishBatch)
     {
-        _processor.Process(
-            packet,
+        ArgumentNullException.ThrowIfNull(
             publishBatch);
+
+        int recordSize =
+            _wireContract.RecordSize;
+
+        int completeBytes =
+            packet.Length /
+            recordSize *
+            recordSize;
+
+        if (completeBytes == 0)
+            return;
+
+        ReadOnlySpan<byte> complete =
+            packet[..completeBytes];
+
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.Sequential)
+        {
+            DhmpSequentialBacklog backlog =
+                GetSequentialBacklog();
+
+            for (int offset = 0;
+                 offset < complete.Length;
+                 offset += recordSize)
+            {
+                Span<byte> slot =
+                    _receiveSweepSlots.BeginSweep();
+
+                try
+                {
+                    complete.Slice(
+                            offset,
+                            recordSize)
+                        .CopyTo(slot);
+
+                    _receiveSweepSlots.CommitSweep();
+
+                    backlog.Enqueue(
+                        _receiveSweepSlots
+                            .GetLatestPublishedSlotSingleWriter());
+                }
+                catch
+                {
+                    _receiveSweepSlots.CancelSweep();
+                    throw;
+                }
+            }
+
+            int recordCount =
+                completeBytes /
+                recordSize;
+
+            byte[] publicationBuffer =
+                ArrayPool<byte>.Shared.Rent(
+                    completeBytes);
+
+            try
+            {
+                Span<byte> publication =
+                    publicationBuffer.AsSpan(
+                        0,
+                        completeBytes);
+
+                for (int index = 0;
+                     index < recordCount;
+                     index++)
+                {
+                    bool dequeued =
+                        backlog.TryDequeue(
+                            publication.Slice(
+                                index * recordSize,
+                                recordSize));
+
+                    if (!dequeued)
+                    {
+                        throw new InvalidOperationException(
+                            "Sequential grabber lost a record before synchronous publication.");
+                    }
+                }
+
+                // Preserve the established ProcessPacket contract: Sequential
+                // publishes one complete packet batch, not one callback per
+                // record. Internally every record still crossed the sweeper
+                // and FIFO grabber first.
+                publishBatch(
+                    publication);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(
+                    publicationBuffer,
+                    clearArray: false);
+            }
+
+            return;
+        }
+
+        ReadOnlySpan<byte> latest =
+            complete[^recordSize..];
+
+        Span<byte> latestSlot =
+            _receiveSweepSlots.BeginSweep();
+
+        try
+        {
+            latest.CopyTo(
+                latestSlot);
+
+            _receiveSweepSlots.CommitSweep();
+
+            _receiveSweepSlots
+                .ConsumeLatestPublishedSlotSingleWriter(
+                    publishBatch);
+        }
+        catch
+        {
+            _receiveSweepSlots.CancelSweep();
+            throw;
+        }
     }
 
     /// <summary>

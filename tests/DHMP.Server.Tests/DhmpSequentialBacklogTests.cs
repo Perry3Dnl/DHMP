@@ -182,6 +182,78 @@ public sealed class DhmpSequentialBacklogTests
     }
 
     [Fact]
+    public void HappyFlow_CanonicalProcessPacketUsesSequentialSweeperAndGrabber()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Sequential,
+                    maximumPayloadBytes: 8,
+                    sequentialBacklogMillions: 1,
+                    sequentialBacklogOverflowPolicy:
+                        DhmpSequentialBacklogOverflowPolicy.Backpressure));
+
+        var published =
+            new List<byte[]>();
+
+        server.ProcessPacket(
+            new byte[]
+            {
+                1, 1,
+                2, 2,
+                3, 3,
+                4, 4
+            },
+            span => published.Add(span.ToArray()));
+
+        Assert.Equal(4, server.ReceiveSweepRecordsObserved);
+        Assert.Equal(0, server.SequentialBacklogCount);
+
+        Assert.Single(published);
+
+        Assert.Equal(
+            new byte[]
+            {
+                1, 1,
+                2, 2,
+                3, 3,
+                4, 4
+            },
+            published[0]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HappyFlow_CanonicalLatestPathUsesSharedSweeper(
+        bool nativeSmoothing)
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 8,
+                    nativeSmoothing: nativeSmoothing));
+
+        byte[]? published = null;
+
+        server.ProcessPacket(
+            new byte[]
+            {
+                1, 1,
+                2, 2,
+                3, 3,
+                4, 4
+            },
+            span => published = span.ToArray());
+
+        Assert.Equal(1, server.ReceiveSweepRecordsObserved);
+        Assert.Equal(new byte[] { 4, 4 }, published);
+    }
+
+    [Fact]
     public void BoundaryFlow_SequentialAndLatestSweepApisRemainModeSpecific()
     {
         var sequential =

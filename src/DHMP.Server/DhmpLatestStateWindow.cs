@@ -237,6 +237,26 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
+    /// Synchronous single-producer grabber used by the canonical server path.
+    /// The callback receives the currently published physical slot directly;
+    /// no copy or allocation is required. The callback must not retain the span.
+    /// </summary>
+    internal int ConsumeLatestPublishedSlotSingleWriter(
+        Action<ReadOnlySpan<byte>> consumer)
+    {
+        ArgumentNullException.ThrowIfNull(consumer);
+
+        ReadOnlySpan<byte> slot =
+            GetLatestPublishedSlotSingleWriter();
+
+        if (slot.IsEmpty)
+            return 0;
+
+        consumer(slot);
+        return 1;
+    }
+
+    /// <summary>
     /// Native-smoothing grab. Returns zero until three complete sweeps exist.
     /// Once available, copies exactly N-2/N-1/N in chronological order.
     /// A race may delay/retry this grabber, but never the sweeper.
