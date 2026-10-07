@@ -12,6 +12,7 @@ public sealed class DhmpServer
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
     private readonly DhmpLatestStateWindow _receiveSweepSlots;
+    private readonly object _sequentialBacklogGate = new();
     private DhmpSequentialBacklog? _sequentialBacklog;
 
     public DhmpServer(
@@ -59,7 +60,7 @@ public sealed class DhmpServer
     public bool SequentialGrabberAvailable =>
         _receivePolicy.Mode == DhmpProcessingMode.Sequential;
 
-    public int SequentialBacklogCount =>
+    public long SequentialBacklogCount =>
         _sequentialBacklog?.Count ?? 0;
 
     public long SequentialBacklogDroppedRecords =>
@@ -241,21 +242,16 @@ public sealed class DhmpServer
         if (_sequentialBacklog is not null)
             return _sequentialBacklog;
 
-        int capacityRecords =
-            _receivePolicy.SequentialBacklogOverflowPolicy ==
-                DhmpSequentialBacklogOverflowPolicy.Unbounded
-                ? 1
-                : checked(
-                    (int)_receivePolicy
-                        .SequentialBacklogCapacityRecords);
+        lock (_sequentialBacklogGate)
+        {
+            _sequentialBacklog ??=
+                new DhmpSequentialBacklog(
+                    _wireContract.RecordSize,
+                    _receivePolicy.SequentialBacklogCapacityRecords,
+                    _receivePolicy.SequentialBacklogOverflowPolicy);
 
-        _sequentialBacklog =
-            new DhmpSequentialBacklog(
-                _wireContract.RecordSize,
-                capacityRecords,
-                _receivePolicy.SequentialBacklogOverflowPolicy);
-
-        return _sequentialBacklog;
+            return _sequentialBacklog;
+        }
     }
 
     private void EnsureSequentialMode()
