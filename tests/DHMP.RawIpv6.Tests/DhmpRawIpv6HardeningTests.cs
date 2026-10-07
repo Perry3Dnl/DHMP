@@ -464,7 +464,7 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
-    public void CriticalFlow_Router_EmptyUnprotectedPacketIsRejected()
+    public void CriticalFlow_Router_EmptyUnprotectedPacketIsIgnored()
     {
         var peer =
             IPAddress.Parse("2001:db8::30");
@@ -483,7 +483,7 @@ public sealed class DhmpRawIpv6HardeningTests
                 ReadOnlySpan<byte>.Empty,
                 Span<byte>.Empty));
 
-        Assert.Equal(1, router.RejectedPackets);
+        Assert.Equal(0, router.RejectedPackets);
     }
 
     private static DhmpRawIpv6PeerBinding Binding(
