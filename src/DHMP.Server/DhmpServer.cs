@@ -124,6 +124,48 @@ public sealed class DhmpServer
     }
 
     /// <summary>
+    /// Reserve the next physical Ring-3 slot for a negotiated fixed-size
+    /// transport receive. Intended for direct socket receive into server-owned
+    /// memory; the caller must commit or cancel exactly once.
+    /// </summary>
+    internal Memory<byte> BeginNegotiatedReceiveSlot() =>
+        _receiveSweepSlots.BeginSweepMemorySingleWriter();
+
+    /// <summary>
+    /// Publish a directly received negotiated slot. Latest hands the exact
+    /// Ring-3 slot to the consumer. Sequential transfers ownership into its
+    /// FIFO before synchronous compatibility publication.
+    /// </summary>
+    internal void CommitNegotiatedReceiveSlot(
+        Action<ReadOnlySpan<byte>> publishBatch)
+    {
+        ArgumentNullException.ThrowIfNull(publishBatch);
+
+        ReadOnlySpan<byte> slot =
+            _receiveSweepSlots.CommitSweepAndGetSlotSingleWriter();
+
+        if (_receivePolicy.Mode == DhmpProcessingMode.Latest)
+        {
+            publishBatch(slot);
+            return;
+        }
+
+        DhmpSequentialBacklog backlog =
+            GetSequentialBacklog();
+
+        backlog.Enqueue(slot);
+
+        if (!backlog.TryConsume(publishBatch))
+        {
+            throw new InvalidOperationException(
+                "Sequential grabber lost a negotiated record before synchronous publication.");
+        }
+    }
+
+    internal void CancelNegotiatedReceiveSlot() =>
+        _receiveSweepSlots.CancelSweep();
+
+    /// <summary>
     /// Canonical receive path. Complete records first enter the shared
     /// three-slot arrival ring. The sweeper/grabber policy then consumes those
     /// completed slots. Sequential moves every record through its FIFO backlog,
