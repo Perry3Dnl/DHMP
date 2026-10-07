@@ -201,6 +201,41 @@ public sealed class DhmpLatestStateWindow
         }
     }
 
+
+    /// <summary>
+    /// Single-producer helper used by the Sequential grabber immediately after
+    /// CommitSweep and before the producer starts another sweep. The returned
+    /// span aliases the current physical slot and must not escape that handoff.
+    /// </summary>
+    internal ReadOnlySpan<byte> GetLatestPublishedSlotSingleWriter()
+    {
+        if (_sweepActive != 0)
+            throw new InvalidOperationException(
+                "Cannot grab a slot while a sweep is still in progress.");
+
+        long sequence =
+            Volatile.Read(ref _publishedSequence);
+
+        if (sequence == 0)
+            return ReadOnlySpan<byte>.Empty;
+
+        int slot =
+            (int)((sequence - 1) % Capacity);
+
+        long expectedVersion =
+            sequence * 2;
+
+        if (Volatile.Read(ref _slotVersions[slot]) != expectedVersion)
+        {
+            throw new InvalidOperationException(
+                "Latest published sweep slot is not stable.");
+        }
+
+        return _slots.AsSpan(
+            slot * _recordSize,
+            _recordSize);
+    }
+
     /// <summary>
     /// Native-smoothing grab. Returns zero until three complete sweeps exist.
     /// Once available, copies exactly N-2/N-1/N in chronological order.
