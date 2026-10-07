@@ -87,6 +87,17 @@
         const y = a.top + a.plotHeight - h;
         ctx.fillStyle = chartPalette[seriesIndex % chartPalette.length];
         ctx.fillRect(x, y, Math.max(1, barWidth - 2), h);
+
+        if (series.length === 1) {
+          ctx.fillStyle = '#e6edf7';
+          ctx.font = '700 11px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(
+            valueFormatter(value),
+            x + Math.max(1, barWidth - 2) / 2,
+            Math.max(a.top + 12, y - 5));
+        }
       });
 
       ctx.save();
