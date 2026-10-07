@@ -120,70 +120,172 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
         try
         {
-            EndPoint remoteTemplate =
-                new IPEndPoint(
-                    IPAddress.IPv6Any,
-                    0);
-
-            while (!cancellationToken.IsCancellationRequested)
+            if (_decoder is null)
             {
-                SocketReceiveMessageFromResult result;
-
-                try
-                {
-                    result =
-                        await _socket.ReceiveMessageFromAsync(
-                            _buffer.AsMemory(),
-                            SocketFlags.None,
-                            remoteTemplate,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                    when (cancellationToken.IsCancellationRequested)
-                {
-                    break;
-                }
-
-                if ((result.SocketFlags &
-                     SocketFlags.Truncated) != 0)
-                {
-                    Interlocked.Increment(
-                        ref _rejectedPackets);
-                    continue;
-                }
-
-                if (result.RemoteEndPoint is not IPEndPoint peer ||
-                    !peer.Address.Equals(_remoteAddress))
-                {
-                    Interlocked.Increment(
-                        ref _foreignPeerPackets);
-                    continue;
-                }
-
-                bool accepted = DhmpRawIpv6PayloadProcessor.TryProcess(_server, _decoder,
-                    _buffer.AsSpan(0, result.ReceivedBytes), _plaintextBuffer,
-                    publishBatch, out bool protectionRejected,
-                    out bool slotSizeIgnored);
-                if (!accepted)
-                {
-                    if (slotSizeIgnored)
-                        continue;
-
-                    if (protectionRejected)
-                        Interlocked.Increment(ref _protectionRejectedPackets);
-                    else
-                        Interlocked.Increment(ref _rejectedPackets);
-                    continue;
-                }
-
-                Interlocked.Increment(
-                    ref _acceptedPackets);
+                await RunPlaintextFixedSlotAsync(
+                    publishBatch,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            }
+            else
+            {
+                await RunProtectedAsync(
+                    publishBatch,
+                    cancellationToken)
+                .ConfigureAwait(false);
             }
         }
         finally
         {
             Volatile.Write(ref _running, 0);
+        }
+    }
+
+    private async Task RunPlaintextFixedSlotAsync(
+        Action<ReadOnlySpan<byte>> publishBatch,
+        CancellationToken cancellationToken)
+    {
+        EndPoint remoteTemplate =
+            new IPEndPoint(
+                IPAddress.IPv6Any,
+                0);
+
+        int recordSize =
+            _server.WireContract.RecordSize;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            Memory<byte> receiveSlot =
+                _server.BeginNegotiatedReceiveSlot();
+
+            SocketReceiveMessageFromResult result;
+
+            try
+            {
+                result =
+                    await _socket.ReceiveMessageFromAsync(
+                        receiveSlot,
+                        SocketFlags.None,
+                        remoteTemplate,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                _server.CancelNegotiatedReceiveSlot();
+                break;
+            }
+            catch
+            {
+                _server.CancelNegotiatedReceiveSlot();
+                throw;
+            }
+
+            if ((result.SocketFlags & SocketFlags.Truncated) != 0)
+            {
+                _server.CancelNegotiatedReceiveSlot();
+                continue;
+            }
+
+            if (result.RemoteEndPoint is not IPEndPoint peer ||
+                !peer.Address.Equals(_remoteAddress))
+            {
+                _server.CancelNegotiatedReceiveSlot();
+
+                Interlocked.Increment(
+                    ref _foreignPeerPackets);
+                continue;
+            }
+
+            if (result.ReceivedBytes != recordSize)
+            {
+                _server.CancelNegotiatedReceiveSlot();
+                continue;
+            }
+
+            _server.CommitNegotiatedReceiveSlot(
+                publishBatch);
+
+            Interlocked.Increment(
+                ref _acceptedPackets);
+        }
+    }
+
+    private async Task RunProtectedAsync(
+        Action<ReadOnlySpan<byte>> publishBatch,
+        CancellationToken cancellationToken)
+    {
+        EndPoint remoteTemplate =
+            new IPEndPoint(
+                IPAddress.IPv6Any,
+                0);
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            SocketReceiveMessageFromResult result;
+
+            try
+            {
+                result =
+                    await _socket.ReceiveMessageFromAsync(
+                        _buffer.AsMemory(),
+                        SocketFlags.None,
+                        remoteTemplate,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            if ((result.SocketFlags &
+                 SocketFlags.Truncated) != 0)
+            {
+                Interlocked.Increment(
+                    ref _rejectedPackets);
+                continue;
+            }
+
+            if (result.RemoteEndPoint is not IPEndPoint peer ||
+                !peer.Address.Equals(_remoteAddress))
+            {
+                Interlocked.Increment(
+                    ref _foreignPeerPackets);
+                continue;
+            }
+
+            bool accepted =
+                DhmpRawIpv6PayloadProcessor.TryProcess(
+                    _server,
+                    _decoder,
+                    _buffer.AsSpan(
+                        0,
+                        result.ReceivedBytes),
+                    _plaintextBuffer,
+                    publishBatch,
+                    out bool protectionRejected,
+                    out bool slotSizeIgnored);
+
+            if (!accepted)
+            {
+                if (slotSizeIgnored)
+                    continue;
+
+                if (protectionRejected)
+                    Interlocked.Increment(
+                        ref _protectionRejectedPackets);
+                else
+                    Interlocked.Increment(
+                        ref _rejectedPackets);
+
+                continue;
+            }
+
+            Interlocked.Increment(
+                ref _acceptedPackets);
         }
     }
 
