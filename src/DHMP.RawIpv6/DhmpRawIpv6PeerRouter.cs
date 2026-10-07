@@ -375,11 +375,14 @@ public sealed class DhmpRawIpv6PeerRouter
                 networkPayload,
                 plaintextScratch,
                 binding.PublishBatch,
-                out bool protectionRejected);
+                out bool protectionRejected,
+                out bool slotSizeIgnored);
 
         if (accepted)
             Interlocked.Increment(
                 ref _acceptedPackets);
+        else if (slotSizeIgnored)
+            return false;
         else if (protectionRejected)
             Interlocked.Increment(
                 ref _protectionRejectedPackets);
