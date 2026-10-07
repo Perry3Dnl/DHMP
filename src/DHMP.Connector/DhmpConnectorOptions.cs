@@ -18,10 +18,11 @@ public sealed class DhmpConnectorOptions
     {
         ArgumentNullException.ThrowIfNull(localAddress);
 
-        if (localAddress.AddressFamily != AddressFamily.InterNetworkV6 ||
+        if (localAddress.AddressFamily is not AddressFamily.InterNetwork and
+            not AddressFamily.InterNetworkV6 ||
             localAddress.IsIPv4MappedToIPv6)
             throw new ArgumentException(
-                "DHMP Connector requires a native IPv6 local address.",
+                "DHMP Connector requires an IPv4 or native IPv6 local address.",
                 nameof(localAddress));
 
         if (recordSize <= 0 || recordSize > ushort.MaxValue)
@@ -48,10 +49,32 @@ public sealed class DhmpConnectorOptions
     public int MaximumMessagesPerSecond { get; init; } = 100_000;
 
     /// <summary>
-    /// Maximum network payload presented to the raw IPv6 backend.
+    /// Maximum DHMP network payload presented to the native Raw IPv6 backend.
     /// 1240 bytes is the IPv6 minimum-MTU payload after the mandatory 40-byte IPv6 header.
     /// </summary>
     public int MaximumPayloadBytes { get; init; } = 1240;
+
+    /// <summary>
+    /// Maximum DHMP payload carried inside one UDP datagram.
+    /// The 1232-byte default preserves the IPv6 minimum-MTU budget after IPv6 and UDP headers.
+    /// </summary>
+    public int UdpMaximumPayloadBytes { get; init; } = 1232;
+
+    /// <summary>UDP data port used by the compatibility backend.</summary>
+    public int UdpDataPort { get; init; } = 47530;
+
+    /// <summary>Separate UDP control port used for compatibility/security setup.</summary>
+    public int UdpControlPort { get; init; } = 47531;
+
+    /// <summary>
+    /// Maximum time Auto spends proving the preferred native path before trying UDP.
+    /// The full handshake timeout still applies after a transport has been selected.
+    /// </summary>
+    public TimeSpan TransportAttemptTimeout { get; init; } =
+        TimeSpan.FromMilliseconds(1500);
+
+    public DhmpTransportPreference TransportPreference { get; init; } =
+        DhmpTransportPreference.Auto;
 
     public int MaximumPeers { get; init; } = 1024;
     public int SocketBufferBytes { get; init; } = 4 * 1024 * 1024;
@@ -101,15 +124,51 @@ public sealed class DhmpConnectorOptions
             MaximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(MaximumPayloadBytes));
 
+        if (UdpMaximumPayloadBytes <= 0 ||
+            UdpMaximumPayloadBytes > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(UdpMaximumPayloadBytes));
+
+        if (TransportPreference != DhmpTransportPreference.RawIpv6Only &&
+            UdpMaximumPayloadBytes < wire.RecordSize)
+            throw new ArgumentOutOfRangeException(
+                nameof(UdpMaximumPayloadBytes),
+                "The UDP compatibility path must fit one complete DHMP record.");
+
+        if (UdpDataPort is <= 0 or > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(UdpDataPort));
+
+        if (UdpControlPort is <= 0 or > ushort.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(UdpControlPort));
+
+        if (UdpDataPort == UdpControlPort)
+            throw new ArgumentException(
+                "DHMP UDP data and control ports must be different.");
+
+        if (!Enum.IsDefined(TransportPreference))
+            throw new ArgumentOutOfRangeException(nameof(TransportPreference));
+
+        if (TransportPreference == DhmpTransportPreference.RawIpv6Only &&
+            (LocalAddress.AddressFamily != AddressFamily.InterNetworkV6 ||
+             LocalAddress.IsIPv4MappedToIPv6))
+            throw new InvalidOperationException(
+                "RawIpv6Only requires a native IPv6 local address.");
+
         if (MaximumPeers <= 0)
             throw new ArgumentOutOfRangeException(nameof(MaximumPeers));
 
-        if (SocketBufferBytes < MaximumPayloadBytes)
+        if (SocketBufferBytes <
+            Math.Max(MaximumPayloadBytes, UdpMaximumPayloadBytes))
             throw new ArgumentOutOfRangeException(nameof(SocketBufferBytes));
 
         if (HandshakeTimeout <= TimeSpan.Zero ||
             HandshakeTimeout > TimeSpan.FromMilliseconds(uint.MaxValue - 1))
             throw new ArgumentOutOfRangeException(nameof(HandshakeTimeout));
+
+        if (TransportAttemptTimeout <= TimeSpan.Zero ||
+            TransportAttemptTimeout > HandshakeTimeout)
+            throw new ArgumentOutOfRangeException(
+                nameof(TransportAttemptTimeout),
+                "Transport attempt timeout must be positive and no longer than the full handshake timeout.");
 
         if (PreSharedKey is null &&
             !AllowUnprotectedPayloads &&

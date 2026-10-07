@@ -1,14 +1,16 @@
-# Authoritative direction: DHMP directly over IP
+# Authoritative direction: native DHMP with connection transport resolution
 
-Decision updated 2026-09-30.
+Decision updated 2026-10-07.
 
-This document, [WIRE_CONTRACT_V1.md](WIRE_CONTRACT_V1.md) and `AGENTS.md` supersede the older compatibility/byte-stream architecture.
+This document, [WIRE_CONTRACT_V1.md](WIRE_CONTRACT_V1.md), [TRANSPORT_RESOLVER.md](TRANSPORT_RESOLVER.md) and `AGENTS.md` supersede the older single-path compatibility/byte-stream architecture.
 
 ## Decision
 
-DHMP is its own packet protocol directly over IP, with IPv6 as the current implementation target.
+DHMP remains its own packet protocol. Native DHMP directly over IPv6 is the preferred implementation path.
 
-The active project does not use TCP, UDP, HTTP, QUIC, WebSocket, gRPC or TLS-stream transports as DHMP data-plane implementations or fallbacks.
+The application-facing Connector now owns a connection resolver. It first attempts the native Raw IPv6 path when the host supports it and the peer is reachable. If that path cannot be established, it may carry the unchanged DHMP V1 record inside UDP as an explicit compatibility path.
+
+The UDP carrier does not add DHMP framing bytes. TCP, HTTP, QUIC, WebSocket, gRPC and TLS-stream transports remain outside the active DHMP data plane.
 
 Historical code and measurements remain in git history only.
 
@@ -28,6 +30,12 @@ The wire contract supplies only the protocol-owned information needed to interpr
 Pmax, Sequential/Latest mode and packet ceilings are endpoint-local policies. They are intentionally not part of V1 wire identity.
 
 The current IPv6 experimental profile uses protocol / Next Header `253` for data and `254` for the separate control plane. Neither is a permanent protocol assignment.
+
+## Resolver boundary
+
+Transport resolution is outside the V1 record format. Native Raw IPv6 and UDP compatibility must both deliver one complete negotiated DHMP record to the same protocol/server layer. The selected transport is observable on the established connection and does not silently alter wire/schema identity.
+
+See [TRANSPORT_RESOLVER.md](TRANSPORT_RESOLVER.md) for selection, timeout and compatibility rules.
 
 ## Required boundaries
 
@@ -71,7 +79,7 @@ Pending:
 - complete network congestion control and path/fairness validation;
 - reviewed production security.
 
-Removing the legacy transports is not evidence that these pending pieces already exist.
+Adding the managed UDP compatibility path is not evidence that native Internet traversal, NAT discovery, relay, connection migration or general congestion control is complete.
 
 ## Work order
 

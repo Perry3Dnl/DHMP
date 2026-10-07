@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Net;
 using DHMP.Client;
-using DHMP.RawIpv6;
+using DHMP.Protocol;
 using DHMP.Security;
 
 namespace DHMP.Connector;
@@ -14,7 +14,7 @@ public sealed class DhmpConnection : IAsyncDisposable
 {
     private readonly DhmpConnector _owner;
     private readonly DhmpClient _client;
-    private readonly DhmpRawIpv6PacketSender _rawSender;
+    private readonly IDisposable _transportSender;
     private readonly DhmpProtectedPacketSender? _protectedSender;
     private readonly DhmpPskChaCha20Poly1305Session? _securitySession;
     private readonly DhmpConnectionIdField? _connectionIdField;
@@ -24,7 +24,8 @@ public sealed class DhmpConnection : IAsyncDisposable
         DhmpConnector owner,
         IPAddress remoteAddress,
         DhmpClient client,
-        DhmpRawIpv6PacketSender rawSender,
+        IDisposable transportSender,
+        DhmpTransportKind transport,
         DhmpProtectedPacketSender? protectedSender,
         DhmpPskChaCha20Poly1305Session? securitySession,
         ulong? connectionId,
@@ -33,7 +34,8 @@ public sealed class DhmpConnection : IAsyncDisposable
         _owner = owner;
         RemoteAddress = remoteAddress;
         _client = client;
-        _rawSender = rawSender;
+        _transportSender = transportSender;
+        Transport = transport;
         _protectedSender = protectedSender;
         _securitySession = securitySession;
         ConnectionId = connectionId;
@@ -41,6 +43,9 @@ public sealed class DhmpConnection : IAsyncDisposable
     }
 
     public IPAddress RemoteAddress { get; }
+
+    /// <summary>The concrete network path selected by the connection resolver.</summary>
+    public DhmpTransportKind Transport { get; }
 
     /// <summary>
     /// Optional 64-bit application-routing identity for duplicate-source connections.
@@ -139,7 +144,7 @@ public sealed class DhmpConnection : IAsyncDisposable
         if (_protectedSender is not null)
             await _protectedSender.DisposeAsync().ConfigureAwait(false);
 
-        _rawSender.Dispose();
+        _transportSender.Dispose();
         _securitySession?.Dispose();
     }
 

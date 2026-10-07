@@ -4,11 +4,13 @@ Status: working pre-1.0 contract. Breaking changes are still allowed.
 
 ## Purpose
 
-DHMP V1 defines a deliberately small headerless data plane directly over IP.
+DHMP V1 defines a deliberately small headerless data plane.
 
 The data plane does not wrap each record in a DHMP frame and does not prepend a DHMP packet header.
 
-For the current IPv6 implementation path, experimental protocol / Next Header `253` carries DHMP V1 data. Experimental value `254` is reserved by this project for the separate [Control V1](CONTROL_PLANE_V1.md) handshake. Neither value is a permanent DHMP assignment.
+For the preferred native IPv6 path, experimental protocol / Next Header `253` carries DHMP V1 data. Experimental value `254` is reserved by this project for the separate [Control V1](CONTROL_PLANE_V1.md) handshake. Neither value is a permanent DHMP assignment.
+
+The application-facing resolver may instead select the explicit UDP compatibility carrier. In that profile the UDP payload is the exact same complete DHMP V1 record; UDP/IP headers are lower-layer carrier overhead, not DHMP framing.
 
 ## Wire compatibility contract
 
@@ -129,4 +131,6 @@ The current PSK profile has not completed an independent production security rev
 
 ## Compatibility rule
 
-TCP, UDP, HTTP, QUIC, WebSocket, gRPC and TLS-stream transports are not DHMP V1 data-plane fallbacks. Historical implementations remain in git history only.
+Transport selection does not change V1 record interpretation. Native Raw IPv6 is preferred; the active Connector may use the explicit UDP compatibility carrier defined in [TRANSPORT_RESOLVER.md](TRANSPORT_RESOLVER.md) when the native path cannot be established.
+
+TCP, HTTP, QUIC, WebSocket, gRPC and TLS-stream transports are not DHMP V1 data-plane fallbacks. Historical implementations remain in git history only.

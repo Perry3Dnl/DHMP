@@ -13,7 +13,7 @@
     <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
 
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Protocol'">DHMP fixed-record wire contract, policies, packet processing, control negotiation, and sender abstractions.</Description>
-    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Connector'">Application-facing DHMP networking runtime: connect or accept explicit IPv6 peers and exchange records through bidirectional DhmpConnection objects.</Description>
+    <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Connector'">Application-facing DHMP networking runtime with native-path resolution, UDP compatibility fallback, and bidirectional DhmpConnection objects.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Client'">DHMP per-session client sending facade and optional application-level confirmation helpers.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.Server'">DHMP server-side fixed-record processing, publication, freshness, and bounded receive helpers.</Description>
     <Description Condition="'$(MSBuildProjectName)' == 'DHMP.RawIpv6'">Experimental Linux raw-IPv6 backend for DHMP direct-IP data and control traffic.</Description>

@@ -1,16 +1,16 @@
 # DHMP project direction
 
-The active project is DHMP directly over IP; IPv6 is the current implementation target.
+The active project is DHMP with automatic connection transport resolution. Native Raw IPv6 is the preferred implementation path; the managed UDP carrier is the compatibility path.
 
-Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/CURRENT_STATUS.md` before architectural changes.
+Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/TRANSPORT_RESOLVER.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/CURRENT_STATUS.md` before architectural changes.
 
 ## Non-negotiable active direction
 
-- Do not add or restore TCP, UDP, HTTP, QUIC, WebSocket, gRPC or TLS-stream DHMP data-plane implementations, fallback adapters or workflows unless the project direction is explicitly changed.
-- DHMP V1 data packets are headerless. The DHMP payload contains application records only.
+- The project direction now includes an explicit connection resolver. Native DHMP Raw IPv6 remains the preferred data path; a managed UDP compatibility carrier is allowed as the fallback path when native Raw IPv6 is unavailable or unreachable. Do not add TCP, HTTP, QUIC, WebSocket, gRPC or TLS-stream DHMP data-plane fallbacks without another explicit direction change.
+- DHMP V1 data packets are headerless. The DHMP payload contains application records only. When the UDP compatibility carrier is selected, the UDP header is lower-layer transport overhead; the UDP payload is still the unchanged DHMP V1 record.
 - Do not silently add protocol-owned packet headers, record headers, separators, trailers, sequence fields or timestamps to V1.
 - Any future protocol-owned wire metadata requires an explicit versioned wire-contract change.
-- Process complete IP payloads containing whole fixed-size records.
+- Process complete selected-transport payloads containing whole fixed-size DHMP records.
 - Never carry partial record bytes between packets.
 - Reject empty, incomplete and oversized packet payloads.
 - Keep control-plane state out of the hot data packet unless a later wire version explicitly defines otherwise.
@@ -24,7 +24,7 @@ Read `docs/DIRECT_TRANSPORT_DIRECTION.md`, `docs/WIRE_CONTRACT_V1.md` and `docs/
 ## Architecture boundaries
 
 - Use `DhmpWireContract` for protocol compatibility. Keep `DhmpSendPolicy` and `DhmpReceivePolicy` local to endpoints; do not merge them back into wire identity.
-- Keep direct-IP packet I/O, session establishment, peer routing, packet protection, packet processing, storage ownership and application execution separate.
+- Keep transport packet I/O, connection resolution, session establishment, peer routing, packet protection, packet processing, storage ownership and application execution separate.
 - V1 multi-peer routing may key on source IPv6 address. Do not add a hidden per-packet session ID merely to support multiple sessions from the same source address.
 - Base V1 stays headerless. Security overhead belongs only to an explicitly selected security profile and must be accounted for separately.
 - Batch publication and bounded memory are the baseline.

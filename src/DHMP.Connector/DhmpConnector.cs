@@ -13,7 +13,7 @@ namespace DHMP.Connector;
 
 /// <summary>
 /// Application-facing DHMP networking runtime.
-/// The connector owns local raw-IPv6 networking and exposes one DhmpConnection per remote peer.
+/// The connector resolves the best available connection path and exposes one DhmpConnection per remote peer.
 /// </summary>
 public sealed class DhmpConnector : IAsyncDisposable
 {
@@ -26,8 +26,11 @@ public sealed class DhmpConnector : IAsyncDisposable
     private readonly SemaphoreSlim _peerGate = new(1, 1);
     private readonly CancellationTokenSource _lifetime = new();
 
-    private DhmpRawIpv6MultiPeerReceiver? _receiver;
-    private Task? _receiverTask;
+    private DhmpRawIpv6MultiPeerReceiver? _rawReceiver;
+    private Task? _rawReceiverTask;
+    private DhmpUdpRuntime? _udpRuntime;
+    private Task? _udpReceiverTask;
+    private bool _rawLocallyAvailable;
     private int _started;
     private int _disposed;
 
@@ -45,8 +48,21 @@ public sealed class DhmpConnector : IAsyncDisposable
                 ? 0
                 : DhmpPskChaCha20Poly1305Session.Overhead;
 
+        int resolvedNetworkMaximum =
+            options.TransportPreference switch
+            {
+                DhmpTransportPreference.RawIpv6Only =>
+                    options.MaximumPayloadBytes,
+                DhmpTransportPreference.UdpCompatibilityOnly =>
+                    options.UdpMaximumPayloadBytes,
+                _ =>
+                    Math.Min(
+                        options.MaximumPayloadBytes,
+                        options.UdpMaximumPayloadBytes)
+            };
+
         int applicationMaximum =
-            options.MaximumPayloadBytes - securityOverhead;
+            resolvedNetworkMaximum - securityOverhead;
 
         applicationMaximum =
             applicationMaximum /
@@ -80,6 +96,16 @@ public sealed class DhmpConnector : IAsyncDisposable
     public IReadOnlyCollection<DhmpBlindFireRegistration> BlindFireRegistrations =>
         _blindFireRegistrations.Values.ToArray();
 
+    /// <summary>
+    /// Reports locally usable transport candidates in resolver priority order.
+    /// Reachability is confirmed only when ConnectAsync/AcceptAsync performs the DHMP handshake.
+    /// </summary>
+    public IReadOnlyList<DhmpTransportCandidate> GetTransportCandidates(
+        IPAddress remoteAddress) =>
+        DhmpTransportResolver.Probe(
+            _options,
+            remoteAddress);
+
     public Task StartAsync(
         CancellationToken cancellationToken = default)
     {
@@ -92,31 +118,80 @@ public sealed class DhmpConnector : IAsyncDisposable
 
         try
         {
-            var listenerOptions =
-                new DhmpRawIpv6ListenerOptions(
-                    _options.LocalAddress,
-                    _options.MaximumPayloadBytes,
-                    _options.MaximumPeers,
-                    _options.SocketBufferBytes,
-                    _options.EnableExperimentalProtocolNumbers,
-                    _options.AllowWildcardLocalAddress);
+            if (_options.TransportPreference !=
+                    DhmpTransportPreference.UdpCompatibilityOnly &&
+                _options.LocalAddress.AddressFamily ==
+                    AddressFamily.InterNetworkV6 &&
+                !_options.LocalAddress.IsIPv4MappedToIPv6)
+            {
+                DhmpRawIpv6HostProbeResult rawProbe =
+                    DhmpRawIpv6HostProbe.Probe(
+                        _options.EnableExperimentalProtocolNumbers);
 
-            _receiver =
-                new DhmpRawIpv6MultiPeerReceiver(
-                    listenerOptions);
+                _rawLocallyAvailable =
+                    rawProbe.IsReady;
 
-            _receiverTask =
-                _receiver.RunAsync(
-                    _lifetime.Token);
+                if (_options.TransportPreference ==
+                        DhmpTransportPreference.RawIpv6Only &&
+                    !_rawLocallyAvailable)
+                    throw new InvalidOperationException(
+                        $"Raw IPv6 was required but is not locally available: {rawProbe.Message}");
+
+                if (_rawLocallyAvailable)
+                {
+                    var listenerOptions =
+                        new DhmpRawIpv6ListenerOptions(
+                            _options.LocalAddress,
+                            _options.MaximumPayloadBytes,
+                            _options.MaximumPeers,
+                            _options.SocketBufferBytes,
+                            _options.EnableExperimentalProtocolNumbers,
+                            _options.AllowWildcardLocalAddress);
+
+                    _rawReceiver =
+                        new DhmpRawIpv6MultiPeerReceiver(
+                            listenerOptions);
+
+                    _rawReceiverTask =
+                        _rawReceiver.RunAsync(
+                            _lifetime.Token);
+                }
+            }
+            else if (_options.TransportPreference ==
+                     DhmpTransportPreference.RawIpv6Only)
+            {
+                throw new InvalidOperationException(
+                    "RawIpv6Only requires a locally supported native IPv6 backend.");
+            }
+
+            if (_options.TransportPreference !=
+                DhmpTransportPreference.RawIpv6Only)
+            {
+                _udpRuntime =
+                    new DhmpUdpRuntime(
+                        _options);
+
+                _udpReceiverTask =
+                    _udpRuntime.RunAsync(
+                        _lifetime.Token);
+            }
+
+            if (!_rawLocallyAvailable &&
+                _udpRuntime is null)
+                throw new InvalidOperationException(
+                    "No DHMP connection transport is locally available.");
 
             return Task.CompletedTask;
         }
         catch
         {
             Volatile.Write(ref _started, 0);
-            _receiver?.Dispose();
-            _receiver = null;
-            _receiverTask = null;
+            _rawReceiver?.Dispose();
+            _rawReceiver = null;
+            _rawReceiverTask = null;
+            _udpRuntime?.Dispose();
+            _udpRuntime = null;
+            _udpReceiverTask = null;
             throw;
         }
     }
@@ -164,13 +239,17 @@ public sealed class DhmpConnector : IAsyncDisposable
                     _wireContract.RecordSize),
                 allowUnprotectedPayloads: true);
 
-        _receiver!.Router.Register(binding);
+        if (_rawReceiver is null)
+            throw new InvalidOperationException(
+                "BlindFire requires the native Raw IPv6 backend.");
+
+        _rawReceiver.Router.Register(binding);
 
         if (!_blindFireRegistrations.TryAdd(
                 remoteAddress,
                 registration))
         {
-            _receiver.Router.Remove(remoteAddress);
+            _rawReceiver.Router.Remove(remoteAddress);
             throw new InvalidOperationException(
                 "Could not publish the BlindFire registration.");
         }
@@ -309,9 +388,9 @@ public sealed class DhmpConnector : IAsyncDisposable
                 out DhmpBlindFireRegistration? current) &&
             ReferenceEquals(current, registration))
         {
-            if (_receiver is not null)
+            if (_rawReceiver is not null)
             {
-                await _receiver.Router
+                await _rawReceiver.Router
                     .RemoveAsync(registration.RemoteAddress)
                     .ConfigureAwait(false);
             }
@@ -340,11 +419,13 @@ public sealed class DhmpConnector : IAsyncDisposable
                 out DhmpConnection? current) &&
             ReferenceEquals(current, connection))
         {
-            if (_receiver is not null)
+            if (connection.Transport ==
+                    DhmpTransportKind.RawIpv6 &&
+                _rawReceiver is not null)
             {
                 if (connection.ConnectionId is ulong connectionId)
                 {
-                    await _receiver.Router
+                    await _rawReceiver.Router
                         .RemoveAsync(
                             connection.RemoteAddress,
                             connectionId)
@@ -352,10 +433,20 @@ public sealed class DhmpConnector : IAsyncDisposable
                 }
                 else
                 {
-                    await _receiver.Router
-                        .RemoveAsync(connection.RemoteAddress)
+                    await _rawReceiver.Router
+                        .RemoveAsync(
+                            connection.RemoteAddress)
                         .ConfigureAwait(false);
                 }
+            }
+            else if (connection.Transport ==
+                         DhmpTransportKind.UdpCompatibility &&
+                     _udpRuntime is not null)
+            {
+                await _udpRuntime.RemoveAsync(
+                    connection.RemoteAddress,
+                    connection.ConnectionId)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -371,11 +462,15 @@ public sealed class DhmpConnector : IAsyncDisposable
 
         _lifetime.Cancel();
 
-        if (_receiverTask is not null)
+        foreach (Task? task in
+                 new[] { _rawReceiverTask, _udpReceiverTask })
         {
+            if (task is null)
+                continue;
+
             try
             {
-                await _receiverTask.ConfigureAwait(false);
+                await task.ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -396,7 +491,8 @@ public sealed class DhmpConnector : IAsyncDisposable
                 .ConfigureAwait(false);
         }
 
-        _receiver?.Dispose();
+        _rawReceiver?.Dispose();
+        _udpRuntime?.Dispose();
         _peerGate.Dispose();
         _lifetime.Dispose();
     }
@@ -429,28 +525,16 @@ public sealed class DhmpConnector : IAsyncDisposable
                             remoteAddress)))
             {
                 throw new InvalidOperationException(
-                    "This DHMP Connector already has a connection for the remote IPv6 address. " +
-                    "Use DuplicatePeerHandling.ResolveWithConnectionId with an application-owned ConnectionId field when multiple logical peers intentionally share one source IPv6 address.");
+                    "This DHMP Connector already has a connection for the remote address.");
             }
 
-            DhmpRawIpv6Options rawOptions =
-                CreateRawOptions(remoteAddress);
-
-            DhmpNegotiatedPeer negotiated =
+            NegotiationResult resolution =
                 initiator
-                    ? await DhmpRawIpv6Handshake.InitiateAsync(
-                        rawOptions,
-                        _wireContract,
-                        _sendPolicy,
-                        _receivePolicy,
-                        GetNegotiatedSchemaId(),
+                    ? await ResolveInitiatorAsync(
+                        remoteAddress,
                         cancellationToken).ConfigureAwait(false)
-                    : await DhmpRawIpv6Handshake.RespondOnceAsync(
-                        rawOptions,
-                        _wireContract,
-                        _sendPolicy,
-                        _receivePolicy,
-                        GetNegotiatedSchemaId(),
+                    : await ResolveResponderAsync(
+                        remoteAddress,
                         cancellationToken).ConfigureAwait(false);
 
             DhmpPskChaCha20Poly1305Session? session = null;
@@ -458,41 +542,82 @@ public sealed class DhmpConnector : IAsyncDisposable
             if (_options.PreSharedKey is not null)
             {
                 session =
-                    initiator
-                        ? await DhmpRawIpv6SecurityHandshake.InitiateAsync(
-                            rawOptions,
-                            _options.PreSharedKey,
-                            cancellationToken).ConfigureAwait(false)
-                        : await DhmpRawIpv6SecurityHandshake.RespondOnceAsync(
-                            rawOptions,
-                            _options.PreSharedKey,
-                            cancellationToken).ConfigureAwait(false);
+                    resolution.Transport ==
+                        DhmpTransportKind.RawIpv6
+                        ? initiator
+                            ? await DhmpRawIpv6SecurityHandshake.InitiateAsync(
+                                CreateRawOptions(
+                                    remoteAddress,
+                                    _options.HandshakeTimeout),
+                                _options.PreSharedKey,
+                                cancellationToken).ConfigureAwait(false)
+                            : await DhmpRawIpv6SecurityHandshake.RespondOnceAsync(
+                                CreateRawOptions(
+                                    remoteAddress,
+                                    _options.HandshakeTimeout),
+                                _options.PreSharedKey,
+                                cancellationToken).ConfigureAwait(false)
+                        : initiator
+                            ? await DhmpUdpHandshake.InitiateSecurityAsync(
+                                _udpRuntime!,
+                                remoteAddress,
+                                _options.PreSharedKey,
+                                _options.HandshakeTimeout,
+                                cancellationToken).ConfigureAwait(false)
+                            : await DhmpUdpHandshake.RespondSecurityAsync(
+                                _udpRuntime!,
+                                remoteAddress,
+                                _options.PreSharedKey,
+                                _options.HandshakeTimeout,
+                                cancellationToken).ConfigureAwait(false);
             }
 
-            DhmpRawIpv6PacketSender? rawSender = null;
+            IDisposable? transportSender = null;
             DhmpProtectedPacketSender? protectedSender = null;
 
             try
             {
-                rawSender =
-                    new DhmpRawIpv6PacketSender(
-                        rawOptions);
+                IDhmpPacketSender packetSender;
 
-                IDhmpPacketSender packetSender =
-                    rawSender;
+                if (resolution.Transport ==
+                    DhmpTransportKind.RawIpv6)
+                {
+                    var rawSender =
+                        new DhmpRawIpv6PacketSender(
+                            CreateRawOptions(
+                                remoteAddress,
+                                _options.HandshakeTimeout));
+
+                    transportSender =
+                        rawSender;
+                    packetSender =
+                        rawSender;
+                }
+                else
+                {
+                    DhmpUdpPacketSender udpSender =
+                        _udpRuntime!.CreateSender(
+                            remoteAddress);
+
+                    transportSender =
+                        udpSender;
+                    packetSender =
+                        udpSender;
+                }
 
                 if (session is not null)
                 {
                     protectedSender =
                         new DhmpProtectedPacketSender(
-                            rawSender,
+                            packetSender,
                             session);
 
-                    packetSender = protectedSender;
+                    packetSender =
+                        protectedSender;
                 }
 
                 DhmpSendPolicy effectivePolicy =
-                    negotiated.ConstrainToPayloadLimit(
+                    resolution.Peer.ConstrainToPayloadLimit(
                         packetSender.MaximumPayloadBytes);
 
                 var client =
@@ -520,23 +645,19 @@ public sealed class DhmpConnector : IAsyncDisposable
                         this,
                         remoteAddress,
                         client,
-                        rawSender,
+                        transportSender,
+                        resolution.Transport,
                         protectedSender,
                         session,
                         connectionId,
                         connectionIdField);
 
-                var binding =
-                    new DhmpRawIpv6PeerBinding(
-                        remoteAddress,
-                        server,
-                        connection.PublishBatch,
-                        session,
-                        _options.AllowUnprotectedPayloads,
-                        connectionId,
-                        connectionIdField?.Offset);
-
-                _receiver!.Router.Register(binding);
+                RegisterReceiveBinding(
+                    connection,
+                    server,
+                    session,
+                    connectionId,
+                    connectionIdField);
 
                 var connectionKey =
                     new ConnectionKey(
@@ -547,20 +668,9 @@ public sealed class DhmpConnector : IAsyncDisposable
                         connectionKey,
                         connection))
                 {
-                    if (connectionId is ulong duplicateId)
-                    {
-                        await _receiver.Router
-                            .RemoveAsync(
-                                remoteAddress,
-                                duplicateId)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await _receiver.Router
-                            .RemoveAsync(remoteAddress)
-                            .ConfigureAwait(false);
-                    }
+                    await RemoveReceiveBindingAsync(
+                        connection)
+                        .ConfigureAwait(false);
 
                     await connection
                         .DisposeResourcesAsync()
@@ -577,7 +687,7 @@ public sealed class DhmpConnector : IAsyncDisposable
                 if (protectedSender is not null)
                     await protectedSender.DisposeAsync().ConfigureAwait(false);
 
-                rawSender?.Dispose();
+                transportSender?.Dispose();
                 session?.Dispose();
                 throw;
             }
@@ -587,6 +697,311 @@ public sealed class DhmpConnector : IAsyncDisposable
             _peerGate.Release();
         }
     }
+
+    private async Task<NegotiationResult> ResolveInitiatorAsync(
+        IPAddress remoteAddress,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<DhmpTransportCandidate> candidates =
+            GetTransportCandidates(
+                remoteAddress);
+
+        Exception? rawFailure = null;
+
+        DhmpTransportCandidate? raw =
+            candidates.FirstOrDefault(
+                candidate =>
+                    candidate.Kind ==
+                    DhmpTransportKind.RawIpv6);
+
+        if (raw?.LocallyAvailable == true)
+        {
+            try
+            {
+                DhmpNegotiatedPeer peer =
+                    await DhmpRawIpv6Handshake.InitiateAsync(
+                        CreateRawOptions(
+                            remoteAddress,
+                            _options.TransportPreference ==
+                                DhmpTransportPreference.Auto
+                                ? _options.TransportAttemptTimeout
+                                : _options.HandshakeTimeout),
+                        _wireContract,
+                        _sendPolicy,
+                        _receivePolicy,
+                        GetNegotiatedSchemaId(),
+                        cancellationToken).ConfigureAwait(false);
+
+                return new NegotiationResult(
+                    DhmpTransportKind.RawIpv6,
+                    peer);
+            }
+            catch (Exception error)
+                when (_options.TransportPreference ==
+                          DhmpTransportPreference.Auto &&
+                      IsReachabilityFailure(
+                          error,
+                          cancellationToken))
+            {
+                rawFailure =
+                    error;
+            }
+        }
+
+        DhmpTransportCandidate? udp =
+            candidates.FirstOrDefault(
+                candidate =>
+                    candidate.Kind ==
+                    DhmpTransportKind.UdpCompatibility);
+
+        if (udp?.LocallyAvailable == true &&
+            _udpRuntime is not null)
+        {
+            DhmpNegotiatedPeer peer =
+                await DhmpUdpHandshake.InitiateCompatibilityAsync(
+                    _udpRuntime,
+                    remoteAddress,
+                    _wireContract,
+                    _sendPolicy,
+                    _receivePolicy,
+                    GetNegotiatedSchemaId(),
+                    _options.HandshakeTimeout,
+                    cancellationToken).ConfigureAwait(false);
+
+            return new NegotiationResult(
+                DhmpTransportKind.UdpCompatibility,
+                peer);
+        }
+
+        throw new InvalidOperationException(
+            rawFailure is null
+                ? "No locally available DHMP transport can reach this address family."
+                : $"Native DHMP path failed and no UDP compatibility path was available: {rawFailure.Message}",
+            rawFailure);
+    }
+
+    private async Task<NegotiationResult> ResolveResponderAsync(
+        IPAddress remoteAddress,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<DhmpTransportCandidate> candidates =
+            GetTransportCandidates(
+                remoteAddress);
+
+        var attempts =
+            new List<Task<NegotiationResult>>(2);
+
+        using var linked =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+
+        if (candidates.Any(
+                candidate =>
+                    candidate.Kind ==
+                        DhmpTransportKind.RawIpv6 &&
+                    candidate.LocallyAvailable))
+        {
+            attempts.Add(
+                RespondRawAsync(
+                    remoteAddress,
+                    linked.Token));
+        }
+
+        if (_udpRuntime is not null &&
+            candidates.Any(
+                candidate =>
+                    candidate.Kind ==
+                        DhmpTransportKind.UdpCompatibility &&
+                    candidate.LocallyAvailable))
+        {
+            attempts.Add(
+                RespondUdpAsync(
+                    remoteAddress,
+                    linked.Token));
+        }
+
+        if (attempts.Count == 0)
+            throw new InvalidOperationException(
+                "No locally available DHMP transport can accept this peer.");
+
+        var failures =
+            new List<Exception>();
+
+        while (attempts.Count != 0)
+        {
+            Task<NegotiationResult> completed =
+                await Task.WhenAny(
+                    attempts).ConfigureAwait(false);
+
+            attempts.Remove(
+                completed);
+
+            try
+            {
+                NegotiationResult result =
+                    await completed.ConfigureAwait(false);
+
+                linked.Cancel();
+
+                foreach (Task<NegotiationResult> pending in attempts)
+                {
+                    try
+                    {
+                        await pending.ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception error)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                failures.Add(
+                    error);
+            }
+        }
+
+        throw new AggregateException(
+            "All DHMP transport accept attempts failed.",
+            failures);
+    }
+
+    private async Task<NegotiationResult> RespondRawAsync(
+        IPAddress remoteAddress,
+        CancellationToken cancellationToken)
+    {
+        DhmpNegotiatedPeer peer =
+            await DhmpRawIpv6Handshake.RespondOnceAsync(
+                CreateRawOptions(
+                    remoteAddress,
+                    _options.HandshakeTimeout),
+                _wireContract,
+                _sendPolicy,
+                _receivePolicy,
+                GetNegotiatedSchemaId(),
+                cancellationToken).ConfigureAwait(false);
+
+        return new NegotiationResult(
+            DhmpTransportKind.RawIpv6,
+            peer);
+    }
+
+    private async Task<NegotiationResult> RespondUdpAsync(
+        IPAddress remoteAddress,
+        CancellationToken cancellationToken)
+    {
+        DhmpNegotiatedPeer peer =
+            await DhmpUdpHandshake.RespondCompatibilityAsync(
+                _udpRuntime!,
+                remoteAddress,
+                _wireContract,
+                _sendPolicy,
+                _receivePolicy,
+                GetNegotiatedSchemaId(),
+                _options.HandshakeTimeout,
+                cancellationToken).ConfigureAwait(false);
+
+        return new NegotiationResult(
+            DhmpTransportKind.UdpCompatibility,
+            peer);
+    }
+
+    private void RegisterReceiveBinding(
+        DhmpConnection connection,
+        DhmpServer server,
+        DhmpPskChaCha20Poly1305Session? session,
+        ulong? connectionId,
+        DhmpConnectionIdField? connectionIdField)
+    {
+        if (connection.Transport ==
+            DhmpTransportKind.RawIpv6)
+        {
+            if (_rawReceiver is null)
+                throw new InvalidOperationException(
+                    "The selected Raw IPv6 receive backend is not running.");
+
+            var binding =
+                new DhmpRawIpv6PeerBinding(
+                    connection.RemoteAddress,
+                    server,
+                    connection.PublishBatch,
+                    session,
+                    _options.AllowUnprotectedPayloads,
+                    connectionId,
+                    connectionIdField?.Offset);
+
+            _rawReceiver.Router.Register(
+                binding);
+
+            return;
+        }
+
+        if (_udpRuntime is null)
+            throw new InvalidOperationException(
+                "The selected UDP compatibility backend is not running.");
+
+        _udpRuntime.Register(
+            connection.RemoteAddress,
+            server,
+            connection.PublishBatch,
+            session,
+            _options.AllowUnprotectedPayloads,
+            connectionId,
+            connectionIdField?.Offset);
+    }
+
+    private async Task RemoveReceiveBindingAsync(
+        DhmpConnection connection)
+    {
+        if (connection.Transport ==
+                DhmpTransportKind.RawIpv6 &&
+            _rawReceiver is not null)
+        {
+            if (connection.ConnectionId is ulong connectionId)
+            {
+                await _rawReceiver.Router
+                    .RemoveAsync(
+                        connection.RemoteAddress,
+                        connectionId)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await _rawReceiver.Router
+                    .RemoveAsync(
+                        connection.RemoteAddress)
+                    .ConfigureAwait(false);
+            }
+
+            return;
+        }
+
+        if (_udpRuntime is not null)
+        {
+            await _udpRuntime.RemoveAsync(
+                connection.RemoteAddress,
+                connection.ConnectionId)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static bool IsReachabilityFailure(
+        Exception error,
+        CancellationToken callerToken) =>
+        !callerToken.IsCancellationRequested &&
+        error is TimeoutException or
+            OperationCanceledException or
+            SocketException or
+            IOException or
+            PlatformNotSupportedException or
+            UnauthorizedAccessException;
+
+    private readonly record struct NegotiationResult(
+        DhmpTransportKind Transport,
+        DhmpNegotiatedPeer Peer);
 
     private Guid GetNegotiatedSchemaId()
     {
@@ -663,13 +1078,15 @@ public sealed class DhmpConnector : IAsyncDisposable
 
     private DhmpRawIpv6Options CreateRawOptions(
         IPAddress remoteAddress,
+        TimeSpan? handshakeTimeout = null,
         bool? allowUnprotectedPayloads = null) =>
         new(
             _options.LocalAddress,
             remoteAddress,
             _options.MaximumPayloadBytes,
             _options.SocketBufferBytes,
-            _options.HandshakeTimeout,
+            handshakeTimeout ??
+                _options.HandshakeTimeout,
             _options.EnableExperimentalProtocolNumbers,
             _options.AllowWildcardLocalAddress,
             allowUnprotectedPayloads ??
@@ -682,17 +1099,18 @@ public sealed class DhmpConnector : IAsyncDisposable
                 "StartAsync must be called before establishing DHMP connections.");
     }
 
-    private static void ValidateRemoteAddress(
+    private void ValidateRemoteAddress(
         IPAddress remoteAddress)
     {
         ArgumentNullException.ThrowIfNull(remoteAddress);
 
         if (remoteAddress.AddressFamily !=
-                AddressFamily.InterNetworkV6 ||
+                _options.LocalAddress.AddressFamily ||
             remoteAddress.IsIPv4MappedToIPv6 ||
-            remoteAddress.Equals(IPAddress.IPv6Any))
+            remoteAddress.Equals(IPAddress.IPv6Any) ||
+            remoteAddress.Equals(IPAddress.Any))
             throw new ArgumentException(
-                "DHMP connections require an explicit native IPv6 remote address.",
+                "DHMP connections require an explicit remote address in the configured local address family.",
                 nameof(remoteAddress));
     }
 

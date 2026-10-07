@@ -1,6 +1,6 @@
 namespace DHMP.Protocol;
 
-/// <summary>Send one complete headerless DHMP data payload through a direct-IP backend.</summary>
+/// <summary>Send one complete headerless DHMP data payload through the selected packet backend.</summary>
 /// <remarks>
 /// The backend is configured with peer/path/session addressing before use. Each call represents
 /// one DHMP data payload for one IP packet. Do not prepend hidden DHMP metadata, segment, coalesce,
@@ -10,8 +10,8 @@ namespace DHMP.Protocol;
 /// has finished using that local storage, not remote delivery. MaximumPayloadBytes is the maximum
 /// DHMP data payload the backend can place on its configured path after lower-layer/security overhead.
 ///
-/// Production packet I/O and control-plane negotiation remain separate work. No compatibility
-/// transport is selected implicitly.
+/// Packet I/O and control-plane negotiation remain separate from V1 framing. A higher-level
+/// connection resolver may explicitly select a compatible carrier without changing these payload bytes.
 /// </remarks>
 public interface IDhmpPacketSender
 {

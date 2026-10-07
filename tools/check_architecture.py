@@ -85,6 +85,7 @@ required_paths = {
     "docs/TEST_STRATEGY.md",
     "docs/CONGESTION_FEEDBACK.md",
     "docs/DIRECT_TRANSPORT_DIRECTION.md",
+    "docs/TRANSPORT_RESOLVER.md",
 }
 for required in sorted(required_paths):
     if required not in paths:
@@ -102,12 +103,17 @@ comparison_benchmark_files = {
     "samples/DHMP.FramebufferDemo/ProtocolComparisonBenchmarks.cs",
 }
 
+udp_compatibility_files = {
+    "src/DHMP.Connector/DhmpUdpRuntime.cs",
+}
+
 for file in files:
     relative = file.relative_to(ROOT).as_posix()
 
     if file.suffix == ".cs":
         text = file.read_text(encoding="utf-8-sig")
         is_comparison_benchmark = relative in comparison_benchmark_files
+        is_udp_compatibility = relative in udp_compatibility_files
 
         if (
             re.search(r"\bHttpClient\b", text)
@@ -119,9 +125,9 @@ for file in files:
         ):
             errors.append(f"HTTP client outside the explicit API application facade in {relative}")
 
-        # TCP/UDP/HTTP are allowed only inside an explicitly named comparison
-        # fixture. They remain forbidden as DHMP runtime/data-plane fallbacks.
-        if forbidden.search(text) and not is_comparison_benchmark:
+        # Legacy stream transports remain forbidden. UDP datagram sockets are allowed
+        # only in the explicit Connector compatibility backend selected by the resolver.
+        if forbidden.search(text) and not (is_comparison_benchmark or is_udp_compatibility):
             errors.append(f"Legacy transport/stream implementation in {relative}")
 
         if re.search(r"\b(?:namespace|using)\s+Dhmp\.", text):
@@ -193,5 +199,5 @@ if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
 
-print("PASS: standalone direct-IP boundary, headerless V1 contract, canonical projects and local references")
+print("PASS: native/compatibility transport boundary, headerless V1 contract, canonical projects and local references")
 
