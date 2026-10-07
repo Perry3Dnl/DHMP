@@ -261,40 +261,196 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
-    public void HappyFlow_ServerNativeSmoothingKeepsRingButPublishesOnlyLatest()
+    public void HappyFlow_ServerLatestAndNativeSmoothingSharePacketHotPath()
     {
-        var server = new DhmpServer(
-            new DhmpWireContract(2),
-            new DhmpReceivePolicy(
-                DhmpProcessingMode.Latest,
-                maximumPayloadBytes: 16,
-                nativeSmoothing: true));
+        var latest =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16));
 
-        byte[]? published = null;
-        server.ProcessPacket(new byte[] { 1,1, 2,2, 3,3 }, span => published = span.ToArray());
-        server.ProcessPacket(new byte[] { 4,4 }, span => published = span.ToArray());
+        var smoothing =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16,
+                    nativeSmoothing: true));
 
-        Span<byte> destination = stackalloc byte[6];
-        int count = server.CopyNativeSmoothingWindow(destination);
+        byte[]? latestPublished = null;
+        byte[]? smoothingPublished = null;
+        byte[] packet = [1,1, 2,2, 3,3];
 
-        Assert.True(server.NativeSmoothingEnabled);
-        Assert.Equal(3, count);
-        Assert.Equal(new byte[] { 2,2, 3,3, 4,4 }, destination.ToArray());
-        Assert.Equal(new byte[] { 4,4 }, published);
+        latest.ProcessPacket(
+            packet,
+            span => latestPublished = span.ToArray());
+
+        smoothing.ProcessPacket(
+            packet,
+            span => smoothingPublished = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 3,3 },
+            latestPublished);
+
+        Assert.Equal(
+            latestPublished,
+            smoothingPublished);
+
+        // Native Smoothing is downstream of packet processing. Processing a
+        // packet does not maintain a second Ring-3 or copy history.
+        Assert.Equal(
+            0,
+            smoothing.NativeSmoothingRecordCount);
     }
 
     [Fact]
-    public void BoundaryFlow_ServerWithoutNativeSmoothingHasNoWindow()
+    public void HappyFlow_LatestGrabberUsesCurrentCompletedSweepWithoutWaitingForThree()
     {
-        var server = new DhmpServer(
-            new DhmpWireContract(2),
-            new DhmpReceivePolicy(DhmpProcessingMode.Latest, maximumPayloadBytes: 16));
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16,
+                    nativeSmoothing: true));
 
-        server.ProcessPacket(new byte[] { 1,1, 2,2 }, _ => { });
-        Span<byte> destination = stackalloc byte[6];
+        Span<byte> first =
+            server.BeginLatestSweep();
 
-        Assert.False(server.NativeSmoothingEnabled);
-        Assert.Equal(0, server.CopyNativeSmoothingWindow(destination));
+        first[0] = 1;
+        first[1] = 1;
+        server.CommitLatestSweep();
+
+        Span<byte> latest =
+            stackalloc byte[2];
+
+        Assert.Equal(
+            1,
+            server.CopyLatest(latest));
+
+        Assert.Equal(
+            new byte[] { 1,1 },
+            latest.ToArray());
+
+        Span<byte> incompleteWindow =
+            stackalloc byte[6];
+
+        Assert.Equal(
+            0,
+            server.CopyNativeSmoothingWindow(
+                incompleteWindow));
+
+        // While the sweeper is filling the next slot, Latest still grabs the
+        // last fully published slot immediately.
+        Span<byte> second =
+            server.BeginLatestSweep();
+
+        second[0] = 2;
+        second[1] = 2;
+
+        Assert.Equal(
+            1,
+            server.CopyLatest(latest));
+
+        Assert.Equal(
+            new byte[] { 1,1 },
+            latest.ToArray());
+
+        server.CommitLatestSweep();
+    }
+
+    [Fact]
+    public void HappyFlow_NativeSmoothingGrabberUsesExactlyThreeCompletedSweepSlots()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16,
+                    nativeSmoothing: true));
+
+        foreach (byte value in new byte[] { 1, 2, 3 })
+        {
+            Span<byte> slot =
+                server.BeginLatestSweep();
+
+            slot[0] = value;
+            slot[1] = value;
+
+            server.CommitLatestSweep();
+        }
+
+        Span<byte> window =
+            stackalloc byte[6];
+
+        Assert.Equal(
+            3,
+            server.CopyNativeSmoothingWindow(
+                window));
+
+        Assert.Equal(
+            new byte[] { 1,1, 2,2, 3,3 },
+            window.ToArray());
+
+        Span<byte> next =
+            server.BeginLatestSweep();
+
+        next[0] = 4;
+        next[1] = 4;
+
+        server.CommitLatestSweep();
+
+        Assert.Equal(
+            3,
+            server.CopyNativeSmoothingWindow(
+                window));
+
+        Assert.Equal(
+            new byte[] { 2,2, 3,3, 4,4 },
+            window.ToArray());
+    }
+
+    [Fact]
+    public void BoundaryFlow_ServerWithoutNativeSmoothingDoesNotExposeThreeSlotGrab()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16));
+
+        Span<byte> slot =
+            server.BeginLatestSweep();
+
+        slot[0] = 1;
+        slot[1] = 1;
+
+        server.CommitLatestSweep();
+
+        Span<byte> latest =
+            stackalloc byte[2];
+
+        Assert.True(
+            server.LatestGrabberAvailable);
+
+        Assert.Equal(
+            1,
+            server.CopyLatest(latest));
+
+        Span<byte> destination =
+            stackalloc byte[6];
+
+        Assert.False(
+            server.NativeSmoothingEnabled);
+
+        Assert.Equal(
+            0,
+            server.CopyNativeSmoothingWindow(
+                destination));
     }
 
     [Fact]
@@ -440,7 +596,7 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
-    public void CriticalFlow_ServerRing3FastPathConcurrentReaderNeverReturnsTornRecords()
+    public void CriticalFlow_ServerSweeperNeverBlocksOnConcurrentNativeSmoothingGrabber()
     {
         const int RecordSize = 16;
         const int WriterIterations = 250_000;
@@ -464,9 +620,6 @@ public sealed class DhmpServerHardeningTests
         var writer =
             new Thread(() =>
             {
-                byte[] record =
-                    new byte[RecordSize];
-
                 startGate.Wait();
 
                 try
@@ -475,17 +628,18 @@ public sealed class DhmpServerHardeningTests
                          sequence <= WriterIterations;
                          sequence++)
                     {
+                        Span<byte> slot =
+                            server.BeginLatestSweep();
+
                         BitConverter.TryWriteBytes(
-                            record.AsSpan(0, 8),
+                            slot[..8],
                             sequence);
 
                         BitConverter.TryWriteBytes(
-                            record.AsSpan(8, 8),
+                            slot[8..],
                             ~sequence);
 
-                        server.ProcessPacket(
-                            record,
-                            static _ => { });
+                        server.CommitLatestSweep();
                     }
                 }
                 finally
@@ -560,6 +714,10 @@ public sealed class DhmpServerHardeningTests
                 server.CopyNativeSmoothingWindow(
                     snapshot);
 
+            Assert.True(
+                count is 0 or
+                DhmpLatestStateWindow.Capacity);
+
             for (int index = 0;
                  index < count;
                  index++)
@@ -580,7 +738,7 @@ public sealed class DhmpServerHardeningTests
                 if (~sequence != inverse)
                 {
                     throw new InvalidOperationException(
-                        "Server Ring-3 fast path returned a torn record.");
+                        "Native-smoothing grabber returned a torn sweep slot.");
                 }
             }
         }
