@@ -145,6 +145,71 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         Action<ReadOnlySpan<byte>> publishBatch,
         CancellationToken cancellationToken)
     {
+        if (_server.ReceivePolicy.Mode !=
+            DhmpProcessingMode.Sequential)
+        {
+            await RunPlaintextProducerAsync(
+                publishBatch,
+                decoupledSequential: false,
+                cancellationToken)
+            .ConfigureAwait(false);
+            return;
+        }
+
+        using var linked =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
+
+        Task consumer =
+            Task.Run(
+                () =>
+                {
+                    try
+                    {
+                        _server.ConsumeSequentialUntilCancelled(
+                            publishBatch,
+                            linked.Token);
+                    }
+                    catch (OperationCanceledException)
+                        when (linked.IsCancellationRequested)
+                    {
+                    }
+                    catch
+                    {
+                        linked.Cancel();
+                        throw;
+                    }
+                },
+                CancellationToken.None);
+
+        try
+        {
+            await RunPlaintextProducerAsync(
+                publishBatch,
+                decoupledSequential: true,
+                linked.Token)
+            .ConfigureAwait(false);
+        }
+        finally
+        {
+            linked.Cancel();
+        }
+
+        try
+        {
+            await consumer.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+            when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task RunPlaintextProducerAsync(
+        Action<ReadOnlySpan<byte>> publishBatch,
+        bool decoupledSequential,
+        CancellationToken cancellationToken)
+    {
         EndPoint remoteTemplate =
             new IPEndPoint(
                 IPAddress.IPv6Any,
@@ -204,8 +269,16 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
                 continue;
             }
 
-            _server.CommitNegotiatedReceiveSlot(
-                publishBatch);
+            if (decoupledSequential)
+            {
+                _server
+                    .CommitNegotiatedReceiveSlotToSequentialBacklog();
+            }
+            else
+            {
+                _server.CommitNegotiatedReceiveSlot(
+                    publishBatch);
+            }
 
             Interlocked.Increment(
                 ref _acceptedPackets);
