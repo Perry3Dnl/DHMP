@@ -263,8 +263,25 @@ public sealed class DhmpServer
             .CopyLatestTo(destination);
 
     /// <summary>
-    /// Native-smoothing grabber: consume exactly the last three fully swept
-    /// slots. Returns zero until a complete three-slot window exists.
+    /// Zero-copy Native Smoothing grabber. The callback receives direct spans
+    /// over the three physical arrival-ring slots in N-2/N-1/N order.
+    /// The spans are borrowed and valid only for the callback.
+    /// </summary>
+    public int ConsumeNativeSmoothingWindow(
+        DhmpWindow3Consumer consumer)
+    {
+        if (!NativeSmoothingEnabled)
+            return 0;
+
+        return GetLatestSweepSlots()
+            .ConsumeCompletedWindow3SingleWriter(
+                consumer);
+    }
+
+    /// <summary>
+    /// Snapshot compatibility helper. Copies the current three-record window
+    /// into caller-owned contiguous storage. This is intentionally outside the
+    /// canonical zero-copy sweeper/grabber path.
     /// </summary>
     public int CopyNativeSmoothingWindow(
         Span<byte> destination)
