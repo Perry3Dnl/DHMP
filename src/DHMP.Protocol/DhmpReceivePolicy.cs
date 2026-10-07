@@ -26,8 +26,10 @@ public readonly record struct DhmpReceivePolicy
     public int MaximumPayloadBytes { get; }
 
     /// <summary>
-    /// Retain the newest three complete received records in a bounded receive-side Ring-3
-    /// while normal Latest publication still exposes only the newest record.
+    /// Select the Native Smoothing grabber for Latest mode. Latest and Native
+    /// Smoothing share the same fixed three sweeper slots; this flag does not
+    /// add packet-path work. Latest grabs the currently published slot, while
+    /// Native Smoothing consumes a complete N-2/N-1/N window.
     /// </summary>
     public bool NativeSmoothing { get; }
 
