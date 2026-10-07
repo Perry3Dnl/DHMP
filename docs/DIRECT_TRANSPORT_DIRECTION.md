@@ -16,7 +16,9 @@ Historical code and measurements remain in git history only.
 
 The V1 DHMP data payload is headerless.
 
-A received DHMP payload contains only one or more complete fixed-size application records. DHMP adds no packet header, per-record header, separator or trailer in V1.
+The canonical direct-IP V1 data path carries exactly one complete fixed-size application record per IP payload. DHMP adds no packet header, per-record header, separator or trailer in V1.
+
+Local compatibility/batch APIs may accept several complete records at once, but the raw direct-IP sender emits those records as separate DHMP data packets. Multi-record local batches are not the canonical raw wire shape.
 
 The wire contract supplies only the protocol-owned information needed to interpret payload bytes:
 
@@ -31,8 +33,8 @@ The current IPv6 experimental profile uses protocol / Next Header `253` for data
 
 1. A direct-IP backend identifies the peer/path/session and delivers one complete DHMP payload.
 2. The wire contract is established before data-plane processing; local send/receive policy remains endpoint-owned.
-3. The fixed-contract processor validates the complete received payload before publication.
-4. A valid payload contains an integer number of whole records within its session packet budget.
+3. The negotiated fixed record size is established before steady-state data-plane processing.
+4. A canonical raw V1 data payload is exactly one negotiated record; a size mismatch is ignored without entering Ring-3.
 5. No record spans two IP packets.
 6. The processor publishes borrowed data synchronously unless ownership is explicitly transferred elsewhere.
 7. Application schema/model processing remains outside the payload-opaque protocol core.
@@ -43,7 +45,7 @@ The V1 framing core introduces no partial-record carry, ACK, retransmission, rep
 
 Implemented:
 
-- headerless fixed-record packet validation;
+- headerless exact-one-record raw packet validation;
 - Sequential and packet-local Latest publication;
 - explicit `DhmpWireContract`, `DhmpSendPolicy` and `DhmpReceivePolicy`;
 - explicit outbound `IDhmpPacketSender` boundary;
