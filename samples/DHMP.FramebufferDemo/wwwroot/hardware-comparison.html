@@ -58,7 +58,7 @@
       <small>Gbit/s iPerf3</small>
     </article>
     <article class="metric-card">
-      <span>Projected DHMP packet rate</span>
+      <span>Payload-equivalent packet rate</span>
       <strong>251,243</strong>
       <small>1,408-byte packets/s</small>
     </article>
@@ -78,7 +78,7 @@
     <div class="panel-head">
       <div>
         <p class="eyebrow">SAME-LAB ADAPTER COMPARISON</p>
-        <h2>Published iPerf3 throughput → projected DHMP capacity</h2>
+        <h2>Published iPerf3 throughput → payload-equivalent DHMP reference</h2>
       </div>
       <div class="server-totals">
         <span>near range</span>
@@ -95,7 +95,7 @@
             <th>Wi-Fi</th>
             <th>Form</th>
             <th>Published iPerf3</th>
-            <th>Projected DHMP packets/s</th>
+            <th>Payload-equivalent packets/s</th>
             <th>Payload-equivalent 1,408B records/s</th>
             <th>Useful payload</th>
           </tr>
@@ -159,9 +159,9 @@
     <p class="eyebrow">PROJECTION MATH</p>
     <h2>One physical throughput number, expressed as useful DHMP state</h2>
     <p class="muted">The canonical network reference uses a negotiated 1,408-byte record. One DHMP packet therefore carries exactly one 1,408-byte record with no DHMP data header or trailer.</p>
-    <div class="formula">records/s = packets/s
+    <div class="formula">records/s = payload-equivalent packets/s
 
-packets/s = (published Mbit/s × 1,000,000) ÷ (1,408 × 8)
+payload-equivalent packets/s = (published Mbit/s × 1,000,000) ÷ (1,408 × 8)
 
 records/packet = 1</div>
     <p class="comparison-note warning"><strong>Do not read this as a measured DHMP speedup over iPerf3.</strong> iPerf3 reports useful transfer throughput, not raw Wi-Fi airtime. Proving that DHMP delivers more useful state than TCP/UDP on the same radio requires a controlled same-hardware test that records application bytes, IP bytes, packets/s and interface/link counters for every protocol.</p>
