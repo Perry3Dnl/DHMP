@@ -48,23 +48,23 @@ public sealed class DhmpRawIpv6PeerRouterTests
         Assert.True(
             router.TryRoute(
                 peerA,
-                new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 },
+                new byte[] { 1, 2, 3, 4 },
                 new byte[128]));
 
         Assert.True(
             router.TryRoute(
                 peerB,
-                Enumerable.Range(1, 16)
+                Enumerable.Range(1, 8)
                     .Select(i => (byte)i)
                     .ToArray(),
                 new byte[128]));
 
         Assert.Equal(
-            new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 },
+            new byte[] { 1, 2, 3, 4 },
             receivedA);
 
         Assert.Equal(
-            new byte[] { 9, 10, 11, 12, 13, 14, 15, 16 },
+            new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 },
             receivedB);
 
         Assert.Equal(2, router.AcceptedPackets);
@@ -259,7 +259,7 @@ public sealed class DhmpRawIpv6PeerRouterTests
     }
 
     [Fact]
-    public void MalformedPacket_IsRejectedForMatchedPeer()
+    public void WrongSizePacket_IsIgnoredForMatchedPeer()
     {
         var router =
             new DhmpRawIpv6PeerRouter(4, 128);
@@ -287,11 +287,11 @@ public sealed class DhmpRawIpv6PeerRouterTests
                 new byte[128]));
 
         Assert.Equal(0, callbacks);
-        Assert.Equal(1, router.RejectedPackets);
+        Assert.Equal(0, router.RejectedPackets);
     }
 
     [Fact]
-    public void PartialTail_IsIgnoredAfterAtLeastOneCompleteRecord()
+    public void PartialTailPacket_IsIgnoredAsWrongSlotSize()
     {
         var router =
             new DhmpRawIpv6PeerRouter(
@@ -314,19 +314,15 @@ public sealed class DhmpRawIpv6PeerRouterTests
                 span => received = span.ToArray(),
                 allowUnprotectedPayloads: true));
 
-        Assert.True(
+        Assert.False(
             router.TryRoute(
                 peer,
                 new byte[] { 1, 2, 3, 4, 9, 9 },
                 new byte[128]));
 
-        Assert.Equal(
-            new byte[] { 1, 2, 3, 4 },
-            received);
-
-        Assert.Equal(
-            1,
-            router.AcceptedPackets);
+        Assert.Null(received);
+        Assert.Equal(0, router.AcceptedPackets);
+        Assert.Equal(0, router.RejectedPackets);
     }
 
     [Fact]
