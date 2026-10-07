@@ -122,6 +122,67 @@
     });
   }
 
+
+  function drawComparisonBarChart(canvasId, rows, valueSelector, valueFormatter = fullInteger) {
+    const canvas = $(canvasId);
+    if (!canvas || !rows.length) return;
+
+    const { ctx, width, height } = prepareCanvas(canvas);
+    const values = rows.map(row => Number(valueSelector(row) || 0));
+    const maxValue = Math.max(1, ...values);
+    const a = drawAxes(ctx, width, height, maxValue, valueFormatter);
+    const groupWidth = a.plotWidth / rows.length;
+    const barWidth = Math.min(groupWidth * 0.62, 100);
+
+    rows.forEach((row, index) => {
+      const value = values[index];
+      const h = value / maxValue * a.plotHeight;
+      const centerX = a.left + groupWidth * index + groupWidth / 2;
+      const x = centerX - barWidth / 2;
+      const y = a.top + a.plotHeight - h;
+      const isDhmp = String(row.protocol || '').toUpperCase().includes('DHMP');
+
+      ctx.fillStyle = isDhmp ? '#71e6a1' : '#69b7ff';
+      ctx.fillRect(x, y, barWidth, h);
+
+      ctx.fillStyle = isDhmp ? '#71e6a1' : '#e6edf7';
+      ctx.font = isDhmp
+        ? '800 12px system-ui, sans-serif'
+        : '700 11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(
+        valueFormatter(value),
+        centerX,
+        Math.max(a.top + 12, y - 6));
+
+      ctx.save();
+      ctx.translate(centerX, height - a.bottom + 10);
+      ctx.rotate(-0.42);
+      ctx.fillStyle = isDhmp ? '#71e6a1' : '#8fa3bd';
+      ctx.font = isDhmp
+        ? '800 11px system-ui, sans-serif'
+        : '11px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(row.protocol, 0, 0);
+      ctx.restore();
+    });
+
+    ctx.fillStyle = '#69b7ff';
+    ctx.fillRect(a.left, height - 13, 10, 3);
+    ctx.fillStyle = '#a8b7ca';
+    ctx.textAlign = 'left';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillText('Other measured paths', a.left + 15, height - 11);
+
+    const dhmpLegendX = a.left + 145;
+    ctx.fillStyle = '#71e6a1';
+    ctx.fillRect(dhmpLegendX, height - 13, 10, 3);
+    ctx.fillStyle = '#a8b7ca';
+    ctx.fillText('DHMP', dhmpLegendX + 15, height - 11);
+  }
+
   function drawZeroAwareAllocationChart(canvasId, rows) {
     const canvas = $(canvasId);
     if (!canvas || !rows.length) return;
@@ -251,22 +312,16 @@
 
     const labels = ioRows.map(row => row.protocol);
 
-    drawGroupedBarChart(
+    drawComparisonBarChart(
       'protocolPacketRateChart',
-      labels,
-      [{
-        label: 'Measured operations/s',
-        values: ioRows.map(row => Number(row.packetRate || 0))
-      }],
+      ioRows,
+      row => Number(row.packetRate || 0),
       fullInteger);
 
-    drawGroupedBarChart(
+    drawComparisonBarChart(
       'protocolThroughputChart',
-      labels,
-      [{
-        label: 'Application payload GB/s',
-        values: ioRows.map(row => Number(row.payloadGigabytesPerSecond || 0))
-      }],
+      ioRows,
+      row => Number(row.payloadGigabytesPerSecond || 0),
       value => fullDecimal(value, 3));
 
     const body = $('protocolComparisonBody');
