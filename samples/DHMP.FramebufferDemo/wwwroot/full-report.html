@@ -29,6 +29,17 @@
     .pass{color:#71e6a1}.fail{color:#ff7f8c}
     .hidden{display:none!important}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .proof-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+    .proof-card{padding:16px;border:1px solid #263244;border-radius:12px;background:linear-gradient(180deg,#101a28,#0b1220)}
+    .proof-card strong{display:block;font-size:1.55rem;line-height:1.1;margin:6px 0;color:#eaf4ff}
+    .proof-card span{font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:#8fa3bd}
+    .proof-card small{display:block;color:#8fa3bd;line-height:1.45}
+    .scope-badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#14243a;border:1px solid #284568;color:#9bcfff;font-size:.76rem;font-weight:700}
+    .scope-badge.ceiling{background:#1f1a31;border-color:#493b72;color:#d8c8ff}
+    .comparison-callout{padding:14px 16px;border:1px solid #284568;border-radius:12px;background:#0a1727;margin:14px 0}
+    .comparison-callout strong{color:#eaf4ff}
+    @media(max-width:900px){.proof-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:560px){.proof-strip{grid-template-columns:1fr}}
     @media(max-width:900px){.report-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.chart-grid{grid-template-columns:1fr}.chart-wide{grid-column:auto}}
     @media(max-width:560px){.report-grid{grid-template-columns:1fr}.chart-card canvas{height:280px}}
   </style>
@@ -45,9 +56,9 @@
   </nav>
 
   <header class="hero">
-    <p class="eyebrow">DHMP COMPLETE DIAGNOSTIC BENCHMARK</p>
-    <h1>Run one button. Get the full DHMP report.</h1>
-    <p class="lead">This page pauses the other live benchmark labs and runs a finite, repeatable benchmark suite. It separates core processing, server facade, full in-memory client/server paths, worker scaling, receive modes, Ring-3, rate policies, confirmation modes, allocation behavior and correctness.</p>
+    <p class="eyebrow">DHMP PERFORMANCE & PRODUCT PROOF</p>
+    <h1>Measure the package. See exactly where DHMP wins.</h1>
+    <p class="lead">One repeatable run shows both the product story and the engineering limits: same-host protocol comparisons, measured DHMP transport paths, software-path headroom, worker scaling, receive-mode cost, confirmations, allocations and correctness. Physical/network I/O results are never mixed with in-memory ceilings.</p>
   </header>
 
   <section class="card">
@@ -66,8 +77,11 @@
 
   <section id="report" class="hidden">
     <section class="report-section">
-      <p class="eyebrow">EXECUTIVE SUMMARY</p>
-      <h2>Measured DHMP ceilings and sustained paths</h2>
+      <p class="eyebrow">WHY DHMP</p>
+      <h2>Performance proof at a glance</h2>
+      <p class="muted">Every headline below is derived from this exact Full Report run. Transport measurements and software-only ceilings are labeled separately.</p>
+      <div id="proofStrip" class="proof-strip"></div>
+      <h3>Engineering summary</h3>
       <div id="summaryGrid" class="report-grid"></div>
     </section>
 
@@ -127,61 +141,57 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">PROTOCOL PERFORMANCE COMPARISON</p>
-      <h2>HTTP, TCP, UDP, Raw IPv6 and AF_XDP on this host</h2>
-      <p class="muted">These are measured during the same Full Report run with a 1,408-byte application payload. HTTP/TCP/UDP use local host networking, Raw IPv6 and AF_XDP use the benchmark interfaces, and the DHMP in-memory row is shown separately as a software-path ceiling. Read the scope column before comparing absolute numbers.</p>
+      <p class="eyebrow">SAME-RUN PROTOCOL COMPARISON</p>
+      <h2>Measured I/O paths on this host</h2>
+      <div class="comparison-callout"><strong>Fair-comparison rule:</strong> the charts below contain measured transport/network paths only. The DHMP in-memory full path is intentionally excluded and shown later as software headroom, because it is not physical wire throughput.</div>
+      <p class="muted">All rows use a 1,408-byte application payload in this Full Report run. HTTP is request/response, TCP is a stream write, UDP and Raw IPv6 are datagrams/packets, and AF_XDP is kernel-bypass packet I/O. Those semantics differ, so the table keeps the exact scope visible.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Packet / transaction rate</h3>
-          <p class="muted">Measured operations per second. HTTP is request/response; TCP is 1,408-byte writes; UDP/Raw IPv6/AF_XDP are packet sends.</p>
+          <h3>Measured operation rate</h3>
+          <p class="muted">Operations per second for only the I/O-backed paths measured in this run.</p>
           <canvas id="protocolPacketRateChart"></canvas>
         </article>
         <article class="chart-card chart-wide">
-          <h3>Application payload throughput</h3>
-          <p class="muted">Measured application payload GB/s, excluding protocol headers.</p>
+          <h3>Measured application payload throughput</h3>
+          <p class="muted">Application payload GB/s for the same I/O-backed rows. Protocol headers are excluded.</p>
           <canvas id="protocolThroughputChart"></canvas>
+        </article>
+        <article class="chart-card chart-wide">
+          <h3>DHMP AF_XDP operation-rate multiple</h3>
+          <p class="muted">AF_XDP operation rate divided by each other measured path. This is a same-run ratio, not a claim of identical protocol semantics.</p>
+          <canvas id="protocolSpeedupChart"></canvas>
         </article>
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>Path</th><th>Scope</th><th>Payload</th><th>Packets / tx per second</th><th>Payload GB/s</th><th>Kernel bypass</th><th>Detail</th></tr></thead>
+          <thead><tr><th>Path</th><th>Scope</th><th>Class</th><th>Payload</th><th>Packets / tx per second</th><th>Payload GB/s</th><th>Kernel bypass</th><th>Detail</th></tr></thead>
           <tbody id="protocolComparisonBody"></tbody>
         </table>
       </div>
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">PUBLISHED PERFORMANCE LANDSCAPE</p>
-      <h2>How DHMP sits against published HTTP, TCP, UDP and kernel-bypass results</h2>
-      <p class="muted"><strong>Context chart, not an apples-to-apples benchmark.</strong> These reference points come from public third-party benchmark reports on different hardware, packet sizes and workloads. They are shown because buyers want scale context. The measured-on-this-server section above remains the direct comparison.</p>
+      <p class="eyebrow">DHMP HEADROOM & SCALE</p>
+      <h2>What the package can process before network I/O becomes the limiter</h2>
+      <p class="muted"><span class="scope-badge ceiling">SOFTWARE CEILING</span> These graphs are intentionally separated from the transport comparison. They measure DHMP's in-memory processing path and worker scaling, not NIC or physical-link throughput.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Published packet / request rate landscape</h3>
-          <p class="muted">Millions of packets or requests per second from the cited benchmark. Packet size and workload are shown in the table.</p>
-          <canvas id="publishedRateChart"></canvas>
+          <h3>Logical payload processing by worker count</h3>
+          <p class="muted">Aggregate 1,408-byte in-memory full-path payload processing. Useful for sizing CPU-side headroom.</p>
+          <canvas id="softwareThroughputChart"></canvas>
         </article>
-        <article class="chart-card chart-wide">
-          <h3>Published throughput landscape</h3>
-          <p class="muted">Application/network throughput converted to decimal GB/s where a source publishes a bandwidth result. DHMP is added from this Full Report as a clearly marked software-path ceiling.</p>
-          <canvas id="publishedThroughputChart"></canvas>
+        <article class="chart-card">
+          <h3>Worker scaling speedup</h3>
+          <p class="muted">Measured aggregate packet-rate multiple versus the 1-worker result.</p>
+          <canvas id="workerSpeedupChart"></canvas>
         </article>
-        <article class="chart-card chart-wide">
-          <h3>DHMP multiple versus each published reference</h3>
-          <p class="muted">Ratio of this report's best DHMP aggregate payload GB/s to each published bandwidth reference. This is scale context only because hardware and benchmark scope differ.</p>
-          <canvas id="publishedMultipleChart"></canvas>
-        </article>
-        <article class="chart-card chart-wide">
-          <h3>Packet-size scaling: DHMP vs published DPDK</h3>
-          <p class="muted"><strong>Different hardware and path.</strong> Intel DPDK testpmd host-PF results are plotted against the nearest DHMP Full Report payload rows to show scaling shape, not a controlled head-to-head benchmark.</p>
-          <canvas id="dpdkScalingChart"></canvas>
+        <article class="chart-card">
+          <h3>Records processed per second</h3>
+          <p class="muted">Logical 16-byte application records represented by the 1,408-byte worker-scaling path.</p>
+          <canvas id="recordsScalingChart"></canvas>
         </article>
       </div>
-      <div class="report-table-wrap">
-        <table class="report-table">
-          <thead><tr><th>Reference</th><th>Published result</th><th>Payload/frame</th><th>Hardware / scope</th><th>Source</th></tr></thead>
-          <tbody id="publishedComparisonBody"></tbody>
-        </table>
-      </div>
+      <div class="comparison-callout"><strong>Why this matters:</strong> DHMP keeps substantial CPU-side processing headroom available while the actual transport path remains bounded by the selected kernel/NIC path. That distinction makes the result useful for capacity planning instead of turning a software ceiling into a fake wire-speed claim.</div>
     </section>
 
     <section class="report-section">
@@ -253,6 +263,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-sweeper-grabber"></script>
+<script src="/full-report.js?v=20261007-performance-story"></script>
 </body>
 </html>
