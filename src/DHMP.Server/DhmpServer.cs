@@ -196,35 +196,12 @@ public sealed class DhmpServer
             return;
         }
 
-        // Arrival always fills the physical Ring-3 first. Do not skip older
-        // records from the same payload before they reach the ring: the
-        // sweeper must observe the actual receive sequence N, N+1, N+2.
-        // Latest publication still exposes only the newest completed record.
-        for (int offset = 0;
-             offset < complete.Length;
-             offset += recordSize)
-        {
-            Span<byte> receiveSlot =
-                _receiveSweepSlots.BeginSweep();
-
-            try
-            {
-                complete.Slice(
-                        offset,
-                        recordSize)
-                    .CopyTo(receiveSlot);
-
-                _receiveSweepSlots.CommitSweep();
-            }
-            catch
-            {
-                _receiveSweepSlots.CancelSweep();
-                throw;
-            }
-        }
-
+        // Fused Latest fast path: one packet->Ring-3 copy per record, then
+        // metadata-only publication/grab. No Begin/Commit/Grab helper chain,
+        // no per-record modulo and no redundant read-back of the published slot.
         _receiveSweepSlots
-            .ConsumeLatestPublishedSlotSingleWriter(
+            .ReceiveLatestPacketSingleWriter(
+                complete,
                 publishBatch);
     }
 
