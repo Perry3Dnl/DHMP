@@ -213,6 +213,53 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
+    public void HappyFlow_Router_AcceptsExactlyOneNegotiatedSlotAndDropsWrongSize()
+    {
+        var peer =
+            IPAddress.Parse("2001:db8::44");
+
+        var router =
+            new DhmpRawIpv6PeerRouter(
+                maximumPeers: 1,
+                maximumNetworkPayloadBytes: 128);
+
+        byte[]? published = null;
+
+        router.Register(
+            new DhmpRawIpv6PeerBinding(
+                peer,
+                new DhmpServer(
+                    new DhmpWireContract(4),
+                    new DhmpReceivePolicy(
+                        DhmpProcessingMode.Latest,
+                        64)),
+                span => published = span.ToArray(),
+                allowUnprotectedPayloads: true));
+
+        Assert.True(
+            router.TryRoute(
+                peer,
+                new byte[] { 1, 2, 3, 4 },
+                Span<byte>.Empty));
+
+        Assert.Equal(
+            new byte[] { 1, 2, 3, 4 },
+            published);
+
+        Assert.False(
+            router.TryRoute(
+                peer,
+                new byte[] { 5, 6, 7 },
+                Span<byte>.Empty));
+
+        Assert.False(
+            router.TryRoute(
+                peer,
+                new byte[] { 5, 6, 7, 8, 9 },
+                Span<byte>.Empty));
+    }
+
+    [Fact]
     public void CriticalFlow_Router_RejectsDecodedPartialRecordAndClearsPlaintext()
     {
         var peer =
