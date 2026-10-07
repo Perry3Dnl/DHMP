@@ -69,6 +69,13 @@ public sealed class DhmpServer
     public long SequentialBackpressureWaits =>
         _sequentialBacklog?.BackpressureWaits ?? 0;
 
+    /// <summary>
+    /// Number of records completed by the shared physical receive sweeper.
+    /// This advances for Sequential, Latest and Native Smoothing alike.
+    /// </summary>
+    public long ReceiveSweepRecordsObserved =>
+        _receiveSweepSlots.RecordsObserved;
+
     public bool NativeSmoothingEnabled =>
         _receivePolicy.NativeSmoothing;
 
