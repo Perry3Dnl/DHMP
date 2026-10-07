@@ -94,8 +94,7 @@ public sealed class DhmpSequentialBacklogTests
         Assert.False(producer.IsCompleted);
         Assert.True(backlog.BackpressureWaits > 0);
 
-        Span<byte> first =
-            stackalloc byte[1];
+        byte[] first = new byte[1];
 
         Assert.True(backlog.TryDequeue(first));
         Assert.Equal((byte)1, first[0]);
@@ -103,8 +102,7 @@ public sealed class DhmpSequentialBacklogTests
         await producer.WaitAsync(
             TestContext.Current.CancellationToken);
 
-        Span<byte> second =
-            stackalloc byte[1];
+        byte[] second = new byte[1];
 
         Assert.True(backlog.TryDequeue(second));
         Assert.Equal((byte)2, second[0]);
