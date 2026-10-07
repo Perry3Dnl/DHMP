@@ -173,7 +173,17 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 20); do
-            if body="$(curl -fsS --max-time 10 "https://$DEMO_DOMAIN/health" 2>/dev/null)"; then echo "$body"; exit 0; fi
+            if body="$(curl -fsS --max-time 10 "https://$DEMO_DOMAIN/health" 2>/dev/null)"; then
+              echo "$body"
+              # A benchmark host can look healthy for one instant and then
+              # fall over under startup load. Require several consecutive
+              # public checks before promoting the deployment as healthy.
+              for stable in $(seq 1 5); do
+                sleep 2
+                curl -fsS --max-time 10 "https://$DEMO_DOMAIN/health" >/dev/null
+              done
+              exit 0
+            fi
             sleep 3
           done
           echo "Public demo health check failed. Confirm DNS for $DEMO_DOMAIN points at DEPLOY_HOST." >&2
