@@ -140,6 +140,20 @@ public sealed class DhmpServer
     }
 
     /// <summary>
+    /// Allocate/prepare the configured Sequential backlog during connection or
+    /// application setup so the first received record does not pay allocation
+    /// cost. Returns the configured record capacity; Unbounded returns
+    /// long.MaxValue.
+    /// </summary>
+    public long PrepareSequentialBacklog()
+    {
+        DhmpSequentialBacklog backlog =
+            GetSequentialBacklog();
+
+        return backlog.CapacityRecords;
+    }
+
+    /// <summary>
     /// Sequential sweeper: obtain the next shared physical receive slot.
     /// The producer remains unrestricted until the FIFO backlog is full.
     /// </summary>
