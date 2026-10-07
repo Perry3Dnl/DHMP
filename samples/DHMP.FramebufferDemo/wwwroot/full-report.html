@@ -125,16 +125,16 @@
     <section class="report-section">
       <p class="eyebrow">MEASURED ON THIS MACHINE</p>
       <h2>Real I/O comparison from this exact benchmark run</h2>
-      <div class="comparison-callout"><strong>What this graph means:</strong> every bar below was measured on this host during the same Full Report run with a 1,408-byte application payload. The in-memory DHMP ceiling is not included here.</div>
+      <div class="comparison-callout"><strong>DHMP is always shown in green.</strong> Every bar below was measured on this host during the same Full Report run with a 1,408-byte application payload. Blue bars are comparison paths; green bars are DHMP. The in-memory DHMP ceiling is kept out of this I/O comparison.</div>
       <p class="muted">Higher is better. HTTP is request/response, TCP is a stream write, UDP and Raw IPv6 are packet-oriented paths, and AF_XDP is DHMP's kernel-bypass path. Use this section to compare measured I/O performance, not software-only processing headroom.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>How many operations each path completes per second</h3>
+          <h3>DHMP vs other measured paths — operations per second</h3>
           <p class="muted">Higher is better. This is the clearest same-run performance comparison.</p>
           <canvas id="protocolPacketRateChart"></canvas>
         </article>
         <article class="chart-card chart-wide">
-          <h3>How much application payload each path moves</h3>
+          <h3>DHMP vs other measured paths — payload throughput</h3>
           <p class="muted">Higher is better. GB/s of application payload; protocol headers are not counted.</p>
           <canvas id="protocolThroughputChart"></canvas>
         </article>
@@ -248,6 +248,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-clear-comparison-2"></script>
+<script src="/full-report.js?v=20261007-dhmp-highlight"></script>
 </body>
 </html>
