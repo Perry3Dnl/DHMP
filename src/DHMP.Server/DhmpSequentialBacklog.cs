@@ -419,7 +419,7 @@ internal sealed class DhmpSequentialBacklog
             _headRecord = 0;
 
             int nextSegment = _headSegment + 1;
-            if (nextSegment == _segments.Length)
+            if (nextSegment == _segments!.Length)
                 nextSegment = 0;
 
             _headSegment = nextSegment;
@@ -441,7 +441,7 @@ internal sealed class DhmpSequentialBacklog
             _tailRecord = 0;
 
             int nextSegment = _tailSegment + 1;
-            if (nextSegment == _segments.Length)
+            if (nextSegment == _segments!.Length)
                 nextSegment = 0;
 
             _tailSegment = nextSegment;
