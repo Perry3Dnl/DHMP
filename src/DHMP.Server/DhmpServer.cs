@@ -165,6 +165,29 @@ public sealed class DhmpServer
     internal void CancelNegotiatedReceiveSlot() =>
         _receiveSweepSlots.CancelSweep();
 
+    internal void CommitNegotiatedReceiveSlotToSequentialBacklog()
+    {
+        EnsureSequentialMode();
+
+        ReadOnlySpan<byte> slot =
+            _receiveSweepSlots.CommitSweepAndGetSlotSingleWriter();
+
+        GetSequentialBacklog()
+            .Enqueue(slot);
+    }
+
+    internal void ConsumeSequentialUntilCancelled(
+        Action<ReadOnlySpan<byte>> consumer,
+        CancellationToken cancellationToken)
+    {
+        EnsureSequentialMode();
+
+        GetSequentialBacklog()
+            .ConsumeUntilCancelled(
+                consumer,
+                cancellationToken);
+    }
+
     /// <summary>
     /// Canonical receive path. Complete records first enter the shared
     /// three-slot arrival ring. The sweeper/grabber policy then consumes those
