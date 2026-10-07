@@ -209,7 +209,7 @@ internal sealed class DhmpFullReportLab
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
                     "Native Smoothing adds no per-packet Ring-3 copy. Sweeper and grabber costs are benchmarked separately.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
-                    "Full Report Sequential rows use a 64-record local FIFO capacity so the benchmark measures the same FIFO hot path without reserving the production default one-million-record capacity for every synthetic record size."
+                    "Canonical Full Report Sequential rows use a 64-record local FIFO. Local multi-record batch rows size that synthetic FIFO to at least one complete batch so synchronous batch publication cannot self-backpressure before its grabber runs."
                 });
 
             lock (_gate)
@@ -271,12 +271,14 @@ internal sealed class DhmpFullReportLab
     private static DhmpReceivePolicy CreateBenchmarkReceivePolicy(
         DhmpProcessingMode mode,
         int maximumPayloadBytes,
-        bool nativeSmoothing = false) =>
+        bool nativeSmoothing = false,
+        long sequentialBacklogCapacityRecords = 64) =>
         new(
             mode,
             maximumPayloadBytes,
             nativeSmoothing,
-            sequentialBacklogCapacityRecords: 64);
+            sequentialBacklogCapacityRecords:
+                sequentialBacklogCapacityRecords);
 
     private static DhmpPathBenchmark RunCanonicalPathBenchmark(
         int recordBytes,
@@ -404,6 +406,22 @@ internal sealed class DhmpFullReportLab
         DhmpProcessingMode mode,
         bool nativeSmoothing)
     {
+        int recordsPerBatch =
+            batchBytes / RecordSize;
+
+        // DhmpServer.ProcessPacket() preserves its synchronous batch callback
+        // contract by sweeping every record into Sequential FIFO first and
+        // draining that FIFO only after the complete input batch was accepted.
+        // A 1,408-byte local batch contains 88 x 16-byte records, so the old
+        // fixed 64-record synthetic FIFO deadlocked on record 65: the producer
+        // waited for space while the same call had not reached its drain phase.
+        // Size only this benchmark FIFO to one whole local batch. Production
+        // defaults and all DHMP core code remain unchanged.
+        long benchmarkBacklogRecords =
+            Math.Max(
+                64L,
+                recordsPerBatch);
+
         var wire =
             new DhmpWireContract(
                 RecordSize);
@@ -412,7 +430,8 @@ internal sealed class DhmpFullReportLab
             CreateBenchmarkReceivePolicy(
                 mode,
                 MaximumPayloadBytes,
-                nativeSmoothing);
+                nativeSmoothing,
+                benchmarkBacklogRecords);
 
         byte[] batch =
             GC.AllocateUninitializedArray<byte>(
@@ -508,9 +527,6 @@ internal sealed class DhmpFullReportLab
         }
 
         GC.KeepAlive(published);
-
-        int recordsPerBatch =
-            batchBytes / RecordSize;
 
         double clientMedian =
             Median(clientNs);
