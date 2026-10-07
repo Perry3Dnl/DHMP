@@ -69,9 +69,9 @@
         <div class="mode-buttons" data-group="receive">
           <button type="button" class="mode-button active" data-receive-mode="Sequential">Sequential</button>
           <button type="button" class="mode-button" data-receive-mode="Latest">Latest</button>
-          <button type="button" class="mode-button" data-receive-mode="Latest" data-native-smoothing="true">Latest + Native Ring-3</button>
+          <button type="button" class="mode-button" data-receive-mode="Latest" data-native-smoothing="true">Latest + Native Smoothing</button>
         </div>
-        <p class="muted">Sequential publishes every complete record. Latest publishes only the newest record. Latest + Native Ring-3 still publishes only that newest record, while retaining N-2/N-1/N receive-side for smoothing.</p>
+        <p class="muted">Sequential publishes every complete record. Latest publishes only the newest record. Latest + Native Smoothing uses the same Latest packet path; its grabber consumes the shared three-slot N-2/N-1/N sweep window downstream.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Confirmation mode</span>
@@ -187,7 +187,7 @@
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
-        <p>Sequential expects every record to be published. Latest expects exactly one published record per accepted packet. Native Ring-3 does not change that publication count. Confirmation modes use Sequential publication: Application ID returns compact batched IDs, while Full Echo returns the full record bytes.</p>
+        <p>Sequential expects every record to be published. Latest expects exactly one published record per accepted packet. Native Smoothing does not change that publication count or add work to the packet hot path. Confirmation modes use Sequential publication: Application ID returns compact batched IDs, while Full Echo returns the full record bytes.</p>
       </div>
     </section>
 
@@ -195,6 +195,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/stress.js"></script>
+  <script src="/stress.js?v=20261007-receive-mode-fix"></script>
 </body>
 </html>
