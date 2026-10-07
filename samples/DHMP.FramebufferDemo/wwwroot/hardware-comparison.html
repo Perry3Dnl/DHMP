@@ -40,14 +40,14 @@
   <header class="hero">
     <p class="eyebrow">DHMP HARDWARE CAPACITY REFERENCE</p>
     <h1>How much useful DHMP state fits through real Wi-Fi hardware?</h1>
-    <p class="lead">Five adapters measured in the same independent iPerf3 lab are used as a hardware reference. DHMP capacity is then calculated with the current 16-byte record and 1,408-byte packet payload used by the benchmark suite.</p>
+    <p class="lead">Five adapters measured in the same independent iPerf3 lab are used as a hardware reference. The projection uses the canonical network benchmark shape: one negotiated 1,408-byte DHMP record in one 1,408-byte DHMP packet payload.</p>
   </header>
 
   <section class="status">
     <span class="pill live">same-lab source data</span>
-    <span><strong>16 bytes</strong> per DHMP record</span>
+    <span><strong>1,408 bytes</strong> per DHMP record</span>
     <span><strong>1,408 bytes</strong> DHMP payload</span>
-    <span><strong>88</strong> records/packet</span>
+    <span><strong>1</strong> record/packet</span>
     <span><strong>0 bytes</strong> DHMP V1 data header</span>
   </section>
 
@@ -58,14 +58,14 @@
       <small>Gbit/s iPerf3</small>
     </article>
     <article class="metric-card">
-      <span>Projected DHMP packet rate</span>
+      <span>Payload-equivalent packet rate</span>
       <strong>251,243</strong>
       <small>1,408-byte packets/s</small>
     </article>
     <article class="metric-card">
-      <span>Projected DHMP record rate</span>
-      <strong>22,109,375</strong>
-      <small>16-byte records/s</small>
+      <span>Payload-equivalent DHMP record rate</span>
+      <strong>251,243</strong>
+      <small>1,408-byte records/s · 1 record/packet</small>
     </article>
     <article class="metric-card">
       <span>DHMP data-plane header</span>
@@ -78,7 +78,7 @@
     <div class="panel-head">
       <div>
         <p class="eyebrow">SAME-LAB ADAPTER COMPARISON</p>
-        <h2>Published iPerf3 throughput → projected DHMP capacity</h2>
+        <h2>Published iPerf3 throughput → payload-equivalent DHMP reference</h2>
       </div>
       <div class="server-totals">
         <span>near range</span>
@@ -95,8 +95,8 @@
             <th>Wi-Fi</th>
             <th>Form</th>
             <th>Published iPerf3</th>
-            <th>Projected DHMP packets/s</th>
-            <th>Projected 16B records/s</th>
+            <th>Payload-equivalent packets/s</th>
+            <th>Payload-equivalent 1,408B records/s</th>
             <th>Useful payload</th>
           </tr>
         </thead>
@@ -107,7 +107,7 @@
             <td>PCIe</td>
             <td>1,363 Mbit/s</td>
             <td>121,005</td>
-            <td>10,648,438</td>
+            <td>121,005</td>
             <td>0.170 GB/s</td>
           </tr>
           <tr>
@@ -116,7 +116,7 @@
             <td>USB</td>
             <td>1,413 Mbit/s</td>
             <td>125,444</td>
-            <td>11,039,063</td>
+            <td>125,444</td>
             <td>0.177 GB/s</td>
           </tr>
           <tr>
@@ -125,7 +125,7 @@
             <td>PCIe</td>
             <td>1,670 Mbit/s</td>
             <td>148,260</td>
-            <td>13,046,875</td>
+            <td>148,260</td>
             <td>0.209 GB/s</td>
           </tr>
           <tr>
@@ -134,7 +134,7 @@
             <td>PCIe</td>
             <td>1,870 Mbit/s</td>
             <td>166,016</td>
-            <td>14,609,375</td>
+            <td>166,016</td>
             <td>0.234 GB/s</td>
           </tr>
           <tr>
@@ -143,7 +143,7 @@
             <td>PCIe</td>
             <td>2,830 Mbit/s</td>
             <td>251,243</td>
-            <td>22,109,375</td>
+            <td>251,243</td>
             <td>0.354 GB/s</td>
           </tr>
         </tbody>
@@ -151,19 +151,19 @@
     </div>
 
     <div class="comparison-note">
-      <strong>What is measured?</strong> The adapter throughput values are published third-party iPerf3 results from one test methodology: six-foot/near distance, uncongested traffic, and the fastest reported band for each adapter. <strong>What is calculated?</strong> DHMP packets/s and records/s are projections from those published rates; DHMP itself was not run on these five adapters in that external test.
+      <strong>What is measured?</strong> The adapter throughput values are published third-party iPerf3 results from one test methodology: six-foot/near distance, uncongested traffic, and the fastest reported band for each adapter. <strong>What is calculated?</strong> The packet/record rates are payload-equivalent projections for one 1,408-byte record per packet. DHMP itself was not run on these five adapters in that external test, so these values are not measured small-packet or DHMP packet-I/O rates.
     </div>
   </section>
 
   <section class="card">
     <p class="eyebrow">PROJECTION MATH</p>
     <h2>One physical throughput number, expressed as useful DHMP state</h2>
-    <p class="muted">The current benchmark record is 16 bytes. A 1,408-byte DHMP V1 payload therefore contains 88 complete records with no DHMP header, separator or trailer bytes.</p>
-    <div class="formula">records/s = (published Mbit/s × 1,000,000) ÷ (16 × 8)
+    <p class="muted">The canonical network reference uses a negotiated 1,408-byte record. One DHMP packet therefore carries exactly one 1,408-byte record with no DHMP data header or trailer.</p>
+    <div class="formula">records/s = payload-equivalent packets/s
 
-packets/s = (published Mbit/s × 1,000,000) ÷ (1,408 × 8)
+payload-equivalent packets/s = (published Mbit/s × 1,000,000) ÷ (1,408 × 8)
 
-records/packet = 1,408 ÷ 16 = 88</div>
+records/packet = 1</div>
     <p class="comparison-note warning"><strong>Do not read this as a measured DHMP speedup over iPerf3.</strong> iPerf3 reports useful transfer throughput, not raw Wi-Fi airtime. Proving that DHMP delivers more useful state than TCP/UDP on the same radio requires a controlled same-hardware test that records application bytes, IP bytes, packets/s and interface/link counters for every protocol.</p>
   </section>
 
@@ -177,7 +177,7 @@ records/packet = 1,408 ÷ 16 = 88</div>
     <div class="explain">
       <div>
         <strong class="good">0 DHMP header bytes</strong>
-        <p>DHMP V1 data packets contain only complete fixed-size application records. Record boundaries come from the negotiated record size and received IP payload length.</p>
+        <p>The canonical DHMP V1 data packet contains exactly one complete fixed-size application record. The negotiated record size is therefore also the DHMP packet payload size for this comparison.</p>
       </div>
       <div>
         <strong>Lower layers still exist</strong>
@@ -185,7 +185,7 @@ records/packet = 1,408 ÷ 16 = 88</div>
       </div>
       <div>
         <strong>The next test is the proof</strong>
-        <p>Run DHMP, UDP and TCP on the same adapter with the same 16-byte state workload. Compare useful records/s against actual interface bytes and packet rate.</p>
+        <p>Run DHMP, UDP and TCP on the same adapter with the same negotiated record size. Compare useful records/s against actual interface bytes and packet rate instead of inferring packet I/O from iPerf3 throughput alone.</p>
       </div>
     </div>
   </section>
@@ -203,7 +203,7 @@ records/packet = 1,408 ÷ 16 = 88</div>
       <article class="source-card">
         <span class="tag">DHMP wire contract</span><span class="tag">repository</span>
         <h3>DHMP V1 headerless data contract</h3>
-        <p>The repository specifies zero DHMP header bytes before the first record, zero separator bytes between records and zero trailer bytes after the final record.</p>
+        <p>The repository specifies a canonical headerless data packet containing exactly one negotiated fixed-size application record, with zero DHMP data header or trailer bytes.</p>
         <a href="https://github.com/Perry3Dnl/DHMP/blob/main/docs/WIRE_CONTRACT_V1.md" target="_blank" rel="noreferrer">Open DHMP wire contract</a>
       </article>
     </div>

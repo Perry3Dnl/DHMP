@@ -1,5 +1,5 @@
 (() => {
-  const PACKETS=[16,256,1024,4096,16384,32768,65520];
+  const PACKETS=[16,32,64,128,256,512,1024,1408,4096,16384,65520];
   const $=id=>document.getElementById(id);
   const packetSlider=$('packetSize');
   const workerSlider=$('workers');
@@ -144,7 +144,37 @@
       if(!response.ok)throw new Error('HTTP '+response.status);
       const cur=await response.json();
 
-      $('packetBytes').textContent=Number(cur.packetBytes).toLocaleString();
+      const canonicalRecordBytes=Number(cur.recordSize||0);
+      const canonicalPacketBytes=Number(cur.packetBytes||0);
+      const canonicalRecordsPerPacket=Number(cur.recordsPerPacket||0);
+
+      if(
+        canonicalRecordBytes!==canonicalPacketBytes ||
+        canonicalRecordsPerPacket!==1
+      ){
+        previous=null;
+        state.textContent='benchmark contract mismatch';
+        state.classList.remove('live');
+        return;
+      }
+
+      const packetIndex=PACKETS.indexOf(canonicalRecordBytes);
+      if(packetIndex>=0 && document.activeElement!==packetSlider){
+        packetSlider.value=String(packetIndex);
+      }
+      packetLabel.textContent=canonicalRecordBytes.toLocaleString()+' bytes';
+
+      if(
+        previous &&
+        Number(cur.configurationVersion)!==Number(previous.configurationVersion)
+      ){
+        previous=null;
+        recordsHistory.length=0;
+        throughputHistory.length=0;
+        renderCharts();
+      }
+
+      $('packetBytes').textContent=canonicalPacketBytes.toLocaleString();
       $('recordsPerPacket').textContent=Number(cur.recordsPerPacket).toLocaleString();
       $('activeWorkers').textContent=cur.workers;
       $('logicalProcessors').textContent=cur.logicalProcessors;

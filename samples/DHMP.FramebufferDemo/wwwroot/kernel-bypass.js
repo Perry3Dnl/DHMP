@@ -142,7 +142,15 @@
       $('mode').textContent=lastSuccessfulMode;
       $('activeMode').textContent=lastSuccessfulMode;
       $('payloadBytes').textContent=Number(cur.payloadBytes).toLocaleString();
-      $('recordsPerPacket').textContent=Number(cur.recordsPerPacket).toLocaleString();
+      const recordsPerPacket=Number(cur.recordsPerPacket);
+      $('recordsPerPacket').textContent=recordsPerPacket.toLocaleString();
+
+      if(recordsPerPacket!==1){
+        previous=null;
+        state.textContent='benchmark contract mismatch';
+        state.classList.remove('live');
+        return;
+      }
       $('packetsPerSample').textContent=Number(cur.packetsPerWorkerSample).toLocaleString();
       $('activeWorkers').textContent=Number(cur.workers).toLocaleString();
       $('logicalProcessors').textContent=Number(cur.logicalProcessors).toLocaleString();
@@ -209,9 +217,8 @@
           const rawGb=rawBytes/rawSeconds/1e9;
           const afGb=afBytes/afSeconds/1e9;
           const speedup=afPps/rawPps;
-          const recordsPerPacket=Math.max(1,Number(cur.recordsPerPacket));
-          const rawRecords=rawPps*recordsPerPacket;
-          const afRecords=afPps*recordsPerPacket;
+          const rawRecords=rawPps;
+          const afRecords=afPps;
 
           const rawPayload=payloadDisplay(rawGb);
           const afPayload=payloadDisplay(afGb);

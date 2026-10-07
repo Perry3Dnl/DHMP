@@ -20,12 +20,12 @@
     <header class="hero">
       <p class="eyebrow">DHMP VIRTUAL GAME LOBBY</p>
       <h1>How many realtime players can the data path support?</h1>
-      <p class="lead">Model a data-only game server where each player sends state to the server and receives the newest state for a selected set of other players. The page compares the workload against the live DHMP processing ceiling measured by this server.</p>
+      <p class="lead">Model a data-only game server where each player sends state to the server and receives the newest state for a selected set of other players. The page actively measures the live DHMP processing ceiling with the selected state size as the negotiated record size, so one state update is one DHMP record in one packet.</p>
     </header>
 
     <section class="status">
       <span id="lobbyState" class="pill">loading live DHMP ceiling…</span>
-      <span><strong id="liveCeilingRecords">0</strong> live records/s ceiling</span>
+      <span><strong id="liveCeilingRecords">0</strong> matching records/s ceiling</span>
       <span><strong id="liveCeilingGb">0</strong> live logical GB/s</span>
       <span><strong id="capacityUse">0%</strong> DHMP capacity used</span>
     </section>
@@ -63,7 +63,7 @@
           <button type="button" class="mode-button active" data-lobby-mode="Latest">Latest</button>
           <button type="button" class="mode-button" data-lobby-mode="Sequential">Sequential</button>
         </div>
-        <p class="muted">Latest models realtime state where stale intermediate updates can be discarded. Sequential models workloads where every complete update must be published.</p>
+        <p class="muted">Latest models realtime state where stale intermediate updates can be discarded. Sequential models workloads where every complete update must be published. Changing this mode re-runs the live ceiling with the same canonical one-record-per-packet shape.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Scenario</span>
@@ -135,11 +135,11 @@
         </div>
         <div>
           <strong>Processing is not bandwidth</strong>
-          <p>The live DHMP ceiling is an in-process logical processing result. The required wire rate shows the separate NIC/network problem.</p>
+          <p>The live DHMP ceiling is an in-process canonical one-record-per-packet processing result for the selected state size and receive mode. The required wire rate shows the separate NIC/network problem.</p>
         </div>
       </div>
 
-      <p class="telemetry-note">This page is a capacity model, not proof that this many real Internet clients have been tested. It intentionally separates DHMP processing capacity from physical NIC, kernel, encryption, game simulation, connection-management and database limits.</p>
+      <p class="telemetry-note">This page is a capacity model, not proof that this many real Internet clients have been tested. Its reference ceiling is measured live with the selected state size as the negotiated DHMP record size and exactly one record per packet. It intentionally separates DHMP processing capacity from physical NIC, kernel, encryption, game simulation, connection-management and database limits.</p>
     </section>
 
     <footer>
@@ -147,6 +147,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/game-lobby.js"></script>
+  <script src="/game-lobby.js?v=20261007-canonical-records"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@
     <header class="hero">
       <p class="eyebrow">DHMP KERNEL-BYPASS LAB</p>
       <h1>Keep the DHMP processing ceiling separate from the network-path test.</h1>
-      <p class="lead">The main Throughput Lab measures DHMP's in-process software processing ceiling with 65,520-byte logical batches. This page keeps that result visible, then separately compares two real Linux packet-I/O paths: Raw IPv6 sockets and AF_XDP. The packet-I/O numbers are not presented as DHMP's normal processing ceiling.</p>
+      <p class="lead">The main Throughput Lab measures DHMP's in-process software processing ceiling with one negotiated record per packet, up to a 65,520-byte record. This page keeps that result visible, then separately compares two real Linux packet-I/O paths: Raw IPv6 sockets and AF_XDP. The packet-I/O numbers are not presented as DHMP's normal processing ceiling.</p>
     </header>
 
     <section class="status">
@@ -45,12 +45,12 @@
       <article class="metric-card">
         <span>DHMP processing packets</span>
         <strong id="corePacketRate">0</strong>
-        <small>batch transactions/s</small>
+        <small>canonical packet transactions/s</small>
       </article>
       <article class="metric-card">
-        <span>Processing batch size</span>
+        <span>Processing record size</span>
         <strong id="corePacketBytes">65,520</strong>
-        <small>bytes per in-process batch</small>
+        <small>bytes per record + packet</small>
       </article>
     </section>
 
@@ -59,14 +59,14 @@
     <section class="controls card">
       <div class="control-block">
         <div>
-          <span class="control-label">DHMP payload per packet</span>
+          <span class="control-label">Negotiated DHMP record / packet payload</span>
           <strong id="payloadLabel">1,408 bytes</strong>
         </div>
         <input id="payloadSize" type="range" min="0" max="4" step="1" value="4">
         <div class="scale five">
           <span>16B</span><span>256B</span><span>1KB</span><span>1.2KB</span><span>1.4KB</span>
         </div>
-        <p class="muted">Both paths use the exact same useful DHMP payload size.</p>
+        <p class="muted">Both paths use the exact same useful DHMP payload size, and that payload is one complete negotiated record.</p>
       </div>
 
       <div class="control-block">
@@ -131,14 +131,14 @@
         <small id="afxdpPayloadUnit">GB/s</small>
       </article>
       <article class="metric-card">
-        <span>Raw IPv6 packetized records</span>
+        <span>Raw IPv6 canonical records</span>
         <strong id="rawRecordRate">0</strong>
-        <small>16-byte records/s</small>
+        <small>records/s · 1 record/packet</small>
       </article>
       <article class="metric-card">
-        <span>AF_XDP packetized records</span>
+        <span>AF_XDP canonical records</span>
         <strong id="afxdpRecordRate">0</strong>
-        <small>16-byte records/s</small>
+        <small>records/s · 1 record/packet</small>
       </article>
     </section>
 
@@ -149,8 +149,8 @@
           <h2>Combined network packet-I/O comparison</h2>
         </div>
         <div class="server-totals">
-          <span><strong id="payloadBytes">0</strong> bytes/packet</span>
-          <span><strong id="recordsPerPacket">0</strong> records/packet</span>
+          <span><strong id="payloadBytes">0</strong> bytes/record + packet</span>
+          <span><strong id="recordsPerPacket">0</strong> record/packet</span>
           <span><strong id="packetsPerSample">0</strong> packets/worker/sample</span>
           <span><strong id="activeWorkers">0</strong> workers</span>
           <span><strong id="logicalProcessors">0</strong> logical CPUs</span>
@@ -176,7 +176,7 @@
         <div class="wide"><span>Backend detail</span><strong id="detail">starting…</strong></div>
       </div>
 
-      <p class="telemetry-note">These network-path rates are measured from total packets completed across all active workers divided by the wall-clock duration of the whole Raw IPv6 or AF_XDP phase. They measure 1,408-byte-class Linux packet I/O and are deliberately not labeled as the normal DHMP processing ceiling. The AF_XDP speedup is only AF_XDP versus Raw IPv6 under this identical network workload.</p>
+      <p class="telemetry-note">These network-path rates are measured from total packets completed across all active workers divided by the wall-clock duration of the whole Raw IPv6 or AF_XDP phase. Every tested packet carries exactly one negotiated DHMP record of the selected payload size. They measure Linux packet I/O and are deliberately not labeled as the normal DHMP processing ceiling. The AF_XDP speedup is only AF_XDP versus Raw IPv6 under this identical network workload.</p>
     </section>
 
     <section class="explain">
@@ -199,6 +199,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/kernel-bypass.js"></script>
+  <script src="/kernel-bypass.js?v=20261007-canonical-records"></script>
 </body>
 </html>
