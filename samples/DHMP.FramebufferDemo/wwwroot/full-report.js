@@ -418,9 +418,9 @@
     drawLineChart(
       'softwareThroughputChart',
       scaling.map(row => String(row.workers)),
-      scaling.map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)),
-      'Workers → logical payload GB/s (software ceiling)',
-      value => fullDecimal(value, 1));
+      scaling.map(row => Number(row.packetRate || 0)),
+      'Workers → canonical one-record packets/s',
+      fullInteger);
   }
 
   function renderCharts(report) {
@@ -466,6 +466,27 @@
         })
       })),
       value => fullDecimal(value, 2));
+
+    const localBatches = Array.isArray(report.localBatchMatrix)
+      ? report.localBatchMatrix
+      : [];
+
+    if (localBatches.length) {
+      const batchSizes = [...new Set(localBatches.map(r => Number(r.batchBytes)))];
+
+      drawGroupedBarChart(
+        'localBatchRateChart',
+        batchSizes.map(v => fullInteger(v) + ' B'),
+        modeLabels.map(label => ({
+          label,
+          values: batchSizes.map(size => {
+            const row = localBatches.find(r =>
+              modeName(r) === label && Number(r.batchBytes) === size);
+            return row ? Number(row.batchRate) : 0;
+          })
+        })),
+        fullInteger);
+    }
 
     drawLineChart(
       'workerScalingChart',
@@ -517,10 +538,10 @@
       String(row.protocol || '').toLowerCase().includes('af_xdp'));
     const rawIpv6 = protocolRows.find(row =>
       String(row.protocol || '').toLowerCase().includes('raw ipv6'));
-    const bestScaling = Math.max(
+    const bestLocalBatchThroughput = Math.max(
       0,
-      ...(report.workerScaling || [])
-        .map(row => Number(row.logicalPayloadGigabytesPerSecond || 0)));
+      ...((report.localBatchMatrix || [])
+        .map(row => Number(row.logicalPayloadGigabytesPerSecond || 0))));
     const rawToAfxdp =
       afxdp && rawIpv6 && Number(rawIpv6.packetRate || 0) > 0
         ? Number(afxdp.packetRate || 0) / Number(rawIpv6.packetRate || 0)
@@ -534,8 +555,8 @@
       (rawToAfxdp > 0 ? fullDecimal(rawToAfxdp, 2) + '×' : '—') +
       '</strong><small>Same-run operation-rate multiple at a 1,408-byte application payload.</small></article>' +
       '<article class="proof-card"><span>Software processing ceiling</span><strong>' +
-      fullDecimal(bestScaling, 1) +
-      ' GB/s</strong><small>Logical in-memory payload processing; explicitly not physical wire throughput.</small></article>' +
+      fullDecimal(bestLocalBatchThroughput, 1) +
+      ' GB/s</strong><small>Local multi-record batch processing ceiling; explicitly not wire throughput.</small></article>' +
       '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
       fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
       ' B/call</strong><small>' +
@@ -565,8 +586,8 @@
         (afxdpRate > 0 ? fullInteger(afxdpRate) : '—') +
         '</strong><small>Packet operations per second on the measured kernel-bypass path.</small></article>' +
         '<article class="proof-card"><span>Software headroom</span><strong>' +
-        fullDecimal(bestScaling, 1) +
-        ' GB/s</strong><small>In-memory logical payload processing ceiling; not physical wire speed.</small></article>' +
+        fullDecimal(bestLocalBatchThroughput, 1) +
+        ' GB/s</strong><small>Local multi-record batch processing ceiling; not physical wire speed.</small></article>' +
         '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
         fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
         ' B/call</strong><small>' +
@@ -604,6 +625,23 @@
       '<td>' + Number(row.serverNanoseconds.median).toFixed(2) + '</td>' +
       '<td>' + Number(row.clientNanoseconds.median).toFixed(2) + '</td>' +
       '<td>' + fullInteger(row.packetRate) + '</td>' +
+      '<td>' + fullInteger(row.logicalRecordsPerSecond) + '</td>' +
+      '<td>' + Number(row.logicalPayloadGigabytesPerSecond).toFixed(2) + '</td>' +
+      '</tr>').join('');
+
+    const localBatchRows = Array.isArray(report.localBatchMatrix)
+      ? report.localBatchMatrix
+      : [];
+
+    $('localBatchBody').innerHTML = localBatchRows.map(row =>
+      '<tr>' +
+      '<td>' + modeName(row) + '</td>' +
+      '<td>' + Number(row.batchBytes).toLocaleString() + '</td>' +
+      '<td>' + Number(row.recordsPerBatch).toLocaleString() + '</td>' +
+      '<td>' + Number(row.processorNanoseconds.median).toFixed(2) + '</td>' +
+      '<td>' + Number(row.serverNanoseconds.median).toFixed(2) + '</td>' +
+      '<td>' + Number(row.clientNanoseconds.median).toFixed(2) + '</td>' +
+      '<td>' + fullInteger(row.batchRate) + '</td>' +
       '<td>' + fullInteger(row.logicalRecordsPerSecond) + '</td>' +
       '<td>' + Number(row.logicalPayloadGigabytesPerSecond).toFixed(2) + '</td>' +
       '</tr>').join('');
