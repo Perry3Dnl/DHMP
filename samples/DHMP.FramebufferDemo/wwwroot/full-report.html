@@ -202,7 +202,7 @@
 
     <section class="report-section">
       <p class="eyebrow">POLICY COST</p>
-      <h2>Rate-policy overhead</h2>
+      <h2>Rate-policy overhead and application confirmation cost</h2>
       <div class="chart-grid">
         <article class="chart-card">
           <h3>Rate policy packet rate</h3>
@@ -222,7 +222,8 @@
         </table>
       </div>
 
-      <h3>Confirmation modes</h3>
+      <h3>Application confirmation modes — local 1,408-byte batch workload</h3>
+      <p class="muted">This confirmation benchmark is an application/local-batch workload. Its transaction rate is not presented as canonical DHMP wire packet rate.</p>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr><th>Mode</th><th>Payload</th><th>Median ns/transaction</th><th>CV</th><th>Transactions/s</th><th>Return bytes</th></tr></thead>
@@ -250,7 +251,7 @@
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
-          <thead><tr><th>Receive mode</th><th>Payload</th><th>Processor B/call</th><th>Server B/call</th><th>Full path B/call</th></tr></thead>
+          <thead><tr><th>Receive mode</th><th>Canonical packet bytes</th><th>Processor B/call</th><th>Server B/call</th><th>Full path B/call</th></tr></thead>
           <tbody id="allocationBody"></tbody>
         </table>
       </div>
