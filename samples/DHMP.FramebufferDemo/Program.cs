@@ -23,7 +23,9 @@ app.MapGet("/health", () => Results.Json(new
 {
     status = "ok",
     demo = "DHMP Throughput Lab",
-    recordSize = DhmpThroughputLab.RecordSize,
+    canonicalDataShape = "one negotiated record per packet",
+    minimumRecordSize = DhmpThroughputLab.RecordSize,
+    maximumRecordSize = DhmpThroughputLab.MaximumPayloadBytes,
     maximumPayloadBytes = DhmpThroughputLab.MaximumPayloadBytes
 }));
 
@@ -257,8 +259,14 @@ app.Run();
 static bool IsSupportedPacketSize(int packetBytes) =>
     packetBytes is
         16 or
+        32 or
+        64 or
+        128 or
         256 or
+        512 or
         1024 or
+        1200 or
+        1408 or
         4096 or
         16384 or
         32768 or
