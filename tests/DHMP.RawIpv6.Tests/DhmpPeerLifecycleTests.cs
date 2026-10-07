@@ -251,11 +251,11 @@ public sealed class DhmpPeerLifecycleTests
         byte[] scratch = Enumerable.Repeat((byte)0xcc, 64).ToArray();
         if (throws)
             Assert.Throws<IOException>(() => DhmpRawIpv6PayloadProcessor.TryProcess(binding.Server,
-                decoder, new byte[4], scratch, binding.PublishBatch, out _));
+                decoder, new byte[4], scratch, binding.PublishBatch, out _, out _));
         else
         {
             Assert.False(DhmpRawIpv6PayloadProcessor.TryProcess(binding.Server,
-                decoder, new byte[4], scratch, binding.PublishBatch, out bool rejected));
+                decoder, new byte[4], scratch, binding.PublishBatch, out bool rejected, out _));
             Assert.True(rejected);
         }
         Assert.All(scratch, value => Assert.Equal((byte)0, value));
