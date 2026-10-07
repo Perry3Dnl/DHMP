@@ -35,27 +35,19 @@ The implemented Control V1 plane exchanges maximum receive capability and schema
 
 ## V1 data packet
 
-The DHMP data payload is exactly:
+The canonical direct-IP DHMP data payload is exactly one negotiated fixed-size application record:
 
 ```text
-+--------------------+--------------------+-----+--------------------+
-| fixed record 0     | fixed record 1     | ... | fixed record N-1   |
-+--------------------+--------------------+-----+--------------------+
++--------------------+
+| fixed record       |
++--------------------+
 ```
 
-There are zero DHMP header bytes before the first record, zero DHMP separator bytes between records and zero DHMP trailer bytes after the final record.
+There are zero DHMP header bytes before the record and zero DHMP trailer bytes after it. The handshake/session already established the record size, so the steady-state raw receive path does not derive a record count from packet length.
 
-Record boundaries are derived from the agreed fixed record size and the received IP payload length.
+A canonical raw V1 data payload therefore has exactly the negotiated record size. A payload with another size is simply ignored before Ring-3 publication; DHMP never carries partial record bytes into another packet.
 
-A valid V1 data payload therefore:
-
-1. is non-empty;
-2. is an exact multiple of the fixed record size;
-3. contains each record completely inside one IP packet.
-
-An implementation also applies its local receive packet ceiling before publication.
-
-The receiver rejects an invalid packet in full. DHMP never carries partial record bytes into another packet.
+The .NET compatibility and benchmark APIs may accept a local batch containing several complete records. That local batch is not the canonical raw wire shape: `DhmpClient.SendBatchAsync` submits each record as its own data packet.
 
 ## Local send policy
 
@@ -80,9 +72,9 @@ The .NET reference implementation uses `DhmpReceivePolicy` for:
 
 A receiver may therefore use Latest while the sender has no knowledge of that choice.
 
-Sequential publishes every complete record in the received packet in packet-local order.
+Sequential preserves every received record in arrival order through its FIFO backlog.
 
-Latest publishes only the final complete record in the received packet.
+Latest publishes the received record immediately as the newest state.
 
 Neither policy changes the V1 wire bytes.
 
@@ -98,7 +90,7 @@ V1 has no protocol-owned sequence number, timestamp or generation identifier.
 
 Sequential represents receive arrival order, not guaranteed original sender order after network reordering.
 
-Latest selects the final record in one received packet. It cannot prove that a later-arriving packet contains newer generated state.
+Latest selects the record in the most recently completed received packet. It cannot prove that a later-arriving packet contains newer generated state.
 
 Cross-packet freshness may use an application-owned generation field inside the fixed record without changing V1. The .NET reference implementation provides `DhmpLatestGenerationFilter` for an optional unsigned 64-bit generation field. Because the generation bytes belong to the application schema, DHMP still adds zero data-plane header bytes. A protocol-owned freshness field would still require an explicit future version/profile.
 
