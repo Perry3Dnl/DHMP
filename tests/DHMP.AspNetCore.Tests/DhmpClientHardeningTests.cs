@@ -7,16 +7,18 @@ namespace DHMP.AspNetCore.Tests;
 public sealed class DhmpClientHardeningTests
 {
     [Fact]
-    public async Task HappyFlow_ExactMaximumBatch_ReachesBackendUnchanged()
+    public async Task HappyFlow_ExactMaximumBatch_IsEmittedAsSingleRecordPackets()
     {
-        byte[]? delivered = null;
+        var delivered =
+            new List<byte[]>();
 
         var sender =
             new RecordingSender(
                 maximumPayloadBytes: 16,
                 packet =>
                 {
-                    delivered = packet.ToArray();
+                    delivered.Add(
+                        packet.ToArray());
                     return ValueTask.CompletedTask;
                 });
 
@@ -37,8 +39,17 @@ public sealed class DhmpClientHardeningTests
             packet,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, sender.Calls);
-        Assert.Equal(packet, delivered);
+        Assert.Equal(4, sender.Calls);
+
+        Assert.Equal(
+            new[]
+            {
+                new byte[] { 1, 2, 3, 4 },
+                new byte[] { 5, 6, 7, 8 },
+                new byte[] { 9, 10, 11, 12 },
+                new byte[] { 13, 14, 15, 16 }
+            },
+            delivered);
     }
 
     [Fact]
@@ -110,7 +121,7 @@ public sealed class DhmpClientHardeningTests
             new byte[4],
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(2, sender.Calls);
+        Assert.Equal(3, sender.Calls);
     }
 
     [Fact]
@@ -150,7 +161,7 @@ public sealed class DhmpClientHardeningTests
                 cancellation.Token)
                 .AsTask());
 
-        Assert.Equal(1, sender.Calls);
+        Assert.Equal(10, sender.Calls);
     }
 
     [Fact]
