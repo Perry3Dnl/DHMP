@@ -19,6 +19,7 @@
   let configurationPending=false;
   let configurationInFlight=0;
   let configurationRevision=0;
+  let minimumServerConfigurationVersion=0;
   let selectedReceiveMode='Sequential';
   let selectedNativeSmoothing=false;
   let selectedRatePolicy='Unlimited';
@@ -111,6 +112,14 @@
       // Ignore completion from an older overlapping configure request.
       if(revision!==configurationRevision)return;
 
+      minimumServerConfigurationVersion=Math.max(
+        minimumServerConfigurationVersion,
+        Number(applied.configurationVersion||0));
+
+      // Invalidate telemetry requests that may have started while this POST
+      // was still applying the previous server configuration.
+      configurationRevision++;
+
       selectedReceiveMode=applied.receiveMode;
       selectedNativeSmoothing=Boolean(applied.nativeSmoothing);
       selectedRatePolicy=applied.ratePolicy;
@@ -144,10 +153,14 @@
       $('ratePolicy').textContent=cur.ratePolicy;
       $('confirmationMode').textContent=cur.confirmationMode;
       $('packetRateCapOut').textContent=cur.packetRateCap>0?compact(cur.packetRateCap)+'/s':'Unlimited';
+      const serverConfigurationVersion=
+        Number(cur.configurationVersion||0);
+
       if(
         !configurationPending &&
         configurationInFlight===0 &&
-        pollRevision===configurationRevision
+        pollRevision===configurationRevision &&
+        serverConfigurationVersion>=minimumServerConfigurationVersion
       ){
         selectedReceiveMode=cur.receiveMode;
         selectedNativeSmoothing=Boolean(cur.nativeSmoothing);
