@@ -637,7 +637,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         var wire =
             new DhmpWireContract(
-                RecordSize);
+                packetBytes);
 
         var receivePolicy =
             new DhmpReceivePolicy(
