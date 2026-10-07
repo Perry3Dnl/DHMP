@@ -46,11 +46,13 @@ Local capability is not treated as network reachability.
 For an initiating connection in `Auto` mode the connector:
 
 1. checks whether the native Raw IPv6 backend is locally usable;
-2. attempts the normal DHMP compatibility handshake on that path;
-3. if the native path times out or fails for a reachability/socket reason, attempts
-   the UDP compatibility path;
-4. once a path completes compatibility negotiation, security setup and steady-state
-   data stay on that selected path.
+2. sends a 16-byte **Poke** on that path and requires an exact byte-for-byte echo;
+3. when Mini Poke succeeds, sends a 1,200-byte Full Echo Poke and measures the round trip on the initiator's monotonic clock;
+4. if native Poke times out or fails for a reachability/socket reason, repeats Poke over the UDP compatibility path;
+5. only after Poke selects a live path does the normal DHMP compatibility handshake run;
+6. once a path completes compatibility negotiation, security setup and steady-state data stay on that selected path.
+
+Poke is deliberately not authentication and does not add bytes to normal DHMP V1 data packets. The responder validates the fixed Poke prefix and token, then returns the received Poke bytes unchanged. Parsing is Span-based; async socket boundaries use Memory only for buffer lifetime correctness.
 
 An accepting connector listens for both implemented paths and accepts the first one
 that successfully completes compatibility negotiation.
@@ -103,3 +105,12 @@ general Internet hole punching are not yet implemented.
 `DhmpConnector.GetTransportCandidates(remoteAddress)` reports local candidates and
 diagnostics. A candidate being locally available never means that the remote path is
 reachable; only a completed DHMP handshake establishes that.
+
+
+## Poke API and measurements
+
+`DhmpConnector.PokeAsync(...)` runs the same pre-handshake path selection without establishing a DHMP session. The result reports the selected transport, Mini Poke RTT, Full Echo RTT and Full Echo byte count.
+
+For an initiated connection, `DhmpConnection.InitialPoke` exposes the Poke result that selected its transport. Accepted/server-side connections leave this null because that side answered the Poke.
+
+The Full Report benchmark contains a separate local Poke processing section. Those rows measure Span validation plus exact echo processing and are explicitly not Internet RTT or sustained network-throughput claims.

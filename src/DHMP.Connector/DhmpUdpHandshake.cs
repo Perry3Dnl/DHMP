@@ -120,7 +120,7 @@ internal static class DhmpUdpHandshake
 
                 byte[] packet =
                     new byte[
-                        DhmpProtocol.ControlPacketSize];
+                        DhmpPokeCodec.MaximumPacketSize];
 
                 while (true)
                 {
@@ -129,9 +129,27 @@ internal static class DhmpUdpHandshake
                             packet,
                             token).ConfigureAwait(false);
 
-                    if (received != packet.Length ||
+                    if (DhmpPokeCodec.TryReadToken(
+                            packet.AsSpan(
+                                0,
+                                received),
+                            out _))
+                    {
+                        await channel.SendPacketAsync(
+                            packet.AsMemory(
+                                0,
+                                received),
+                            token).ConfigureAwait(false);
+
+                        continue;
+                    }
+
+                    if (received !=
+                            DhmpProtocol.ControlPacketSize ||
                         !DhmpControlCodec.TryDecode(
-                            packet,
+                            packet.AsSpan(
+                                0,
+                                received),
                             out DhmpControlMessage incoming))
                         throw new DhmpProtocolException(
                             "Received malformed DHMP compatibility control packet over UDP.");
@@ -150,7 +168,9 @@ internal static class DhmpUdpHandshake
                         packet);
 
                     await channel.SendPacketAsync(
-                        packet,
+                        packet.AsMemory(
+                            0,
+                            DhmpProtocol.ControlPacketSize),
                         token).ConfigureAwait(false);
 
                     if (!evaluation.Accepted ||

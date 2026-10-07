@@ -337,10 +337,45 @@ public sealed class DhmpConnector : IAsyncDisposable
                 remoteAddress,
                 out IPAddress? parsed))
             throw new ArgumentException(
-                "Remote address must be a valid IPv6 address.",
+                "Remote address must be a valid IP address.",
                 nameof(remoteAddress));
 
         return ConnectAsync(
+            parsed,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Run the pre-handshake DHMP Poke resolver without establishing a session.
+    /// Mini Poke proves reachability; Full Echo measures an exact 1,200-byte
+    /// round trip on the same candidate path.
+    /// </summary>
+    public Task<DhmpPokeResult> PokeAsync(
+        IPAddress remoteAddress,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        EnsureStarted();
+        ValidateRemoteAddress(
+            remoteAddress);
+
+        return ResolvePokeAsync(
+            remoteAddress,
+            cancellationToken);
+    }
+
+    public Task<DhmpPokeResult> PokeAsync(
+        string remoteAddress,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IPAddress.TryParse(
+                remoteAddress,
+                out IPAddress? parsed))
+            throw new ArgumentException(
+                "Remote address must be a valid IP address.",
+                nameof(remoteAddress));
+
+        return PokeAsync(
             parsed,
             cancellationToken);
     }
@@ -647,6 +682,7 @@ public sealed class DhmpConnector : IAsyncDisposable
                         client,
                         transportSender,
                         resolution.Transport,
+                        resolution.Poke,
                         protectedSender,
                         session,
                         connectionId,
@@ -702,6 +738,44 @@ public sealed class DhmpConnector : IAsyncDisposable
         IPAddress remoteAddress,
         CancellationToken cancellationToken)
     {
+        DhmpPokeResult poke =
+            await ResolvePokeAsync(
+                remoteAddress,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        DhmpNegotiatedPeer peer =
+            poke.Transport ==
+                DhmpTransportKind.RawIpv6
+                ? await DhmpRawIpv6Handshake.InitiateAsync(
+                    CreateRawOptions(
+                        remoteAddress,
+                        _options.HandshakeTimeout),
+                    _wireContract,
+                    _sendPolicy,
+                    _receivePolicy,
+                    GetNegotiatedSchemaId(),
+                    cancellationToken).ConfigureAwait(false)
+                : await DhmpUdpHandshake.InitiateCompatibilityAsync(
+                    _udpRuntime!,
+                    remoteAddress,
+                    _wireContract,
+                    _sendPolicy,
+                    _receivePolicy,
+                    GetNegotiatedSchemaId(),
+                    _options.HandshakeTimeout,
+                    cancellationToken).ConfigureAwait(false);
+
+        return new NegotiationResult(
+            poke.Transport,
+            peer,
+            poke);
+    }
+
+    private async Task<DhmpPokeResult> ResolvePokeAsync(
+        IPAddress remoteAddress,
+        CancellationToken cancellationToken)
+    {
         IReadOnlyList<DhmpTransportCandidate> candidates =
             GetTransportCandidates(
                 remoteAddress);
@@ -718,23 +792,39 @@ public sealed class DhmpConnector : IAsyncDisposable
         {
             try
             {
-                DhmpNegotiatedPeer peer =
-                    await DhmpRawIpv6Handshake.InitiateAsync(
-                        CreateRawOptions(
-                            remoteAddress,
-                            _options.TransportPreference ==
-                                DhmpTransportPreference.Auto
-                                ? _options.TransportAttemptTimeout
-                                : _options.HandshakeTimeout),
-                        _wireContract,
-                        _sendPolicy,
-                        _receivePolicy,
-                        GetNegotiatedSchemaId(),
-                        cancellationToken).ConfigureAwait(false);
+                TimeSpan timeout =
+                    _options.TransportPreference ==
+                        DhmpTransportPreference.Auto
+                        ? _options.TransportAttemptTimeout
+                        : _options.HandshakeTimeout;
 
-                return new NegotiationResult(
+                DhmpRawIpv6Options rawOptions =
+                    CreateRawOptions(
+                        remoteAddress,
+                        timeout);
+
+                TimeSpan mini =
+                    await DhmpRawIpv6Poke.ProbeAsync(
+                        rawOptions,
+                        DhmpPokeCodec.MinimumPacketSize,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                int fullEchoBytes =
+                    DhmpPokeCodec.FullEchoPacketSize;
+
+                TimeSpan full =
+                    await DhmpRawIpv6Poke.ProbeAsync(
+                        rawOptions,
+                        fullEchoBytes,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                return new DhmpPokeResult(
                     DhmpTransportKind.RawIpv6,
-                    peer);
+                    mini,
+                    full,
+                    fullEchoBytes);
             }
             catch (Exception error)
                 when (_options.TransportPreference ==
@@ -757,26 +847,38 @@ public sealed class DhmpConnector : IAsyncDisposable
         if (udp?.LocallyAvailable == true &&
             _udpRuntime is not null)
         {
-            DhmpNegotiatedPeer peer =
-                await DhmpUdpHandshake.InitiateCompatibilityAsync(
+            TimeSpan mini =
+                await DhmpUdpPoke.ProbeAsync(
                     _udpRuntime,
                     remoteAddress,
-                    _wireContract,
-                    _sendPolicy,
-                    _receivePolicy,
-                    GetNegotiatedSchemaId(),
+                    DhmpPokeCodec.MinimumPacketSize,
                     _options.HandshakeTimeout,
-                    cancellationToken).ConfigureAwait(false);
+                    cancellationToken)
+                .ConfigureAwait(false);
 
-            return new NegotiationResult(
+            int fullEchoBytes =
+                DhmpPokeCodec.FullEchoPacketSize;
+
+            TimeSpan full =
+                await DhmpUdpPoke.ProbeAsync(
+                    _udpRuntime,
+                    remoteAddress,
+                    fullEchoBytes,
+                    _options.HandshakeTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            return new DhmpPokeResult(
                 DhmpTransportKind.UdpCompatibility,
-                peer);
+                mini,
+                full,
+                fullEchoBytes);
         }
 
         throw new InvalidOperationException(
             rawFailure is null
-                ? "No locally available DHMP transport can reach this address family."
-                : $"Native DHMP path failed and no UDP compatibility path was available: {rawFailure.Message}",
+                ? "No locally available DHMP transport can answer Poke for this address family."
+                : $"Native DHMP Poke failed and no UDP compatibility path was available: {rawFailure.Message}",
             rawFailure);
     }
 
@@ -886,7 +988,8 @@ public sealed class DhmpConnector : IAsyncDisposable
 
         return new NegotiationResult(
             DhmpTransportKind.RawIpv6,
-            peer);
+            peer,
+            null);
     }
 
     private async Task<NegotiationResult> RespondUdpAsync(
@@ -906,7 +1009,8 @@ public sealed class DhmpConnector : IAsyncDisposable
 
         return new NegotiationResult(
             DhmpTransportKind.UdpCompatibility,
-            peer);
+            peer,
+            null);
     }
 
     private void RegisterReceiveBinding(
@@ -1001,7 +1105,8 @@ public sealed class DhmpConnector : IAsyncDisposable
 
     private readonly record struct NegotiationResult(
         DhmpTransportKind Transport,
-        DhmpNegotiatedPeer Peer);
+        DhmpNegotiatedPeer Peer,
+        DhmpPokeResult? Poke);
 
     private Guid GetNegotiatedSchemaId()
     {

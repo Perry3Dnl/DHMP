@@ -58,7 +58,7 @@
   <header class="hero">
     <p class="eyebrow">DHMP PERFORMANCE & PRODUCT PROOF</p>
     <h1>Measure the package. See exactly where DHMP wins.</h1>
-    <p class="lead">One repeatable run shows both the product story and the engineering limits: same-host protocol comparisons, measured DHMP transport paths, software-path headroom, worker scaling, receive-mode cost, confirmations, allocations and correctness. Physical/network I/O results are never mixed with in-memory ceilings.</p>
+    <p class="lead">One repeatable run shows both the product story and the engineering limits: same-host protocol comparisons, measured DHMP transport paths, Poke control-plane cost, software-path headroom, worker scaling, receive-mode cost, confirmations, allocations and correctness. Physical/network I/O results are never mixed with in-memory ceilings.</p>
   </header>
 
   <section class="card">
@@ -89,6 +89,31 @@
       <p class="eyebrow">HOST</p>
       <h2>Runtime and benchmark environment</h2>
       <div id="environmentGrid" class="report-grid"></div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">DHMP POKE</p>
+      <h2>Pre-handshake reachability at the lowest practical managed level</h2>
+      <div class="comparison-callout"><strong>Poke is not a normal DHMP data packet.</strong> It is a tiny control-plane exact echo used before negotiation: Mini Poke first proves that the selected DHMP path answers, then Full Echo checks a 1,200-byte exact round trip. The peer returns the same bytes unchanged.</div>
+      <p class="muted">These Full Report numbers are the local Span-based Poke processing ceiling. They show codec + exact-echo cost without socket/network latency. Real connection Poke RTT is measured by the initiating connector with its local monotonic clock.</p>
+      <div class="chart-grid">
+        <article class="chart-card">
+          <h3>Poke exact-echo rate</h3>
+          <p class="muted">Higher is better. Complete validate → exact echo → validate operations per second.</p>
+          <canvas id="pokeRateChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Poke local echo time</h3>
+          <p class="muted">Lower is better. Median local nanoseconds per complete Poke echo operation.</p>
+          <canvas id="pokeLatencyChart"></canvas>
+        </article>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr><th>Mode</th><th>Packet bytes</th><th>Median ns/echo</th><th>CV</th><th>Echoes/s</th><th>Round-trip GB/s</th><th>Allocation B/echo</th></tr></thead>
+          <tbody id="pokeBody"></tbody>
+        </table>
+      </div>
     </section>
 
     <section class="report-section">
@@ -270,6 +295,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-canonical-wire-v3"></script>
+<script src="/full-report.js?v=20261007-poke-v1"></script>
 </body>
 </html>

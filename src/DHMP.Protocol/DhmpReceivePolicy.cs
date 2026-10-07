@@ -9,7 +9,8 @@ public readonly record struct DhmpReceivePolicy
         nativeSmoothing: false,
         sequentialBacklogMillions: 1,
         sequentialBacklogOverflowPolicy:
-            DhmpSequentialBacklogOverflowPolicy.Backpressure) { }
+            DhmpSequentialBacklogOverflowPolicy.Backpressure,
+        sequentialBacklogCapacityRecords: null) { }
 
     public DhmpReceivePolicy(
         DhmpProcessingMode mode,
@@ -17,7 +18,8 @@ public readonly record struct DhmpReceivePolicy
         bool nativeSmoothing = false,
         int sequentialBacklogMillions = 1,
         DhmpSequentialBacklogOverflowPolicy sequentialBacklogOverflowPolicy =
-            DhmpSequentialBacklogOverflowPolicy.Backpressure)
+            DhmpSequentialBacklogOverflowPolicy.Backpressure,
+        long? sequentialBacklogCapacityRecords = null)
     {
         if (mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
             throw new ArgumentOutOfRangeException(nameof(mode));
@@ -27,6 +29,8 @@ public readonly record struct DhmpReceivePolicy
             throw new ArgumentException("Native smoothing is only valid with Latest receive mode.", nameof(nativeSmoothing));
         if (sequentialBacklogMillions <= 0)
             throw new ArgumentOutOfRangeException(nameof(sequentialBacklogMillions));
+        if (sequentialBacklogCapacityRecords is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sequentialBacklogCapacityRecords));
         if (!Enum.IsDefined(sequentialBacklogOverflowPolicy))
             throw new ArgumentOutOfRangeException(nameof(sequentialBacklogOverflowPolicy));
 
@@ -34,6 +38,8 @@ public readonly record struct DhmpReceivePolicy
         MaximumPayloadBytes = maximumPayloadBytes;
         NativeSmoothing = nativeSmoothing;
         SequentialBacklogMillions = sequentialBacklogMillions;
+        SequentialBacklogCapacityRecordsOverride =
+            sequentialBacklogCapacityRecords;
         SequentialBacklogOverflowPolicy = sequentialBacklogOverflowPolicy;
     }
 
@@ -55,7 +61,14 @@ public readonly record struct DhmpReceivePolicy
     /// </summary>
     public int SequentialBacklogMillions { get; }
 
+    /// <summary>
+    /// Optional exact local FIFO capacity. When omitted, the public million-record
+    /// sizing convention remains in force. This does not change DHMP wire bytes.
+    /// </summary>
+    public long? SequentialBacklogCapacityRecordsOverride { get; }
+
     public long SequentialBacklogCapacityRecords =>
+        SequentialBacklogCapacityRecordsOverride ??
         checked((long)SequentialBacklogMillions * 1_000_000L);
 
     /// <summary>
@@ -74,6 +87,7 @@ public readonly record struct DhmpReceivePolicy
         if (NativeSmoothing && Mode != DhmpProcessingMode.Latest)
             throw new ArgumentException("Native smoothing requires Latest receive mode.");
         if (SequentialBacklogMillions <= 0 ||
+            SequentialBacklogCapacityRecordsOverride is <= 0 ||
             !Enum.IsDefined(SequentialBacklogOverflowPolicy))
             throw new ArgumentException("A valid Sequential backlog policy is required.");
 

@@ -67,7 +67,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 48;
+            _totalSteps = 49;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -160,6 +160,10 @@ internal sealed class DhmpFullReportLab
             Step("Confirmation overhead");
             var confirmations = RunConfirmationBenchmarks();
 
+            Step("Poke exact echo");
+            var pokeBenchmarks =
+                RunPokeBenchmarks();
+
             Step("Latest sweeper / grabber");
             var ring3Consumer = RunRing3ConsumerBenchmark();
 
@@ -186,6 +190,7 @@ internal sealed class DhmpFullReportLab
                 ratePolicies,
                 confirmations,
                 protocolComparisons,
+                pokeBenchmarks,
                 ring3Consumer,
                 allocations,
                 checks,
@@ -202,7 +207,9 @@ internal sealed class DhmpFullReportLab
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
-                    "Native Smoothing adds no per-packet Ring-3 copy. Sweeper and grabber costs are benchmarked separately."
+                    "Native Smoothing adds no per-packet Ring-3 copy. Sweeper and grabber costs are benchmarked separately.",
+                    "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
+                    "Full Report Sequential rows use a 64-record local FIFO capacity so the benchmark measures the same FIFO hot path without reserving the production default one-million-record capacity for every synthetic record size."
                 });
 
             lock (_gate)
@@ -261,6 +268,16 @@ internal sealed class DhmpFullReportLab
             RecordSize,
             MaximumPayloadBytes);
 
+    private static DhmpReceivePolicy CreateBenchmarkReceivePolicy(
+        DhmpProcessingMode mode,
+        int maximumPayloadBytes,
+        bool nativeSmoothing = false) =>
+        new(
+            mode,
+            maximumPayloadBytes,
+            nativeSmoothing,
+            sequentialBacklogCapacityRecords: 64);
+
     private static DhmpPathBenchmark RunCanonicalPathBenchmark(
         int recordBytes,
         DhmpProcessingMode mode,
@@ -271,7 +288,7 @@ internal sealed class DhmpFullReportLab
                 recordBytes);
 
         var policy =
-            new DhmpReceivePolicy(
+            CreateBenchmarkReceivePolicy(
                 mode,
                 MaximumPayloadBytes,
                 nativeSmoothing);
@@ -392,7 +409,7 @@ internal sealed class DhmpFullReportLab
                 RecordSize);
 
         var policy =
-            new DhmpReceivePolicy(
+            CreateBenchmarkReceivePolicy(
                 mode,
                 MaximumPayloadBytes,
                 nativeSmoothing);
@@ -574,7 +591,7 @@ internal sealed class DhmpFullReportLab
                     var server =
                         new DhmpServer(
                             wire,
-                            new DhmpReceivePolicy(
+                            CreateBenchmarkReceivePolicy(
                                 DhmpProcessingMode.Sequential,
                                 MaximumPayloadBytes));
 
@@ -759,7 +776,7 @@ internal sealed class DhmpFullReportLab
             var server =
                 new DhmpServer(
                     wire,
-                    new DhmpReceivePolicy(
+                    CreateBenchmarkReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         MaximumPayloadBytes));
 
@@ -834,7 +851,7 @@ internal sealed class DhmpFullReportLab
             var server =
                 new DhmpServer(
                     wire,
-                    new DhmpReceivePolicy(
+                    CreateBenchmarkReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         MaximumPayloadBytes));
 
@@ -898,12 +915,112 @@ internal sealed class DhmpFullReportLab
         return results.ToArray();
     }
 
+    private static DhmpPokeBenchmark[] RunPokeBenchmarks()
+    {
+        int[] packetSizes =
+        [
+            DhmpPokeCodec.MinimumPacketSize,
+            DhmpPokeCodec.FullEchoPacketSize
+        ];
+
+        var results =
+            new List<DhmpPokeBenchmark>(
+                packetSizes.Length);
+
+        foreach (int packetBytes in packetSizes)
+        {
+            const ulong token =
+                0x44484D50504F4B45UL;
+
+            byte[] request =
+                GC.AllocateUninitializedArray<byte>(
+                    packetBytes);
+
+            byte[] echo =
+                GC.AllocateUninitializedArray<byte>(
+                    packetBytes);
+
+            DhmpPokeCodec.Encode(
+                token,
+                request);
+
+            void ExactEcho()
+            {
+                if (!DhmpPokeCodec.TryReadToken(
+                        request,
+                        out ulong requestToken) ||
+                    requestToken != token)
+                    throw new InvalidOperationException(
+                        "Poke request failed validation.");
+
+                request.AsSpan()
+                    .CopyTo(
+                        echo);
+
+                if (!DhmpPokeCodec.TryReadToken(
+                        echo,
+                        out ulong echoedToken) ||
+                    echoedToken != token ||
+                    !echo.AsSpan()
+                        .SequenceEqual(
+                            request))
+                {
+                    throw new InvalidOperationException(
+                        "Poke full echo modified the packet.");
+                }
+            }
+
+            for (int i = 0;
+                 i < WarmupIterations;
+                 i++)
+                ExactEcho();
+
+            double[] samples =
+                new double[Repetitions];
+
+            for (int repetition = 0;
+                 repetition < Repetitions;
+                 repetition++)
+            {
+                samples[repetition] =
+                    MeasureNanosecondsPerCall(
+                        MeasuredIterations,
+                        ExactEcho);
+            }
+
+            double allocationBytes =
+                MeasureAllocatedBytesPerCall(
+                    ExactEcho);
+
+            DhmpSampleStats stats =
+                Stats(
+                    samples);
+
+            double echoesPerSecond =
+                1_000_000_000d /
+                stats.Median;
+
+            results.Add(
+                new DhmpPokeBenchmark(
+                    packetBytes,
+                    stats,
+                    echoesPerSecond,
+                    echoesPerSecond *
+                        packetBytes *
+                        2d /
+                        1_000_000_000d,
+                    allocationBytes));
+        }
+
+        return results.ToArray();
+    }
+
     private static DhmpRing3ConsumerBenchmark RunRing3ConsumerBenchmark()
     {
         var server =
             new DhmpServer(
                 new DhmpWireContract(RecordSize),
-                new DhmpReceivePolicy(
+                CreateBenchmarkReceivePolicy(
                     DhmpProcessingMode.Latest,
                     MaximumPayloadBytes,
                     nativeSmoothing: true));
@@ -1006,7 +1123,7 @@ internal sealed class DhmpFullReportLab
                 new DhmpWireContract(packetBytes);
 
             var policy =
-                new DhmpReceivePolicy(
+                CreateBenchmarkReceivePolicy(
                     mode,
                     MaximumPayloadBytes,
                     smoothing);
@@ -1090,7 +1207,7 @@ internal sealed class DhmpFullReportLab
             var server =
                 new DhmpServer(
                     new DhmpWireContract(packetBytes),
-                    new DhmpReceivePolicy(
+                    CreateBenchmarkReceivePolicy(
                         mode,
                         MaximumPayloadBytes,
                         smoothing));
@@ -1361,7 +1478,7 @@ internal sealed class DhmpFullReportLab
             _returnServer =
                 new DhmpServer(
                     new DhmpWireContract(RecordSize),
-                    new DhmpReceivePolicy(
+                    CreateBenchmarkReceivePolicy(
                         DhmpProcessingMode.Sequential,
                         MaximumPayloadBytes));
         }
@@ -1446,6 +1563,7 @@ internal sealed record DhmpFullReport(
     DhmpRatePolicyBenchmark[] RatePolicies,
     DhmpConfirmationBenchmark[] ConfirmationModes,
     DhmpProtocolComparisonBenchmark[] ProtocolComparisons,
+    DhmpPokeBenchmark[] PokeBenchmarks,
     DhmpRing3ConsumerBenchmark Ring3Consumer,
     DhmpAllocationBenchmark[] Allocations,
     DhmpCorrectnessCheck[] CorrectnessChecks,
@@ -1532,6 +1650,13 @@ internal sealed record DhmpProtocolComparisonBenchmark(
     long Operations,
     bool KernelBypass,
     string Detail);
+
+internal sealed record DhmpPokeBenchmark(
+    int PacketBytes,
+    DhmpSampleStats RoundTripNanoseconds,
+    double EchoesPerSecond,
+    double RoundTripGigabytesPerSecond,
+    double AllocatedBytesPerEcho);
 
 internal sealed record DhmpRing3ConsumerBenchmark(
     int RecordBytes,

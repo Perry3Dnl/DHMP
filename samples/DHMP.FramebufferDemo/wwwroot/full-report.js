@@ -507,6 +507,30 @@
       [{ label: 'Transactions/s', values: report.confirmationModes.map(r => Number(r.packetRate)) }],
       fullInteger);
 
+    const pokeRows = Array.isArray(report.pokeBenchmarks)
+      ? report.pokeBenchmarks
+      : [];
+
+    if (pokeRows.length) {
+      drawGroupedBarChart(
+        'pokeRateChart',
+        pokeRows.map(row => fullInteger(row.packetBytes) + ' B'),
+        [{
+          label: 'Exact echoes/s',
+          values: pokeRows.map(row => Number(row.echoesPerSecond || 0))
+        }],
+        fullInteger);
+
+      drawGroupedBarChart(
+        'pokeLatencyChart',
+        pokeRows.map(row => fullInteger(row.packetBytes) + ' B'),
+        [{
+          label: 'Local ns/echo',
+          values: pokeRows.map(row => Number(row.roundTripNanoseconds?.median || 0))
+        }],
+        value => fullDecimal(value, 2));
+    }
+
     drawZeroAwareAllocationChart(
       'allocationChart',
       report.allocations);
@@ -546,6 +570,11 @@
       afxdp && rawIpv6 && Number(rawIpv6.packetRate || 0) > 0
         ? Number(afxdp.packetRate || 0) / Number(rawIpv6.packetRate || 0)
         : 0;
+    const pokeRows = Array.isArray(report.pokeBenchmarks)
+      ? report.pokeBenchmarks
+      : [];
+    const miniPoke = pokeRows.find(row =>
+      Number(row.packetBytes) === 16);
 
     $('proofStrip').innerHTML =
       '<article class="proof-card"><span>Measured kernel bypass</span><strong>' +
@@ -561,7 +590,10 @@
       fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
       ' B/call</strong><small>' +
       (s.allCorrectnessChecksPassed ? 'All correctness checks passed.' : 'One or more correctness checks failed.') +
-      '</small></article>';
+      '</small></article>' +
+      '<article class="proof-card"><span>Poke mini echo ceiling</span><strong>' +
+      (miniPoke ? fullInteger(miniPoke.echoesPerSecond) : '—') +
+      '</strong><small>16-byte Span-based exact echoes/s; local control-plane processing ceiling, not network RTT.</small></article>';
 
     const http = protocolRows.find(row =>
       String(row.protocol || '').toLowerCase().startsWith('http/'));
@@ -666,6 +698,19 @@
       Number(row.roundTripNanoseconds.coefficientOfVariationPercent).toFixed(2) + '%</td><td>' +
       fullInteger(row.packetRate) + '</td><td>' + Number(row.returnBytesPerForwardPacket).toLocaleString() +
       '</td></tr>').join('');
+
+    const pokeRowsForTable = Array.isArray(report.pokeBenchmarks)
+      ? report.pokeBenchmarks
+      : [];
+
+    $('pokeBody').innerHTML = pokeRowsForTable.map(row =>
+      '<tr><td>' + (Number(row.packetBytes) === 16 ? 'Mini Poke' : 'Full Echo Poke') +
+      '</td><td>' + fullInteger(row.packetBytes) + '</td><td>' +
+      fullDecimal(row.roundTripNanoseconds.median, 2) + '</td><td>' +
+      fullDecimal(row.roundTripNanoseconds.coefficientOfVariationPercent, 2) + '%</td><td>' +
+      fullInteger(row.echoesPerSecond) + '</td><td>' +
+      fullDecimal(row.roundTripGigabytesPerSecond, 3) + '</td><td>' +
+      fullDecimal(row.allocatedBytesPerEcho, 3) + '</td></tr>').join('');
 
     const ring = report.ring3Consumer;
     $('ring3ConsumerGrid').innerHTML =

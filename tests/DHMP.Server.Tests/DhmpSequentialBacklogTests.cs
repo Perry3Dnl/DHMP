@@ -302,4 +302,48 @@ public sealed class DhmpSequentialBacklogTests
             new byte[] { 3, 4, 5 },
             newest.ToArray());
     }
+    [Fact]
+    public void Fixed_backlog_keeps_large_capacity_logical_until_segments_are_used()
+    {
+        long before =
+            GC.GetAllocatedBytesForCurrentThread();
+
+        var backlog =
+            new DhmpSequentialBacklog(
+                recordSize: 65_520,
+                capacityRecords: 1_000_000,
+                DhmpSequentialBacklogOverflowPolicy.Backpressure);
+
+        long constructorBytes =
+            GC.GetAllocatedBytesForCurrentThread() -
+            before;
+
+        Assert.Equal(
+            1_000_000,
+            backlog.CapacityRecords);
+
+        Assert.True(
+            constructorBytes < 1_000_000,
+            $"Fixed FIFO constructor allocated {constructorBytes:N0} bytes before any record was enqueued.");
+
+        byte[] record =
+            new byte[65_520];
+
+        record[0] = 0x5A;
+
+        backlog.Enqueue(
+            record);
+
+        Span<byte> destination =
+            stackalloc byte[65_520];
+
+        Assert.True(
+            backlog.TryDequeue(
+                destination));
+
+        Assert.Equal(
+            (byte)0x5A,
+            destination[0]);
+    }
+
 }

@@ -23,7 +23,7 @@ internal sealed class DhmpSequentialBacklog
     private readonly DhmpSequentialBacklogOverflowPolicy _overflowPolicy;
     private readonly long _capacityRecords;
     private readonly int _recordsPerSegment;
-    private readonly byte[][]? _segments;
+    private readonly byte[]?[]? _segments;
     private readonly Queue<byte[]>? _unbounded;
 
     private int _headSegment;
@@ -77,21 +77,14 @@ internal sealed class DhmpSequentialBacklog
                 "Sequential backlog requires too many fixed storage segments.");
         }
 
-        _segments = new byte[checked((int)segmentCountLong)][];
-
-        long remaining = capacityRecords;
-
-        for (int index = 0; index < _segments.Length; index++)
-        {
-            int records =
-                checked((int)Math.Min(remaining, _recordsPerSegment));
-
-            _segments[index] =
-                GC.AllocateUninitializedArray<byte>(
-                    checked(records * recordSize));
-
-            remaining -= records;
-        }
+        // Fixed capacity is a logical bound, not an instruction to reserve the
+        // entire worst-case byte capacity immediately. Segment storage is retained
+        // once touched, but allocated only when the producer first reaches it.
+        // This keeps a 1,000,000-record policy usable with large record sizes
+        // without reserving tens of gigabytes for an empty FIFO.
+        _segments =
+            new byte[]?[
+                checked((int)segmentCountLong)];
     }
 
     public int RecordSize => _recordSize;
@@ -363,21 +356,63 @@ internal sealed class DhmpSequentialBacklog
     }
 
     private Span<byte> GetHeadFixedSpan() =>
-        _segments![_headSegment]
+        GetAllocatedSegment(
+                _headSegment)
             .AsSpan(
                 _headRecord * _recordSize,
                 _recordSize);
 
     private Span<byte> GetTailFixedSpan() =>
-        _segments![_tailSegment]
+        EnsureSegmentAllocated(
+                _tailSegment)
             .AsSpan(
                 _tailRecord * _recordSize,
                 _recordSize);
 
+    private byte[] EnsureSegmentAllocated(
+        int segmentIndex)
+    {
+        byte[]? segment =
+            _segments![segmentIndex];
+
+        if (segment is not null)
+            return segment;
+
+        long recordsBefore =
+            (long)segmentIndex *
+            _recordsPerSegment;
+
+        int records =
+            checked(
+                (int)Math.Min(
+                    _capacityRecords -
+                    recordsBefore,
+                    _recordsPerSegment));
+
+        segment =
+            GC.AllocateUninitializedArray<byte>(
+                checked(
+                    records *
+                    _recordSize));
+
+        _segments[segmentIndex] =
+            segment;
+
+        return segment;
+    }
+
+    private byte[] GetAllocatedSegment(
+        int segmentIndex) =>
+        _segments![segmentIndex] ??
+        throw new InvalidOperationException(
+            "Sequential backlog attempted to consume an unallocated FIFO segment.");
+
     private void AdvanceHeadFixed()
     {
         int nextRecord = _headRecord + 1;
-        byte[] segment = _segments![_headSegment];
+        byte[] segment =
+            GetAllocatedSegment(
+                _headSegment);
 
         if (nextRecord * _recordSize == segment.Length)
         {
@@ -397,7 +432,9 @@ internal sealed class DhmpSequentialBacklog
     private void AdvanceTailFixed()
     {
         int nextRecord = _tailRecord + 1;
-        byte[] segment = _segments![_tailSegment];
+        byte[] segment =
+            GetAllocatedSegment(
+                _tailSegment);
 
         if (nextRecord * _recordSize == segment.Length)
         {

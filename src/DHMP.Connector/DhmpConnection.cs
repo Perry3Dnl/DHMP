@@ -26,6 +26,7 @@ public sealed class DhmpConnection : IAsyncDisposable
         DhmpClient client,
         IDisposable transportSender,
         DhmpTransportKind transport,
+        DhmpPokeResult? initialPoke,
         DhmpProtectedPacketSender? protectedSender,
         DhmpPskChaCha20Poly1305Session? securitySession,
         ulong? connectionId,
@@ -36,6 +37,7 @@ public sealed class DhmpConnection : IAsyncDisposable
         _client = client;
         _transportSender = transportSender;
         Transport = transport;
+        InitialPoke = initialPoke;
         _protectedSender = protectedSender;
         _securitySession = securitySession;
         ConnectionId = connectionId;
@@ -46,6 +48,12 @@ public sealed class DhmpConnection : IAsyncDisposable
 
     /// <summary>The concrete network path selected by the connection resolver.</summary>
     public DhmpTransportKind Transport { get; }
+
+    /// <summary>
+    /// Pre-handshake Poke timing captured by the initiating connector.
+    /// Accepted/server-side connections leave this null because they answer the Poke.
+    /// </summary>
+    public DhmpPokeResult? InitialPoke { get; }
 
     /// <summary>
     /// Optional 64-bit application-routing identity for duplicate-source connections.

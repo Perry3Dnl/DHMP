@@ -70,18 +70,54 @@ public static class DhmpRawIpv6Handshake
             {
                 token.ThrowIfCancellationRequested();
                 using var channel = channelFactory();
-                byte[] packet = new byte[DhmpProtocol.ControlPacketSize];
+                byte[] packet =
+                    new byte[DhmpPokeCodec.MaximumPacketSize];
 
                 while (true)
                 {
                     token.ThrowIfCancellationRequested();
-                    var incoming = await ReceiveAsync(channel, packet, token).ConfigureAwait(false);
+
+                    int received =
+                        await channel.ReceivePacketAsync(
+                            packet,
+                            token).ConfigureAwait(false);
+
+                    if (DhmpPokeCodec.TryReadToken(
+                            packet.AsSpan(
+                                0,
+                                received),
+                            out _))
+                    {
+                        await channel.SendPacketAsync(
+                            packet.AsMemory(
+                                0,
+                                received),
+                            token).ConfigureAwait(false);
+
+                        continue;
+                    }
+
+                    if (received != DhmpProtocol.ControlPacketSize ||
+                        !DhmpControlCodec.TryDecode(
+                            packet.AsSpan(
+                                0,
+                                received),
+                            out var incoming))
+                    {
+                        throw new DhmpProtocolException(
+                            "Received malformed or unsupported DHMP control packet.");
+                    }
+
                     if (incoming.Type != DhmpControlMessageType.Hello)
                         continue;
 
                     var evaluation = DhmpControlNegotiator.EvaluateHello(localProfile, incoming);
                     DhmpControlCodec.Encode(evaluation.Response, packet);
-                    await channel.SendPacketAsync(packet, token).ConfigureAwait(false);
+                    await channel.SendPacketAsync(
+                        packet.AsMemory(
+                            0,
+                            DhmpProtocol.ControlPacketSize),
+                        token).ConfigureAwait(false);
                     token.ThrowIfCancellationRequested();
 
                     if (!evaluation.Accepted || !evaluation.RemoteProfile.HasValue)
