@@ -77,20 +77,5 @@ public readonly record struct DhmpReceivePolicy
             !Enum.IsDefined(SequentialBacklogOverflowPolicy))
             throw new ArgumentException("A valid Sequential backlog policy is required.");
 
-        if (Mode == DhmpProcessingMode.Sequential &&
-            SequentialBacklogOverflowPolicy !=
-                DhmpSequentialBacklogOverflowPolicy.Unbounded)
-        {
-            long bytes =
-                checked(
-                    SequentialBacklogCapacityRecords *
-                    wireContract.RecordSize);
-
-            if (bytes > int.MaxValue)
-            {
-                throw new ArgumentException(
-                    "The fixed Sequential backlog exceeds the maximum contiguous managed buffer size. Reduce SequentialBacklogMillions or select Unbounded.");
-            }
-        }
     }
 }
