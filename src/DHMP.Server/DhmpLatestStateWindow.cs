@@ -8,6 +8,11 @@ namespace DHMP.Server;
 /// Native Smoothing consumes N-2/N-1/N. Readers may retry when racing an
 /// overwrite, but the receive writer never waits for a reader.
 /// </summary>
+public delegate void DhmpWindow3Consumer(
+    ReadOnlySpan<byte> oldest,
+    ReadOnlySpan<byte> middle,
+    ReadOnlySpan<byte> newest);
+
 public sealed class DhmpLatestStateWindow
 {
     public const int Capacity = 3;
@@ -153,9 +158,9 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Grab the newest fully received slot visible when the grabber looks.
-    /// An in-progress write into the next arrival slot does not delay this
-    /// operation.
+    /// Snapshot compatibility API for the newest fully received slot.
+    /// This copies into caller-owned storage and is not used by the canonical
+    /// zero-copy Latest grabber hot path.
     /// </summary>
     public int CopyLatestTo(Span<byte> destination)
     {
@@ -264,6 +269,63 @@ public sealed class DhmpLatestStateWindow
     /// Native-smoothing sweep/grab. Returns zero until three complete arrivals
     /// exist. Once available, copies exactly N-2/N-1/N in chronological order.
     /// A race may delay/retry the reader, but never the receive writer.
+    /// </summary>
+    /// <summary>
+    /// Zero-copy Native Smoothing grabber for the single-writer synchronous
+    /// receive path. The three spans alias the physical arrival Ring-3 slots
+    /// in chronological N-2/N-1/N order and are valid only for the callback.
+    /// No record bytes are copied by the sweeper or grabber.
+    /// </summary>
+    internal int ConsumeCompletedWindow3SingleWriter(
+        DhmpWindow3Consumer consumer)
+    {
+        ArgumentNullException.ThrowIfNull(consumer);
+
+        if (_sweepActive != 0)
+            throw new InvalidOperationException(
+                "Cannot grab the smoothing window while an arrival write is in progress.");
+
+        long newest =
+            Volatile.Read(ref _publishedSequence);
+
+        if (newest < Capacity)
+            return 0;
+
+        long firstSequence =
+            newest - Capacity + 1;
+
+        ReadOnlySpan<byte> first = GetStableSlotSingleWriter(firstSequence);
+        ReadOnlySpan<byte> second = GetStableSlotSingleWriter(firstSequence + 1);
+        ReadOnlySpan<byte> third = GetStableSlotSingleWriter(firstSequence + 2);
+
+        consumer(first, second, third);
+        return Capacity;
+    }
+
+    private ReadOnlySpan<byte> GetStableSlotSingleWriter(
+        long sequence)
+    {
+        int slot =
+            (int)((sequence - 1) % Capacity);
+
+        long expectedVersion =
+            sequence * 2;
+
+        if (Volatile.Read(ref _slotVersions[slot]) != expectedVersion)
+        {
+            throw new InvalidOperationException(
+                "Requested receive-ring slot is not stable.");
+        }
+
+        return _slots.AsSpan(
+            slot * _recordSize,
+            _recordSize);
+    }
+
+    /// <summary>
+    /// Snapshot compatibility API. This copies Ring-3 bytes into caller-owned
+    /// contiguous storage. It is not used by the canonical sweeper/grabber hot
+    /// path; use ConsumeCompletedWindow3SingleWriter for zero-copy handoff.
     /// </summary>
     public int CopyCompletedWindow3To(
         Span<byte> destination)
