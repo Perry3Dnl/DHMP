@@ -20,7 +20,6 @@ public sealed class DhmpLatestStateWindow
     private int _sweepActive;
     private long _pendingSequence;
     private int _pendingSlot;
-    private long _pendingPreviousVersion;
     private long _publishedSequence;
 
     public DhmpLatestStateWindow(int recordSize)
@@ -65,13 +64,9 @@ public sealed class DhmpLatestStateWindow
         int slot =
             (int)((sequence - 1) % Capacity);
 
-        long previousVersion =
-            Volatile.Read(ref _slotVersions[slot]);
-
         _sweepActive = 1;
         _pendingSequence = sequence;
         _pendingSlot = slot;
-        _pendingPreviousVersion = previousVersion;
 
         // Odd means that this physical slot is currently being swept/written.
         Volatile.Write(
@@ -109,17 +104,21 @@ public sealed class DhmpLatestStateWindow
     }
 
     /// <summary>
-    /// Abandon an uncommitted sweep and restore the slot's previous published
-    /// version. This never changes the published Latest pointer.
+    /// Abandon an uncommitted sweep. The partially written slot remains
+    /// unavailable to grabbers until a later completed sweep replaces it.
+    /// This never rolls back or blocks the published Latest pointer.
     /// </summary>
     public void CancelSweep()
     {
         if (_sweepActive == 0)
             return;
 
+        // The bytes may already be partially overwritten, so never make the
+        // previous version visible again. A smoothing grabber may retry until
+        // this physical slot is replaced by a later completed sweep.
         Volatile.Write(
             ref _slotVersions[_pendingSlot],
-            _pendingPreviousVersion);
+            0);
 
         _sweepActive = 0;
     }
