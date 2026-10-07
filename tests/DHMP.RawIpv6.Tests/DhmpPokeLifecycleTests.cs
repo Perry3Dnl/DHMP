@@ -101,7 +101,7 @@ public sealed class DhmpPokeLifecycleTests
 
         Assert.Equal(
             recordSize,
-            peer.WireContract.RecordSize);
+            peer.RemoteProfile.WireContract.RecordSize);
 
         Assert.Equal(
             2,
