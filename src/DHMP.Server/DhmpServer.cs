@@ -11,7 +11,8 @@ public sealed class DhmpServer
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
-    private readonly DhmpLatestStateWindow? _latestSweepSlots;
+    private readonly DhmpLatestStateWindow _receiveSweepSlots;
+    private DhmpSequentialBacklog? _sequentialBacklog;
 
     public DhmpServer(
         DhmpWireContract wireContract,
@@ -37,16 +38,13 @@ public sealed class DhmpServer
                 wireContract,
                 receivePolicy);
 
-        // Latest and Latest + Native Smoothing share the exact same three
-        // physical sweep slots. Native Smoothing only changes how the grabber
-        // consumes those already-completed slots.
-        if (receivePolicy.Mode ==
-            DhmpProcessingMode.Latest)
-        {
-            _latestSweepSlots =
-                new DhmpLatestStateWindow(
-                    wireContract.RecordSize);
-        }
+        // All receive modes share the same physical three-slot sweeper.
+        // Mode only changes grabber behavior after a slot is complete:
+        // Latest grabs one, Native Smoothing grabs three, Sequential moves
+        // every completed slot into its FIFO backlog.
+        _receiveSweepSlots =
+            new DhmpLatestStateWindow(
+                wireContract.RecordSize);
     }
 
     public DhmpWireContract WireContract =>
@@ -56,14 +54,26 @@ public sealed class DhmpServer
         _receivePolicy;
 
     public bool LatestGrabberAvailable =>
-        _latestSweepSlots is not null;
+        _receivePolicy.Mode == DhmpProcessingMode.Latest;
+
+    public bool SequentialGrabberAvailable =>
+        _receivePolicy.Mode == DhmpProcessingMode.Sequential;
+
+    public int SequentialBacklogCount =>
+        _sequentialBacklog?.Count ?? 0;
+
+    public long SequentialBacklogDroppedRecords =>
+        _sequentialBacklog?.RecordsDropped ?? 0;
+
+    public long SequentialBackpressureWaits =>
+        _sequentialBacklog?.BackpressureWaits ?? 0;
 
     public bool NativeSmoothingEnabled =>
         _receivePolicy.NativeSmoothing;
 
     public int NativeSmoothingRecordCount =>
         NativeSmoothingEnabled
-            ? _latestSweepSlots?.Count ?? 0
+            ? _receiveSweepSlots.Count
             : 0;
 
     /// <summary>
@@ -128,8 +138,143 @@ public sealed class DhmpServer
                 destination);
     }
 
-    private DhmpLatestStateWindow GetLatestSweepSlots() =>
-        _latestSweepSlots ??
-        throw new InvalidOperationException(
-            "Latest sweep/grab APIs require DhmpProcessingMode.Latest.");
+    /// <summary>
+    /// Sequential sweeper: obtain the next shared physical receive slot.
+    /// The producer remains unrestricted until the FIFO backlog is full.
+    /// </summary>
+    public Span<byte> BeginSequentialSweep()
+    {
+        EnsureSequentialMode();
+        return _receiveSweepSlots.BeginSweep();
+    }
+
+    /// <summary>
+    /// Commit one Sequential sweep and let the grabber move that exact record
+    /// into FIFO storage. Backpressure waits only when a fixed lossless backlog
+    /// is full. DropOldest and Unbounded never wait for consumer capacity.
+    /// </summary>
+    public void CommitSequentialSweep()
+    {
+        EnsureSequentialMode();
+
+        _receiveSweepSlots.CommitSweep();
+
+        GetSequentialBacklog()
+            .Enqueue(
+                _receiveSweepSlots
+                    .GetLatestPublishedSlotSingleWriter());
+    }
+
+    public void CancelSequentialSweep()
+    {
+        EnsureSequentialMode();
+        _receiveSweepSlots.CancelSweep();
+    }
+
+    public void SweepSequential(
+        ReadOnlySpan<byte> record)
+    {
+        Span<byte> slot =
+            BeginSequentialSweep();
+
+        try
+        {
+            record.CopyTo(slot);
+            CommitSequentialSweep();
+        }
+        catch
+        {
+            CancelSequentialSweep();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Compatibility packet entry point for the new Sequential architecture.
+    /// Packet validation remains in DhmpPacketProcessor; every complete record
+    /// then passes through the shared sweeper and FIFO grabber in order.
+    /// </summary>
+    public void ProcessPacketToSequentialBacklog(
+        ReadOnlySpan<byte> packet)
+    {
+        EnsureSequentialMode();
+
+        _processor.Process(
+            packet,
+            SweepSequentialBatch);
+    }
+
+    /// <summary>
+    /// Pop the oldest Sequential record. Removing an item immediately frees
+    /// fixed-backlog capacity and can release a backpressured sweeper.
+    /// </summary>
+    public bool TryDequeueSequential(
+        Span<byte> destination)
+    {
+        EnsureSequentialMode();
+
+        return GetSequentialBacklog()
+            .TryDequeue(destination);
+    }
+
+    private void SweepSequentialBatch(
+        ReadOnlySpan<byte> batch)
+    {
+        int recordSize =
+            _wireContract.RecordSize;
+
+        for (int offset = 0;
+             offset < batch.Length;
+             offset += recordSize)
+        {
+            SweepSequential(
+                batch.Slice(
+                    offset,
+                    recordSize));
+        }
+    }
+
+    private DhmpSequentialBacklog GetSequentialBacklog()
+    {
+        EnsureSequentialMode();
+
+        if (_sequentialBacklog is not null)
+            return _sequentialBacklog;
+
+        int capacityRecords =
+            _receivePolicy.SequentialBacklogOverflowPolicy ==
+                DhmpSequentialBacklogOverflowPolicy.Unbounded
+                ? 1
+                : checked(
+                    (int)_receivePolicy
+                        .SequentialBacklogCapacityRecords);
+
+        _sequentialBacklog =
+            new DhmpSequentialBacklog(
+                _wireContract.RecordSize,
+                capacityRecords,
+                _receivePolicy.SequentialBacklogOverflowPolicy);
+
+        return _sequentialBacklog;
+    }
+
+    private void EnsureSequentialMode()
+    {
+        if (_receivePolicy.Mode != DhmpProcessingMode.Sequential)
+        {
+            throw new InvalidOperationException(
+                "Sequential sweep/backlog APIs require DhmpProcessingMode.Sequential.");
+        }
+    }
+
+    private DhmpLatestStateWindow GetLatestSweepSlots()
+    {
+        if (_receivePolicy.Mode != DhmpProcessingMode.Latest)
+        {
+            throw new InvalidOperationException(
+                "Latest sweep/grab APIs require DhmpProcessingMode.Latest.");
+        }
+
+        return _receiveSweepSlots;
+    }
 }
