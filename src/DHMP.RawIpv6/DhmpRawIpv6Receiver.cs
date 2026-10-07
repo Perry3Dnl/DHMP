@@ -163,9 +163,13 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
                 bool accepted = DhmpRawIpv6PayloadProcessor.TryProcess(_server, _decoder,
                     _buffer.AsSpan(0, result.ReceivedBytes), _plaintextBuffer,
-                    publishBatch, out bool protectionRejected);
+                    publishBatch, out bool protectionRejected,
+                    out bool slotSizeIgnored);
                 if (!accepted)
                 {
+                    if (slotSizeIgnored)
+                        continue;
+
                     if (protectionRejected)
                         Interlocked.Increment(ref _protectionRejectedPackets);
                     else
