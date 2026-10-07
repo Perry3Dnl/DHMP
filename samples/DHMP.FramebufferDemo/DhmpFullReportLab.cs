@@ -12,6 +12,7 @@ internal sealed class DhmpFullReportLab
     private const int WarmupIterations = 20_000;
     private const int MeasuredIterations = 120_000;
     private const int Repetitions = 5;
+    private const int ReferencePacketBytes = 1408;
 
     private static readonly int[] PacketSizes =
         [16, 256, 1024, 1408, 4096, 16384, 65520];
@@ -85,31 +86,32 @@ internal sealed class DhmpFullReportLab
             await Task.Delay(300).ConfigureAwait(false);
 
             var environment = CaptureEnvironment();
-            Step("Core / server / client matrix");
+            SetPhase("Core / server / client matrix");
+            CompleteStep();
 
             var matrix = new List<DhmpPathBenchmark>();
             foreach (int packetBytes in PacketSizes)
             {
+                SetPhase($"Sequential {packetBytes:N0} B");
                 matrix.Add(RunPathBenchmark(
                     packetBytes,
                     DhmpProcessingMode.Sequential,
                     nativeSmoothing: false));
+                CompleteStep();
 
-                Step($"Sequential {packetBytes:N0} B");
-
+                SetPhase($"Latest {packetBytes:N0} B");
                 matrix.Add(RunPathBenchmark(
                     packetBytes,
                     DhmpProcessingMode.Latest,
                     nativeSmoothing: false));
+                CompleteStep();
 
-                Step($"Latest {packetBytes:N0} B");
-
+                SetPhase($"Latest + Ring-3 {packetBytes:N0} B");
                 matrix.Add(RunPathBenchmark(
                     packetBytes,
                     DhmpProcessingMode.Latest,
                     nativeSmoothing: true));
-
-                Step($"Latest + Ring-3 {packetBytes:N0} B");
+                CompleteStep();
             }
 
             Step("Worker scaling");
@@ -192,9 +194,20 @@ internal sealed class DhmpFullReportLab
 
     private void Step(string phase)
     {
+        SetPhase(phase);
+        CompleteStep();
+    }
+
+    private void SetPhase(string phase)
+    {
+        lock (_gate)
+            _phase = phase;
+    }
+
+    private void CompleteStep()
+    {
         lock (_gate)
         {
-            _phase = phase;
             _completedSteps = Math.Min(
                 _totalSteps,
                 _completedSteps + 1);
@@ -252,7 +265,17 @@ internal sealed class DhmpFullReportLab
                 MaximumPayloadBytes,
                 DhmpRatePolicy.Unlimited));
 
-        for (int i = 0; i < WarmupIterations; i++)
+        int warmupIterations =
+            ScaledIterations(
+                WarmupIterations,
+                packetBytes);
+
+        int measuredIterations =
+            ScaledIterations(
+                MeasuredIterations,
+                packetBytes);
+
+        for (int i = 0; i < warmupIterations; i++)
         {
             processor.Process(packet, publish);
             server.ProcessPacket(packet, publish);
@@ -267,17 +290,17 @@ internal sealed class DhmpFullReportLab
         {
             processorNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    MeasuredIterations,
+                    measuredIterations,
                     () => processor.Process(packet, publish));
 
             serverNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    MeasuredIterations,
+                    measuredIterations,
                     () => server.ProcessPacket(packet, publish));
 
             clientNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    MeasuredIterations,
+                    measuredIterations,
                     () => client.SendBatchAsync(packet)
                         .GetAwaiter()
                         .GetResult());
@@ -309,6 +332,26 @@ internal sealed class DhmpFullReportLab
             mode == DhmpProcessingMode.Latest
                 ? 1
                 : recordsPerPacket);
+    }
+
+    private static int ScaledIterations(
+        int baseIterations,
+        int packetBytes)
+    {
+        if (packetBytes <= ReferencePacketBytes)
+            return baseIterations;
+
+        // Keep large-packet benchmarks bounded by roughly the same total byte
+        // workload as the 1,408-byte network-oriented reference. Sequential
+        // now moves every 16-byte record through its real FIFO path, so a fixed
+        // packet-call count would otherwise multiply benchmark work by packet
+        // size and make 65,520-byte rows take impractically long.
+        long scaled =
+            (long)baseIterations *
+            ReferencePacketBytes /
+            packetBytes;
+
+        return checked((int)Math.Max(2_000L, scaled));
     }
 
     private static DhmpWorkerScalingBenchmark[] RunScalingBenchmarks()
@@ -728,7 +771,7 @@ internal sealed class DhmpFullReportLab
         {
             sweeperNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    MeasuredIterations,
+                    measuredIterations,
                     () =>
                     {
                         server.BeginLatestSweep().Clear();
@@ -737,13 +780,13 @@ internal sealed class DhmpFullReportLab
 
             latestGrabNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    MeasuredIterations,
+                    measuredIterations,
                     () => server.CopyLatest(
                         latestDestination));
 
             smoothingGrabNs[repetition] =
                 MeasureNanosecondsPerCall(
-                    MeasuredIterations,
+                    measuredIterations,
                     () => server.CopyNativeSmoothingWindow(
                         smoothingDestination));
         }
