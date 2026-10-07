@@ -110,11 +110,10 @@ public sealed class DhmpServer
             _receiveSweepSlots.BeginSweep();
 
         record.CopyTo(slot);
-        _receiveSweepSlots.CommitSweep();
 
         backlog.Enqueue(
             _receiveSweepSlots
-                .GetLatestPublishedSlotSingleWriter());
+                .CommitSweepAndGetSlotSingleWriter());
 
         if (!backlog.TryConsume(publishBatch))
         {
@@ -236,11 +235,9 @@ public sealed class DhmpServer
                             recordSize)
                         .CopyTo(slot);
 
-                    _receiveSweepSlots.CommitSweep();
-
                     backlog.Enqueue(
                         _receiveSweepSlots
-                            .GetLatestPublishedSlotSingleWriter());
+                            .CommitSweepAndGetSlotSingleWriter());
                 }
                 catch
                 {
@@ -406,12 +403,10 @@ public sealed class DhmpServer
     {
         EnsureSequentialMode();
 
-        _receiveSweepSlots.CommitSweep();
-
         GetSequentialBacklog()
             .Enqueue(
                 _receiveSweepSlots
-                    .GetLatestPublishedSlotSingleWriter());
+                    .CommitSweepAndGetSlotSingleWriter());
     }
 
     public void CancelSequentialSweep()
