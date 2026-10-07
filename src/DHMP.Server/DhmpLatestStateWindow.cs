@@ -251,6 +251,9 @@ public sealed class DhmpLatestStateWindow
 
                 if (before != expectedVersion)
                 {
+                    if (before == 0)
+                        return 0;
+
                     retry = true;
                     break;
                 }
