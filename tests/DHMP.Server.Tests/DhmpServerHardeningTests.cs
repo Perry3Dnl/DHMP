@@ -384,6 +384,44 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void HappyFlow_NativeSmoothingZeroCopyGrabberBorrowsRingSlots()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16,
+                    nativeSmoothing: true));
+
+        foreach (byte value in new byte[] { 1, 2, 3 })
+        {
+            Span<byte> slot =
+                server.BeginLatestSweep();
+
+            slot[0] = value;
+            slot[1] = value;
+            server.CommitLatestSweep();
+        }
+
+        byte[] observed = new byte[6];
+
+        int count =
+            server.ConsumeNativeSmoothingWindow(
+                (oldest, middle, newest) =>
+                {
+                    oldest.CopyTo(observed.AsSpan(0, 2));
+                    middle.CopyTo(observed.AsSpan(2, 2));
+                    newest.CopyTo(observed.AsSpan(4, 2));
+                });
+
+        Assert.Equal(3, count);
+        Assert.Equal(
+            new byte[] { 1,1, 2,2, 3,3 },
+            observed);
+    }
+
+    [Fact]
     public void HappyFlow_NativeSmoothingGrabberUsesExactlyThreeCompletedSweepSlots()
     {
         var server =
