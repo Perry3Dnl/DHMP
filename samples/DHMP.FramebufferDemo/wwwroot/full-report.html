@@ -92,23 +92,23 @@
     </section>
 
     <section class="report-section">
-      <p class="eyebrow">PACKET MATRIX</p>
-      <h2>Core, server and end-to-end path by packet size and receive mode</h2>
-      <p class="muted">Each timing is based on repeated finite samples. Median is the headline value; min/max and coefficient of variation expose instability instead of hiding it. All counters and rates are written in full — no M/B/T abbreviation.</p>
+      <p class="eyebrow">CANONICAL WIRE PATH</p>
+      <h2>One negotiated record = one DHMP packet</h2>
+      <p class="muted">These rows measure the canonical DHMP data-plane invariant directly: exactly one negotiated fixed-size record per packet. With this run's 16-byte record contract, every row is a real 16-byte DHMP packet transaction. No local multi-record batch is presented here as a wire packet.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Packet rate by receive mode</h3>
-          <p class="muted">Exact packet transactions per second across payload sizes.</p>
+          <h3>Canonical packet rate by receive mode</h3>
+          <p class="muted">Exact one-record DHMP packet transactions per second.</p>
           <canvas id="packetRateModeChart"></canvas>
         </article>
         <article class="chart-card">
           <h3>Core processing time</h3>
-          <p class="muted">Median ns/packet by receive mode and payload size.</p>
+          <p class="muted">Median ns per one-record packet by receive mode.</p>
           <canvas id="coreTimingModeChart"></canvas>
         </article>
         <article class="chart-card">
-          <h3>End-to-end client path</h3>
-          <p class="muted">Median ns/packet through client → sender → server.</p>
+          <h3>End-to-end canonical path</h3>
+          <p class="muted">Median ns per one-record packet through client → sender → server.</p>
           <canvas id="clientTimingModeChart"></canvas>
         </article>
       </div>
@@ -118,6 +118,27 @@
             <th>Configuration</th><th>Bytes</th><th>Records</th><th>Core ns</th><th>Core CV</th><th>Server ns</th><th>Client ns</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th>
           </tr></thead>
           <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
+      <p class="eyebrow">LOCAL MEMORY BATCH CEILING</p>
+      <h2>Compatibility batch APIs — software ceiling only</h2>
+      <div class="comparison-callout"><strong>Not wire packet throughput.</strong> These rows intentionally exercise local multi-record batch APIs at larger byte counts. A batch call may contain many negotiated records, but the raw DHMP sender emits those records as individual one-record packets.</div>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Local batch call rate</h3>
+          <p class="muted">Complete local batch API calls per second. This is useful for CPU/software ceiling analysis, not packet-rate claims.</p>
+          <canvas id="localBatchRateChart"></canvas>
+        </article>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr>
+            <th>Configuration</th><th>Batch bytes</th><th>Records/batch</th><th>Core ns/batch</th><th>Server ns/batch</th><th>Client ns/batch</th><th>Batch calls/s</th><th>Logical records/s</th><th>Logical GB/s</th>
+          </tr></thead>
+          <tbody id="localBatchBody"></tbody>
         </table>
       </div>
     </section>
@@ -161,8 +182,8 @@
       <div class="comparison-callout"><strong>Software ceiling — not physical wire throughput.</strong> These numbers measure the in-memory DHMP processing path. They tell you how much CPU-side headroom the package has; they are not NIC speed claims.</div>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Payload processing as workers increase</h3>
-          <p class="muted">Logical application payload processed by the in-memory full path. Higher is better.</p>
+          <h3>Canonical packet scaling</h3>
+          <p class="muted">One-record DHMP packets processed as workers increase. Higher is better.</p>
           <canvas id="softwareThroughputChart"></canvas>
         </article>
         <article class="chart-card chart-wide">
@@ -248,6 +269,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-complete-protocol-units"></script>
+<script src="/full-report.js?v=20261007-canonical-wire-v2"></script>
 </body>
 </html>
