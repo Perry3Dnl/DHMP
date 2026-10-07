@@ -1,3 +1,4 @@
+using System.Buffers;
 using DHMP.Protocol;
 
 namespace DHMP.Server;
@@ -146,9 +147,50 @@ public sealed class DhmpServer
                 }
             }
 
-            while (backlog.TryConsume(
-                       publishBatch))
+            int recordCount =
+                completeBytes /
+                recordSize;
+
+            byte[] publicationBuffer =
+                ArrayPool<byte>.Shared.Rent(
+                    completeBytes);
+
+            try
             {
+                Span<byte> publication =
+                    publicationBuffer.AsSpan(
+                        0,
+                        completeBytes);
+
+                for (int index = 0;
+                     index < recordCount;
+                     index++)
+                {
+                    bool dequeued =
+                        backlog.TryDequeue(
+                            publication.Slice(
+                                index * recordSize,
+                                recordSize));
+
+                    if (!dequeued)
+                    {
+                        throw new InvalidOperationException(
+                            "Sequential grabber lost a record before synchronous publication.");
+                    }
+                }
+
+                // Preserve the established ProcessPacket contract: Sequential
+                // publishes one complete packet batch, not one callback per
+                // record. Internally every record still crossed the sweeper
+                // and FIFO grabber first.
+                publishBatch(
+                    publication);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(
+                    publicationBuffer,
+                    clearArray: false);
             }
 
             return;
