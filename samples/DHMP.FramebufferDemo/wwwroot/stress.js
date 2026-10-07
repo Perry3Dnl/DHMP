@@ -337,6 +337,12 @@
   packetRateCapSlider.value='0';
   packetRateCapLabel.textContent='Unlimited';
 
-  poll();
+  configure()
+    .catch(()=>{
+      state.textContent='configuration failed';
+      state.classList.remove('live');
+    })
+    .finally(poll);
+
   setInterval(poll,1000);
 })();
