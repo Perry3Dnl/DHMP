@@ -261,6 +261,63 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void HappyFlow_FusedLatestFastPathPreservesArrivalRingAndNewestGrab()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 16,
+                    nativeSmoothing: true));
+
+        byte[]? published = null;
+
+        server.ProcessPacket(
+            new byte[] { 1,1, 2,2, 3,3, 4,4 },
+            span => published = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 4,4 },
+            published);
+
+        Assert.Equal(
+            4,
+            server.ReceiveSweepRecordsObserved);
+
+        Span<byte> window =
+            stackalloc byte[6];
+
+        Assert.Equal(
+            3,
+            server.CopyNativeSmoothingWindow(window));
+
+        Assert.Equal(
+            new byte[] { 2,2, 3,3, 4,4 },
+            window.ToArray());
+
+        server.ProcessPacket(
+            new byte[] { 5,5 },
+            span => published = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 5,5 },
+            published);
+
+        Assert.Equal(
+            5,
+            server.ReceiveSweepRecordsObserved);
+
+        Assert.Equal(
+            3,
+            server.CopyNativeSmoothingWindow(window));
+
+        Assert.Equal(
+            new byte[] { 3,3, 4,4, 5,5 },
+            window.ToArray());
+    }
+
+    [Fact]
     public void HappyFlow_ServerLatestAndNativeSmoothingSharePacketHotPath()
     {
         var latest =
