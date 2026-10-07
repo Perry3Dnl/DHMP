@@ -5,6 +5,10 @@ using DHMP.Server;
 
 internal sealed class DhmpThroughputLab : BackgroundService
 {
+    // Retained for the explicit 16-byte local-batch experiments in the Full
+    // Report. The live Throughput Lab below negotiates the selected packet
+    // payload size as its record size, so its canonical path is always
+    // exactly one record per packet.
     public const int RecordSize = 16;
     public const int MaximumPayloadBytes = 65_520;
 
@@ -49,8 +53,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         long packetRateCap)
     {
         if (packetBytes < RecordSize ||
-            packetBytes > MaximumPayloadBytes ||
-            packetBytes % RecordSize != 0)
+            packetBytes > MaximumPayloadBytes)
             throw new ArgumentOutOfRangeException(nameof(packetBytes));
 
         if (workers <= 0 || workers > 64)
@@ -175,11 +178,11 @@ internal sealed class DhmpThroughputLab : BackgroundService
             allocationBreakdown.ClientBytesPerPacket,
             allocationBreakdown.FullPathBytesPerPacket,
             packetBytes,
-            packetBytes / RecordSize,
+            1,
             workers,
             Environment.ProcessorCount,
             version,
-            RecordSize,
+            packetBytes,
             receiveMode.ToString(),
             ratePolicy.ToString(),
             nativeSmoothing,
@@ -189,7 +192,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             confirmationBytesReturned,
             receiveMode == DhmpProcessingMode.Latest
                 ? 1
-                : packetBytes / RecordSize,
+                : 1,
             Interlocked.Read(ref _workerFaults),
             _lastWorkerError);
     }
@@ -230,7 +233,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
             AllocationBreakdown allocationBreakdown =
                 MeasureAllocationBreakdown(
-                    receiveMode);
+                    receiveMode,
+                    packetBytes);
 
             lock (_configurationGate)
             {
@@ -378,7 +382,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             configuredWorkers = _workers;
         }
 
-        var wire = new DhmpWireContract(RecordSize);
+        var wire = new DhmpWireContract(packetBytes);
         var receivePolicy = new DhmpReceivePolicy(
             receiveMode,
             MaximumPayloadBytes,
@@ -390,7 +394,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         var sender = new InMemoryPacketSender(
             server,
-            RecordSize,
+            packetBytes,
             confirmationMode,
             metrics);
 
@@ -410,7 +414,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         FillPacket(packet, workerId);
 
         int recordsPerPacket =
-            packetBytes / RecordSize;
+            1;
 
         const int ConfigurationCheckMask =
             4096 - 1;
@@ -557,7 +561,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         var processor =
             new DhmpPacketProcessor(
-                new DhmpWireContract(RecordSize),
+                new DhmpWireContract(packetBytes),
                 new DhmpReceivePolicy(
                     receiveMode,
                     MaximumPayloadBytes));
@@ -610,11 +614,26 @@ internal sealed class DhmpThroughputLab : BackgroundService
     }
 
     private static AllocationBreakdown MeasureAllocationBreakdown(
-        DhmpProcessingMode receiveMode)
+        DhmpProcessingMode receiveMode,
+        int packetBytes)
     {
-        const int ProbePacketBytes = 256;
-        const int WarmupIterations = 10_000;
-        const int MeasuredIterations = 250_000;
+        // Keep allocation probes representative of the selected canonical
+        // record size without turning the largest record into a multi-minute
+        // memory-bandwidth test. Large records use fewer calls; small records
+        // retain the historical 250k-call ceiling.
+        int MeasuredIterations =
+            Math.Clamp(
+                (int)(
+                    64L * 1024 * 1024 /
+                    Math.Max(1, packetBytes)),
+                4_096,
+                250_000);
+
+        int WarmupIterations =
+            Math.Clamp(
+                MeasuredIterations / 10,
+                512,
+                10_000);
 
         var wire =
             new DhmpWireContract(
@@ -627,7 +646,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         byte[] packet =
             GC.AllocateUninitializedArray<byte>(
-                ProbePacketBytes);
+                packetBytes);
 
         Action<ReadOnlySpan<byte>> publish =
             static _ => { };
@@ -685,7 +704,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         var fullSender =
             new InMemoryPacketSender(
                 server,
-                RecordSize,
+                packetBytes,
                 DhmpStressConfirmationMode.None,
                 metrics);
 
@@ -748,19 +767,23 @@ internal sealed class DhmpThroughputLab : BackgroundService
         byte[] packet,
         int workerId)
     {
-        for (int offset = 0; offset < packet.Length; offset += RecordSize)
+        long sequence =
+            (long)workerId << 48;
+
+        BitConverter.TryWriteBytes(
+            packet.AsSpan(0, 8),
+            sequence);
+
+        BitConverter.TryWriteBytes(
+            packet.AsSpan(8, 8),
+            ~sequence);
+
+        if (packet.Length > 16)
         {
-            long sequence =
-                ((long)workerId << 48) |
-                (uint)(offset / RecordSize);
-
-            BitConverter.TryWriteBytes(
-                packet.AsSpan(offset, 8),
-                sequence);
-
-            BitConverter.TryWriteBytes(
-                packet.AsSpan(offset + 8, 8),
-                ~sequence);
+            packet.AsSpan(16)
+                .Fill(
+                    unchecked(
+                        (byte)(workerId * 31 + 17)));
         }
     }
 
