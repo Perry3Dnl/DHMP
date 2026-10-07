@@ -302,6 +302,63 @@
   }
 
 
+  function protocolEnvelope(row) {
+    const protocol = String(row.protocol || '');
+    const payload = Number(row.packetBytes || 0);
+
+    // Count the protocol item as transmitted by each benchmark path instead
+    // of stripping transport/framing bytes away from competitors.
+    if (protocol.includes('DHMP + AF_XDP')) {
+      return {
+        bytes: payload + 14 + 40,
+        note: 'Ethernet 14 B + IPv6 40 B + DHMP data. DHMP V1 adds 0 data-plane header bytes.'
+      };
+    }
+
+    if (protocol.includes('DHMP Raw IPv6')) {
+      return {
+        bytes: payload + 14 + 40,
+        note: 'Ethernet 14 B + IPv6 40 B + DHMP data. DHMP V1 adds 0 data-plane header bytes.'
+      };
+    }
+
+    if (protocol.startsWith('UDP/')) {
+      return {
+        bytes: payload + 40 + 8,
+        note: 'IPv6 40 B + UDP 8 B + data.'
+      };
+    }
+
+    if (protocol.startsWith('TCP/')) {
+      return {
+        bytes: payload + 40 + 20,
+        note: 'Minimum IPv6 40 B + TCP 20 B + data; TCP options, ACK traffic and segmentation can add more.'
+      };
+    }
+
+    if (protocol.startsWith('HTTP/1.1')) {
+      const requestLine = 'POST /api/report/http-sink HTTP/1.1\r\n';
+      const host = 'Host: 127.0.0.1:8080\r\n';
+      const contentLength = 'Content-Length: ' + payload + '\r\n';
+      const httpMinimum = requestLine.length + host.length + contentLength.length + 2;
+
+      return {
+        bytes: payload + 40 + 20 + httpMinimum,
+        note: 'Minimum HTTP request framing + TCP/IPv6 + body; response bytes, TCP options, ACKs and segmentation can add more.'
+      };
+    }
+
+    return {
+      bytes: payload,
+      note: 'No additional protocol-byte accounting available.'
+    };
+  }
+
+  function wholeProtocolGigabytesPerSecond(row) {
+    const envelope = protocolEnvelope(row);
+    return Number(row.packetRate || 0) * envelope.bytes / 1_000_000_000;
+  }
+
   function renderProtocolComparison(report) {
     const rows = Array.isArray(report.protocolComparisons)
       ? report.protocolComparisons
@@ -323,7 +380,7 @@
     drawComparisonBarChart(
       'protocolThroughputChart',
       ioRows,
-      row => Number(row.payloadGigabytesPerSecond || 0),
+      row => wholeProtocolGigabytesPerSecond(row),
       value => fullDecimal(value, 3));
 
     const body = $('protocolComparisonBody');
@@ -339,11 +396,12 @@
           '<td>' + row.protocol + '</td>' +
           '<td style="text-align:left;white-space:normal;min-width:220px">' + row.scope + '</td>' +
           '<td>' + classLabel + '</td>' +
-          '<td>' + fullInteger(row.packetBytes) + ' B</td>' +
+          '<td>' + fullInteger(protocolEnvelope(row).bytes) + ' B</td>' +
           '<td>' + fullInteger(row.packetRate) + '</td>' +
-          '<td>' + fullDecimal(row.payloadGigabytesPerSecond, 3) + '</td>' +
+          '<td>' + fullDecimal(wholeProtocolGigabytesPerSecond(row), 3) + '</td>' +
           '<td>' + (row.kernelBypass ? 'Yes — AF_XDP' : 'No') + '</td>' +
-          '<td style="text-align:left;white-space:normal;min-width:300px">' + row.detail + '</td>' +
+          '<td style="text-align:left;white-space:normal;min-width:300px">' +
+          row.detail + '<br><span class="muted">' + protocolEnvelope(row).note + '</span></td>' +
           '</tr>';
       }).join('');
     }
