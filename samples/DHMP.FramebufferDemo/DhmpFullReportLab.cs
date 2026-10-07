@@ -14,6 +14,9 @@ internal sealed class DhmpFullReportLab
     private const int Repetitions = 5;
     private const int ReferencePacketBytes = 1408;
 
+    private static readonly int[] CanonicalRecordSizes =
+        [16, 256, 1024, 1408, 4096, 16384, 65520];
+
     private static readonly int[] LocalBatchSizes =
         [256, 1024, 1408, 4096, 16384, 65520];
 
@@ -64,7 +67,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 30;
+            _totalSteps = 48;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -91,22 +94,26 @@ internal sealed class DhmpFullReportLab
 
             var matrix = new List<DhmpPathBenchmark>();
 
-            foreach ((DhmpProcessingMode mode, bool smoothing) in new[]
-                     {
-                         (DhmpProcessingMode.Sequential, false),
-                         (DhmpProcessingMode.Latest, false),
-                         (DhmpProcessingMode.Latest, true)
-                     })
+            foreach (int recordBytes in CanonicalRecordSizes)
             {
-                SetPhase(
-                    $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} canonical {RecordSize:N0} B record");
+                foreach ((DhmpProcessingMode mode, bool smoothing) in new[]
+                         {
+                             (DhmpProcessingMode.Sequential, false),
+                             (DhmpProcessingMode.Latest, false),
+                             (DhmpProcessingMode.Latest, true)
+                         })
+                {
+                    SetPhase(
+                        $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} canonical {recordBytes:N0} B record");
 
-                matrix.Add(
-                    RunCanonicalPathBenchmark(
-                        mode,
-                        smoothing));
+                    matrix.Add(
+                        RunCanonicalPathBenchmark(
+                            recordBytes,
+                            mode,
+                            smoothing));
 
-                CompleteStep();
+                    CompleteStep();
+                }
             }
 
             var localBatchMatrix =
@@ -188,7 +195,8 @@ internal sealed class DhmpFullReportLab
                     "Canonical pathMatrix rows measure exactly one negotiated record per DHMP packet.",
                     "localBatchMatrix rows are software-only compatibility/batch calls and are never wire packet-rate claims.",
                     "Logical payload GB/s in localBatchMatrix represents bytes processed by local batch APIs, not raw DHMP wire throughput.",
-                    "1,408-byte raw IPv6 / AF_XDP rows are transport-I/O reference payloads and are separate from the 16-byte negotiated record benchmark.",
+                    "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
+                    "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
                     "Latest and Sequential both receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
@@ -254,12 +262,13 @@ internal sealed class DhmpFullReportLab
             MaximumPayloadBytes);
 
     private static DhmpPathBenchmark RunCanonicalPathBenchmark(
+        int recordBytes,
         DhmpProcessingMode mode,
         bool nativeSmoothing)
     {
         var wire =
             new DhmpWireContract(
-                RecordSize);
+                recordBytes);
 
         var policy =
             new DhmpReceivePolicy(
@@ -269,12 +278,12 @@ internal sealed class DhmpFullReportLab
 
         byte[] record =
             GC.AllocateUninitializedArray<byte>(
-                RecordSize);
+                recordBytes);
 
         int published = 0;
 
         Action<ReadOnlySpan<byte>> publish =
-            span => published += span.Length / RecordSize;
+            span => published += span.Length / recordBytes;
 
         var processor =
             new DhmpPacketProcessor(
@@ -360,7 +369,7 @@ internal sealed class DhmpFullReportLab
             clientMedian;
 
         return new DhmpPathBenchmark(
-            RecordSize,
+            recordBytes,
             1,
             mode.ToString(),
             nativeSmoothing,
@@ -369,7 +378,7 @@ internal sealed class DhmpFullReportLab
             Stats(clientNs),
             packetRate,
             packetRate,
-            packetRate * RecordSize / 1_000_000_000d,
+            packetRate * recordBytes / 1_000_000_000d,
             1);
     }
 
@@ -546,7 +555,7 @@ internal sealed class DhmpFullReportLab
 
         foreach (int workerCount in workers)
         {
-            const int packetBytes = RecordSize;
+            const int packetBytes = ReferencePacketBytes;
             const int iterationsPerWorker = 500_000;
 
             var startGate =
@@ -560,7 +569,7 @@ internal sealed class DhmpFullReportLab
                 tasks[worker] = Task.Run(() =>
                 {
                     var wire =
-                        new DhmpWireContract(RecordSize);
+                        new DhmpWireContract(packetBytes);
 
                     var server =
                         new DhmpServer(
@@ -640,7 +649,7 @@ internal sealed class DhmpFullReportLab
                     packetBytes,
                     pps,
                     pps,
-                    pps * RecordSize / 1_000_000_000d,
+                    pps * packetBytes / 1_000_000_000d,
                     seconds));
         }
 
@@ -742,10 +751,10 @@ internal sealed class DhmpFullReportLab
                      DhmpRatePolicy.SmoothPacing
                  })
         {
-            const int packetBytes = RecordSize;
+            const int packetBytes = ReferencePacketBytes;
 
             var wire =
-                new DhmpWireContract(RecordSize);
+                new DhmpWireContract(packetBytes);
 
             var server =
                 new DhmpServer(
@@ -991,10 +1000,10 @@ internal sealed class DhmpFullReportLab
                      (DhmpProcessingMode.Latest, true)
                  })
         {
-            const int packetBytes = RecordSize;
+            const int packetBytes = ReferencePacketBytes;
 
             var wire =
-                new DhmpWireContract(RecordSize);
+                new DhmpWireContract(packetBytes);
 
             var policy =
                 new DhmpReceivePolicy(
@@ -1076,11 +1085,11 @@ internal sealed class DhmpFullReportLab
                      (DhmpProcessingMode.Latest, true)
                  })
         {
-            const int packetBytes = RecordSize;
+            const int packetBytes = ReferencePacketBytes;
 
             var server =
                 new DhmpServer(
-                    new DhmpWireContract(RecordSize),
+                    new DhmpWireContract(packetBytes),
                     new DhmpReceivePolicy(
                         mode,
                         MaximumPayloadBytes,
@@ -1124,7 +1133,7 @@ internal sealed class DhmpFullReportLab
                 {
                     byte[] destination =
                         new byte[
-                            RecordSize *
+                            packetBytes *
                             DhmpLatestStateWindow.Capacity];
 
                     grabbed =
@@ -1135,13 +1144,13 @@ internal sealed class DhmpFullReportLab
                         grabbed ==
                             DhmpLatestStateWindow.Capacity &&
                         destination[0] == 1 &&
-                        destination[RecordSize] == 2 &&
-                        destination[RecordSize * 2] == 3;
+                        destination[packetBytes] == 2 &&
+                        destination[packetBytes * 2] == 3;
                 }
                 else
                 {
                     byte[] destination =
-                        new byte[RecordSize];
+                        new byte[packetBytes];
 
                     grabbed =
                         server.CopyLatest(
