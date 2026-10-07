@@ -54,6 +54,48 @@ public sealed class DhmpLatestStateWindow
             RecordsObserved - Capacity);
 
     /// <summary>
+    /// Exact-one-record Latest hot path. The caller has already established
+    /// record size at the transport/session boundary. No length calculation,
+    /// framing, slicing loop or record-count work is performed here.
+    /// </summary>
+    internal void ReceiveLatestRecordSingleWriter(
+        ReadOnlySpan<byte> record,
+        Action<ReadOnlySpan<byte>> consumer)
+    {
+        int recordSize = _recordSize;
+        int slot = _nextWriterSlot;
+        long sequence = _publishedSequence + 1;
+
+        Volatile.Write(
+            ref _slotVersions[slot],
+            sequence * 2 - 1);
+
+        record.CopyTo(
+            _slots.AsSpan(
+                slot * recordSize,
+                recordSize));
+
+        Volatile.Write(
+            ref _slotVersions[slot],
+            sequence * 2);
+
+        int nextSlot = slot + 1;
+        if (nextSlot == Capacity)
+            nextSlot = 0;
+
+        _nextWriterSlot = nextSlot;
+
+        Volatile.Write(
+            ref _publishedSequence,
+            sequence);
+
+        consumer(
+            _slots.AsSpan(
+                slot * recordSize,
+                recordSize));
+    }
+
+    /// <summary>
     /// Canonical single-writer Latest hot path. Each complete received record
     /// is copied once from transport-owned packet storage into the physical
     /// arrival Ring-3. Slot rotation is maintained as 0->1->2->0 without a
