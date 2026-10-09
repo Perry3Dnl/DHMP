@@ -278,43 +278,21 @@ public sealed class DhmpClient
         CancellationToken cancellationToken,
         out TimeSpan delay)
     {
-        DhmpPacingSchedule pacer =
-            _pacer!;
+        DhmpPacingSchedule pacer = _pacer!;
+        DhmpAdaptiveRateController? controller = _adaptiveRateController;
 
-        DhmpAdaptiveRateController? controller =
-            _adaptiveRateController;
+        // Only the single-record fast path uses the fused schedule.
+        // Batch pacing retains its existing multi-record rounding semantics.
+        if (controller is not null)
+            pacer.UpdateRate(controller.CurrentMessagesPerSecond);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (controller is not null)
-        {
-            pacer.UpdateRate(
-                controller.CurrentMessagesPerSecond);
-        }
+            pacer.UpdateRate(controller.CurrentMessagesPerSecond);
 
-        long now =
-            Stopwatch.GetTimestamp();
-
-        delay =
-            pacer.GetDelay(
-                messages,
-                now);
-
-        if (delay > TimeSpan.Zero)
-            return false;
-
-        cancellationToken
-            .ThrowIfCancellationRequested();
-
-        if (controller is not null)
-        {
-            pacer.UpdateRate(
-                controller.CurrentMessagesPerSecond);
-        }
-
-        pacer.Commit(
-            messages,
-            Stopwatch.GetTimestamp());
-
-        return true;
+        delay = pacer.TryCommitOne(Stopwatch.GetTimestamp());
+        return delay == TimeSpan.Zero;
     }
 
     private async ValueTask PaceThenSendAsync(
