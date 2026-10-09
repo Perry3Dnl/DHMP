@@ -207,6 +207,27 @@ public sealed class DhmpProtocolTests
     }
 
     [Fact]
+    public void UnsafeLatest_IgnoresIncompleteTailAndPublishesNewestCompleteRecord()
+    {
+        var processor =
+            new DhmpPacketProcessor(
+                new DhmpWireContract(2),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeLatest,
+                    maximumPayloadBytes: 16));
+
+        byte[]? actual = null;
+
+        processor.Process(
+            new byte[] { 1, 2, 3, 4, 9 },
+            span => actual = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 3, 4 },
+            actual);
+    }
+
+    [Fact]
     public void Sequential_IgnoresIncompleteTail()
     {
         var processor =

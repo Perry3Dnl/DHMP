@@ -120,12 +120,12 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
         try
         {
-            bool directRingReceive =
+            bool directFixedReceive =
                 UsesDirectFixedSlotReceive(
                     _server,
                     _decoder);
 
-            if (directRingReceive)
+            if (directFixedReceive)
             {
                 await RunPlaintextFixedSlotAsync(
                     publishBatch,
@@ -148,9 +148,10 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
 
     // Plaintext single-peer Raw IPv6 already knows the negotiated record
     // size before receive. The socket can therefore write directly into
-    // server-owned fixed storage. Sequential/Latest use Ring-3; experimental
-    // UnsafeSequential uses the FIFO tail directly. A decoder still requires
-    // buffered ciphertext/plaintext ownership before publication.
+    // server-owned fixed storage. Sequential/Latest use Ring-3,
+    // UnsafeSequential uses the FIFO tail, and UnsafeLatest reuses one borrowed
+    // slot. A decoder still requires buffered ciphertext/plaintext ownership
+    // before synchronous publication.
     internal static bool UsesDirectFixedSlotReceive(
         DhmpServer server,
         IDhmpPacketDecoder? decoder)

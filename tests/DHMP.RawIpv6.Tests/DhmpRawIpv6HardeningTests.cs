@@ -50,6 +50,22 @@ public sealed class DhmpRawIpv6HardeningTests
     }
 
     [Fact]
+    public void HappyFlow_PlaintextUnsafeLatestUsesDirectFixedSlotReceive()
+    {
+        var unsafeLatestServer =
+            new DhmpServer(
+                new DhmpWireContract(1408),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeLatest,
+                    maximumPayloadBytes: 1408));
+
+        Assert.True(
+            DhmpRawIpv6Receiver.UsesDirectFixedSlotReceive(
+                unsafeLatestServer,
+                decoder: null));
+    }
+
+    [Fact]
     public void HappyFlow_PeerBinding_ReportsPlainAndProtectedNetworkCeilings()
     {
         var server =

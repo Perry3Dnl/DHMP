@@ -15,5 +15,14 @@ public enum DhmpProcessingMode
     /// socket receive earlier, so kernel/network loss under overload is easier
     /// to trigger. No ACK/retransmission or delivery guarantee is added.
     /// </summary>
-    UnsafeSequential = 2
+    UnsafeSequential = 2,
+
+    /// <summary>
+    /// Experimental newest-state mode with one reusable receive slot and no
+    /// Ring-3 history. The publication callback borrows that slot only for the
+    /// duration of the call; the next receive may overwrite it immediately
+    /// after the callback returns. No independent Latest grabber or Native
+    /// Smoothing window is available.
+    /// </summary>
+    UnsafeLatest = 3
 }

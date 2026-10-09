@@ -425,7 +425,7 @@
 
   function renderCharts(report) {
     const packetSizes = [...new Set(report.pathMatrix.map(r => Number(r.packetBytes)))];
-    const modeLabels = ['Sequential', 'UnsafeSequential', 'Latest', 'Latest + Native Smoothing'];
+    const modeLabels = ['Sequential', 'UnsafeSequential', 'Latest', 'UnsafeLatest', 'Latest + Native Smoothing'];
 
     function rowsForMode(label) {
       return report.pathMatrix.filter(row => modeName(row) === label);

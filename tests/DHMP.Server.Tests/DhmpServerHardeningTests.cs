@@ -10,6 +10,85 @@ public sealed class DhmpServerHardeningTests
 {
 
     [Fact]
+    public void HappyFlow_UnsafeLatestUsesOneBorrowedSlotWithoutRing3()
+    {
+        const int RecordSize = 4;
+
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(RecordSize),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeLatest,
+                    maximumPayloadBytes: RecordSize));
+
+        Memory<byte> first =
+            server.BeginNegotiatedReceiveSlot();
+
+        first.Span[0] = 1;
+        first.Span[1] = 2;
+        first.Span[2] = 3;
+        first.Span[3] = 4;
+
+        byte[]? published = null;
+
+        server.CommitNegotiatedReceiveSlot(
+            span =>
+            {
+                published = span.ToArray();
+
+                Assert.Throws<InvalidOperationException>(
+                    () =>
+                    {
+                        _ = server.BeginNegotiatedReceiveSlot();
+                    });
+            });
+
+        Assert.Equal(
+            new byte[] { 1, 2, 3, 4 },
+            published);
+
+        Assert.False(server.LatestGrabberAvailable);
+        Assert.False(server.SequentialGrabberAvailable);
+        Assert.Equal(0, server.ReceiveSweepRecordsObserved);
+
+        Memory<byte> second =
+            server.BeginNegotiatedReceiveSlot();
+
+        Assert.True(first.Equals(second));
+
+        server.CancelNegotiatedReceiveSlot();
+    }
+
+    [Fact]
+    public void HappyFlow_UnsafeLatestCompatibilityPacketPublishesOnlyNewestCompleteRecord()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeLatest,
+                    maximumPayloadBytes: 16));
+
+        byte[]? published = null;
+
+        server.ProcessPacket(
+            new byte[]
+            {
+                1, 2, 3, 4,
+                5, 6, 7, 8,
+                9, 10
+            },
+            span => published = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 5, 6, 7, 8 },
+            published);
+
+        Assert.Equal(0, server.ReceiveSweepRecordsObserved);
+    }
+
+
+    [Fact]
     public void HappyFlow_DirectNegotiatedReceivePublishesRingSlotWithSmoothingEnabled()
     {
         const int RecordSize = 32;
