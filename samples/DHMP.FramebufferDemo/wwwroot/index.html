@@ -70,9 +70,10 @@
           <button type="button" class="mode-button active" data-receive-mode="Sequential">Sequential</button>
           <button type="button" class="mode-button" data-receive-mode="UnsafeSequential">UnsafeSequential</button>
           <button type="button" class="mode-button" data-receive-mode="Latest">Latest</button>
+          <button type="button" class="mode-button" data-receive-mode="UnsafeLatest">UnsafeLatest</button>
           <button type="button" class="mode-button" data-receive-mode="Latest" data-native-smoothing="true">Latest + Native Smoothing</button>
         </div>
-        <p class="muted">Sequential receives into Ring-3 and transfers every record into the FIFO. UnsafeSequential is an experimental comparison mode: plaintext fixed-slot receive writes directly into FIFO-owned memory and skips Ring-3, removing that payload copy but giving up the three-slot arrival stage. If the FIFO fills, the socket receive stops being posted earlier and kernel/network drops become easier to trigger. Latest publishes only the newest record; Native Smoothing uses the same Latest packet path.</p>
+        <p class="muted">Sequential receives into Ring-3 and transfers every record into the FIFO. UnsafeSequential writes directly into FIFO-owned memory and skips Ring-3. Latest keeps the three-slot newest-state Ring-3 and supports independent grabbing / Native Smoothing. UnsafeLatest is the minimal newest-state comparison: one reusable receive slot, synchronous borrowed publication, no Ring-3 history, no independent grabber and no smoothing.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Confirmation mode</span>
@@ -174,7 +175,7 @@
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
-      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement. The instrumented server number measures the selected direct receive destination after transport byte movement: Ring-3 for Sequential/Latest, FIFO tail for UnsafeSequential. Sequential includes its Ring-3 → FIFO ownership copy; UnsafeSequential removes that copy; Latest and Native Smoothing keep their Ring-3 slots. This is an in-process logical processing benchmark: NIC/kernel byte movement is deliberately excluded and is measured separately on the Kernel Bypass / Full Report I/O paths.</p>
+      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement. The instrumented server number measures the selected direct receive destination after transport byte movement: Ring-3 for Sequential/Latest, FIFO tail for UnsafeSequential, or one reusable borrowed slot for UnsafeLatest. Sequential includes its Ring-3 → FIFO ownership copy; UnsafeSequential removes that copy; UnsafeLatest also removes Ring-3 history and can only publish synchronously before the slot is reused. This is an in-process logical processing benchmark: NIC/kernel byte movement is deliberately excluded and is measured separately on the Kernel Bypass / Full Report I/O paths.</p>
     </section>
 
     <section class="explain">
@@ -188,7 +189,7 @@
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
-        <p>Sequential, UnsafeSequential and Latest all receive exactly one negotiated record per accepted packet in this benchmark. UnsafeSequential changes only local storage ownership, not V1 wire bytes. Native Smoothing does not change publication count. Confirmation modes intentionally remain on normal Sequential only.</p>
+        <p>Sequential, UnsafeSequential, Latest and UnsafeLatest all receive exactly one negotiated record per accepted packet in this benchmark. Unsafe modes change only local storage/publication ownership, not V1 wire bytes. Native Smoothing remains Latest-only. Confirmation modes intentionally remain on normal Sequential only.</p>
       </div>
     </section>
 
@@ -196,6 +197,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/stress.js?v=20261009-unsafe-sequential"></script>
+  <script src="/stress.js?v=20261009-unsafe-latest"></script>
 </body>
 </html>
