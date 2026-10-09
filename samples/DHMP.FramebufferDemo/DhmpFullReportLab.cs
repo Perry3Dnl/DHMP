@@ -942,7 +942,7 @@ internal sealed class DhmpFullReportLab
                     dhmp.LogicalPayloadGigabytesPerSecond,
                     100_000L * workers,
                     false,
-                    "Measured by this Full Report run. Transport byte movement is excluded because the fixed-slot receiver writes directly into the mode-owned destination: Ring-3 for normal Sequential/Latest or FIFO tail for UnsafeSequential. This is a logical software-processing ceiling, not physical wire or memory throughput."));
+                    "Measured by this Full Report run. Transport byte movement is excluded because the fixed-slot receiver writes directly into the mode-owned destination: Ring-3 for normal Sequential/Latest, FIFO tail for UnsafeSequential, or one reusable slot for UnsafeLatest. This is a logical software-processing ceiling, not physical wire or memory throughput."));
         }
 
         try
