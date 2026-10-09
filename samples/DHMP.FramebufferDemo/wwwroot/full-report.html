@@ -158,6 +158,32 @@
     </section>
 
     <section class="report-section">
+      <p class="eyebrow">LOW-NOISE AGGREGATE TIMING</p>
+      <h2>10 MB passes, timed for at least 100 ms</h2>
+      <div class="comparison-callout"><strong>One outer Stopwatch.</strong> For every canonical receive mode and record size, this test processes complete passes of at least 10,000,000 logical payload bytes and repeats whole passes until at least 100 ms has elapsed. It then computes ns/packet as actual elapsed nanoseconds ÷ total packets. This avoids one timer sample per packet and makes small timing differences easier to trust.</div>
+      <div class="chart-grid">
+        <article class="chart-card chart-wide">
+          <h3>Aggregate direct receive ns/packet</h3>
+          <p class="muted">Lower is better. Transport byte movement remains outside the timer; each point is derived from ≥100 ms of aggregate work.</p>
+          <canvas id="aggregateDirectTimingChart"></canvas>
+        </article>
+        <article class="chart-card chart-wide">
+          <h3>Aggregate full software path ns/packet</h3>
+          <p class="muted">Lower is better. Client validation → synthetic transport handoff → direct receive publication, measured with one outer timer.</p>
+          <canvas id="aggregateClientTimingChart"></canvas>
+        </article>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead><tr>
+            <th>Configuration</th><th>Bytes</th><th>Packets / ≥10 MB pass</th><th>Direct total packets</th><th>Direct elapsed ms</th><th>Direct ns/packet</th><th>Direct packets/s</th><th>Full total packets</th><th>Full elapsed ms</th><th>Full ns/packet</th><th>Full packets/s</th><th>Full logical GB/s</th>
+          </tr></thead>
+          <tbody id="aggregateTimingBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="report-section">
       <p class="eyebrow">LOCAL MEMORY BATCH CEILING</p>
       <h2>Compatibility batch APIs — software ceiling only</h2>
       <div class="comparison-callout"><strong>Not wire packet throughput.</strong> These rows intentionally exercise local multi-record batch APIs at larger byte counts. A batch call may contain many negotiated records, but the raw DHMP sender emits those records as individual one-record packets.</div>
@@ -305,6 +331,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261009-unsafe-latest"></script>
+<script src="/full-report.js?v=20261009-aggregate100ms"></script>
 </body>
 </html>
