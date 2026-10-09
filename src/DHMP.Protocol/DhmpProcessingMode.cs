@@ -3,7 +3,10 @@ namespace DHMP.Protocol;
 public enum DhmpProcessingMode
 {
     /// <summary>Publish all complete received messages in arrival order through Ring-3 then FIFO; no network delivery guarantee.</summary>
-    Sequential,
+    Sequential = 0,
+
+    /// <summary>Publish the last complete record of a packet, in arrival order. Wire freshness ordering is not implemented.</summary>
+    Latest = 1,
 
     /// <summary>
     /// Experimental copy-avoidance mode. Plaintext fixed-slot transports receive
@@ -12,8 +15,5 @@ public enum DhmpProcessingMode
     /// socket receive earlier, so kernel/network loss under overload is easier
     /// to trigger. No ACK/retransmission or delivery guarantee is added.
     /// </summary>
-    UnsafeSequential,
-
-    /// <summary>Publish the last complete record of a packet, in arrival order. Wire freshness ordering is not implemented.</summary>
-    Latest
+    UnsafeSequential = 2
 }
