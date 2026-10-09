@@ -3,6 +3,7 @@
   const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
   let latestReport = null;
   let timer = 0;
+  let deployedRevision = null;
 
   function fullInteger(value) {
     return Math.round(Number(value || 0)).toLocaleString('en-US', {
@@ -615,10 +616,13 @@
     const validDate = generated && !Number.isNaN(generated.getTime());
     const timestamp = validDate ? generated.toLocaleString() : 'Unknown';
     const revision = report.buildRevision || 'Not provided by server';
+    const mismatch = deployedRevision && report.buildRevision && deployedRevision !== report.buildRevision;
     $('reportProvenance').textContent =
       'Measured: ' + timestamp + ' | UTC: ' +
       (validDate ? generated.toISOString() : 'unknown') +
-      ' | Server build: ' + revision +
+      ' | Measured build: ' + revision +
+      ' | Active deployment: ' + (deployedRevision || 'unknown') +
+      (mismatch ? ' | WARNING: result belongs to another deployment' : '') +
       ' | Download filename uses measurement time, not download time.';
     $('report').classList.remove('hidden');
     $('downloadJson').disabled = false;
@@ -839,6 +843,11 @@
 
   async function poll() {
     try {
+      const versionResponse = await fetch('/version', { cache: 'no-store' });
+      if (versionResponse.ok) {
+        const version = await versionResponse.json();
+        deployedRevision = version.commit || null;
+      }
       const response = await fetch('/api/report/status', { cache: 'no-store' });
       const status = await response.json();
 
