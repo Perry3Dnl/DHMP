@@ -437,4 +437,73 @@ public sealed class DhmpSequentialBacklogTests
             server.SequentialBacklogCount);
     }
 
+
+    [Fact]
+    public async Task CriticalFlow_DirectFifoSpscPreservesOrderAcrossWraps()
+    {
+        const int RecordSize = 4;
+        const int Capacity = 7;
+        const int Records = 20_000;
+
+        var backlog =
+            new DhmpSequentialBacklog(
+                RecordSize,
+                Capacity,
+                DhmpSequentialBacklogOverflowPolicy.Backpressure);
+
+        Task producer =
+            Task.Run(
+                () =>
+                {
+                    for (int value = 0;
+                         value < Records;
+                         value++)
+                    {
+                        Memory<byte> slot =
+                            backlog.BeginDirectWrite();
+
+                        BitConverter.TryWriteBytes(
+                            slot.Span,
+                            value);
+
+                        backlog.CommitDirectWrite();
+                    }
+                },
+                TestContext.Current.CancellationToken);
+
+        Task consumer =
+            Task.Run(
+                () =>
+                {
+                    byte[] record =
+                        new byte[RecordSize];
+
+                    for (int expected = 0;
+                         expected < Records;)
+                    {
+                        if (!backlog.TryDequeue(record))
+                        {
+                            Thread.Yield();
+                            continue;
+                        }
+
+                        Assert.Equal(
+                            expected,
+                            BitConverter.ToInt32(record));
+
+                        expected++;
+                    }
+                },
+                TestContext.Current.CancellationToken);
+
+        await Task.WhenAll(
+            producer,
+            consumer);
+
+        Assert.Equal(0, backlog.Count);
+        Assert.Equal(Records, backlog.RecordsEnqueued);
+        Assert.Equal(Records, backlog.RecordsDequeued);
+        Assert.Equal(0, backlog.RecordsDropped);
+    }
+
 }
