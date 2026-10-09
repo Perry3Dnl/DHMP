@@ -1,0 +1,4396 @@
+{
+  "date": "2026-10-09",
+  "commit": "90887edd9b82ab932b020c5beb9679b974df94b2",
+  "runUrl": "https://github.com/Perry3Dnl/DHMP/actions/runs/37924613331",
+  "trials": [
+    {
+      "runtime": ".NET 10.0.12",
+      "architecture": "X64",
+      "scope": "Isolated raw IPv6 loopback; fixed unchanged DHMP records. Seven alternating-order samples after 32768 warmup packets per candidate. Sender elapsed measures kernel acceptance; receiver counts and full contents are verified separately. Native buffers/descriptors prepared once; native methods are research-only and not cancellation/disposal-compatible production replacements.",
+      "rows": [
+        {
+          "bytes": 16,
+          "mode": "current DHMP raw sender",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4397.369384765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4494.7998046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4376.4007568359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4365.4022216796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4354.217529296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4375.15869140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4375.8697509765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "Socket.SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4379.77294921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4550.64697265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4443.658447265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4294.1802978515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4319.6014404296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4326.7547607421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4323.2757568359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "cached SocketAddress SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4311.0321044921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4266.961669921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4282.012939453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4238.5101318359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4253.973388671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4276.4923095703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4349.45068359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "connected Socket.SendAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3950.0030517578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3989.1876220703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3927.9266357421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3900.4791259765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3936.7218017578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3950.47607421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3937.139892578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "Socket.SendTo Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4462.408447265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4339.3096923828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4332.7423095703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4345.477294921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4309.09423828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4372.943115234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4326.4007568359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "connected Socket.Send Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3991.58935546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4030.084228515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3909.228515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3921.1029052734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3896.5057373046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3931.524658203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3897.015380859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "native send nonblocking",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3827.7801513671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3850.06103515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3824.908447265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3825.067138671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3798.6175537109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3832.4188232421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3829.9530029296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "native sendmmsg 32",
+          "batch": 32,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3674.359130859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3677.081298828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3667.4102783203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3679.5654296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3672.5189208984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3663.0889892578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3724.8260498046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "current DHMP raw sender",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 5242.2943115234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6677.9632568359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5917.4896240234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4104.6722412109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4102.6611328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4549.62158203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4115.484619140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "Socket.SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4073.81591796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6544.66552734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4083.9447021484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5577.4444580078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4049.273681640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4251.458740234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4062.2772216796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "cached SocketAddress SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4049.395751953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6347.91259765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4075.5889892578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4043.353271484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4585.2447509765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4107.550048828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4062.3748779296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "connected Socket.SendAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3971.2371826171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6110.2996826171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3948.25439453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3963.4613037109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3976.7120361328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3895.1416015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4008.7066650390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "Socket.SendTo Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4087.957763671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5464.520263671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5398.0804443359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5632.391357421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6060.15625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4100.714111328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4075.5859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "connected Socket.Send Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3820.12939453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3811.1236572265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6017.5628662109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6028.302001953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3965.27099609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3843.560791015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3828.948974609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "native send nonblocking",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3556.4971923828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3543.310546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5868.8507080078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5872.3663330078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3548.7213134765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3540.1031494140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3884.478759765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "native sendmmsg 32",
+          "batch": 32,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3552.4932861328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3549.9359130859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5570.54443359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5565.0115966796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3568.4539794921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3578.5675048828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5264.1998291015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runtime": ".NET 10.0.12",
+      "architecture": "X64",
+      "scope": "Isolated raw IPv6 loopback; fixed unchanged DHMP records. Seven alternating-order samples after 32768 warmup packets per candidate. Sender elapsed measures kernel acceptance; receiver counts and full contents are verified separately. Native buffers/descriptors prepared once; native methods are research-only and not cancellation/disposal-compatible production replacements.",
+      "rows": [
+        {
+          "bytes": 16,
+          "mode": "current DHMP raw sender",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4117.755126953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3923.08349609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3962.4908447265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4010.3302001953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4018.115234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3935.186767578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3953.363037109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "Socket.SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 6219.158935546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4023.9593505859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3939.5843505859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4022.283935546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4033.28857421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3935.11962890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3951.361083984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "cached SocketAddress SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 6045.770263671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4038.19580078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4030.3436279296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4051.934814453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4054.3853759765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4036.0015869140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3994.3450927734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "connected Socket.SendAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4786.3250732421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3573.583984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3640.9881591796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3566.2567138671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3677.2796630859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3634.0545654296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4247.27783203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "Socket.SendTo Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4137.042236328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4107.8460693359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4143.316650390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4104.742431640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4087.9974365234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4152.8564453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4103.125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "connected Socket.Send Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3558.538818359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3560.4644775390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3548.03466796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3586.5478515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3562.939453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3505.6915283203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3543.3197021484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "native send nonblocking",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3551.07421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3519.0521240234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3565.9881591796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3548.6419677734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3540.301513671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3544.7540283203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3560.7574462890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "native sendmmsg 32",
+          "batch": 32,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3480.908203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3432.275390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3766.4276123046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3696.37451171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3435.4461669921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3444.903564453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3443.3685302734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "current DHMP raw sender",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4145.001220703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4134.0179443359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4920.3857421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4087.2528076171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4080.7098388671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4084.16748046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4100.9490966796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "Socket.SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4105.255126953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4032.04345703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6458.7738037109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4088.1378173828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4079.5013427734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4102.5970458984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4082.0159912109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "cached SocketAddress SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4125.6103515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4072.03369140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6285.3851318359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4118.115234375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4120.184326171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4135.5804443359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4079.1595458984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "connected Socket.SendAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3857.110595703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3981.134033203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6149.8291015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4157.965087890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3962.7288818359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3928.8726806640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3979.40673828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "Socket.SendTo Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4144.53125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4042.0318603515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6313.677978515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6319.012451171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4076.971435546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4154.8126220703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4131.2042236328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "connected Socket.Send Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3748.8250732421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5575.4180908203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5969.0277099609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5921.6552734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3892.724609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3777.5238037109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3819.6197509765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "native send nonblocking",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3641.5008544921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3736.376953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5826.873779296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5765.789794921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3637.78076171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3632.94677734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3666.7449951171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "native sendmmsg 32",
+          "batch": 32,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3560.5865478515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3559.930419921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5482.733154296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5496.8841552734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3571.2371826171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3565.58837890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3573.4039306640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "runtime": ".NET 10.0.12",
+      "architecture": "X64",
+      "scope": "Isolated raw IPv6 loopback; fixed unchanged DHMP records. Seven alternating-order samples after 32768 warmup packets per candidate. Sender elapsed measures kernel acceptance; receiver counts and full contents are verified separately. Native buffers/descriptors prepared once; native methods are research-only and not cancellation/disposal-compatible production replacements.",
+      "rows": [
+        {
+          "bytes": 16,
+          "mode": "current DHMP raw sender",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 5652.6702880859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5661.6607666015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3952.7099609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4051.3580322265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3995.6695556640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4118.6431884765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4012.3626708984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "Socket.SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3968.914794921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5616.717529296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6002.069091796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3954.095458984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3947.320556640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4031.79931640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4031.0455322265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "cached SocketAddress SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3987.7410888671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3957.354736328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6115.75927734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3987.9791259765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3988.96484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4076.824951171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4055.5633544921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "connected Socket.SendAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3711.43798828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3749.169921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5859.4635009765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3733.551025390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3697.265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3603.01513671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3602.7313232421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "Socket.SendTo Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4497.149658203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4119.9737548828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4133.7493896484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4052.62451171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4056.829833984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4139.6575927734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4118.7042236328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "connected Socket.Send Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3564.4287109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3548.4893798828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3527.3895263671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3596.5179443359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3622.845458984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3550.494384765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3539.0289306640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "native send nonblocking",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3551.898193359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3550.4119873046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3543.603515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3501.5655517578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3505.0384521484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3568.365478515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3509.320068359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 16,
+          "mode": "native sendmmsg 32",
+          "batch": 32,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 3458.465576171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3452.4993896484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3476.4404296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3449.4720458984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3468.4112548828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3462.09716796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3458.5174560546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "current DHMP raw sender",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4127.8656005859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4239.2791748046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4209.0728759765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5568.1427001953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6940.0634765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4150.5218505859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4125.0946044921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "Socket.SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4077.30712890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4162.36572265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4131.0455322265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4087.3138427734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5470.037841796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4045.526123046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4084.619140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "cached SocketAddress SendToAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 4780.9600830078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5770.44677734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4104.96826171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3998.81591796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6462.811279296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5160.2325439453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4133.5662841796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "connected Socket.SendAsync",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 6129.986572265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6263.006591796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4003.057861328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3963.8458251953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6081.4666748046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6109.9578857421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3893.2586669921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "Socket.SendTo Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 6236.2884521484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6428.7841796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4128.570556640625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4984.6923828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6382.781982421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6365.2923583984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4139.6636962890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "connected Socket.Send Span synchronous",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 6001.7974853515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4599.1119384765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3814.520263671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 6012.7960205078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5931.512451171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5930.4840087890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3689.6759033203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 0,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "native send nonblocking",
+          "batch": 1,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 5799.737548828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4806.890869140625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5063.6810302734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3830.37109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5707.4615478515625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5711.3067626953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3634.368896484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 32768,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "mode": "native sendmmsg 32",
+          "batch": 32,
+          "samples": [
+            {
+              "nanosecondsPerAcceptedPacket": 5438.5009765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5445.1416015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3915.716552734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3945.611572265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5492.7825927734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 5507.4981689453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3571.685791015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "allReceived": true,
+              "asyncCalls": 0,
+              "immediateCompletions": 0,
+              "pendingAtObservation": 0,
+              "Syscalls": 1024,
+              "WouldBlock": 0,
+              "PartialBatches": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

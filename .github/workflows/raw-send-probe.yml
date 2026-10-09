@@ -1,0 +1,34 @@
+name: Raw IPv6 send investigation
+on:
+  pull_request:
+    paths:
+      - 'tests/DHMP.RawSendProbe/**'
+      - '.github/workflows/raw-send-probe.yml'
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build sender probes
+        run: dotnet build tests/DHMP.RawSendProbe/DHMP.RawSendProbe.csproj -c Release
+      - name: Configure isolated IPv6 loopback lab
+        run: |
+          sudo sysctl -w net.core.rmem_max=33554432 net.core.wmem_max=33554432
+          sudo ip netns add dhmp-send-probe
+          sudo ip -n dhmp-send-probe link set lo up
+          sudo ip -n dhmp-send-probe -6 addr add fd00::1/128 dev lo nodad
+          sudo ip -n dhmp-send-probe -6 addr add fd00::2/128 dev lo nodad
+      - name: Measure sends and verify receiver counts and contents
+        run: |
+          for trial in 1 2 3; do
+            sudo ip netns exec dhmp-send-probe "$(command -v dotnet)" tests/DHMP.RawSendProbe/bin/Release/net10.0/DHMP.RawSendProbe.dll
+          done
+      - name: Remove lab namespace
+        if: always()
+        run: sudo ip netns del dhmp-send-probe || true
