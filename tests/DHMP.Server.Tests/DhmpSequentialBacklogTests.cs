@@ -346,4 +346,95 @@ public sealed class DhmpSequentialBacklogTests
             destination[0]);
     }
 
+
+    [Fact]
+    public void HappyFlow_DirectFifoReservationCommitsWithoutPayloadCopy()
+    {
+        var backlog =
+            new DhmpSequentialBacklog(
+                recordSize: 4,
+                capacityRecords: 4,
+                DhmpSequentialBacklogOverflowPolicy.Backpressure);
+
+        Memory<byte> first =
+            backlog.BeginDirectWrite();
+
+        first.Span[0] = 1;
+        first.Span[1] = 2;
+        first.Span[2] = 3;
+        first.Span[3] = 4;
+
+        backlog.CommitDirectWrite();
+
+        Memory<byte> cancelled =
+            backlog.BeginDirectWrite();
+
+        cancelled.Span.Fill(0xEE);
+        backlog.CancelDirectWrite();
+
+        Memory<byte> second =
+            backlog.BeginDirectWrite();
+
+        second.Span[0] = 5;
+        second.Span[1] = 6;
+        second.Span[2] = 7;
+        second.Span[3] = 8;
+
+        backlog.CommitDirectWrite();
+
+        Span<byte> record =
+            stackalloc byte[4];
+
+        Assert.True(backlog.TryDequeue(record));
+        Assert.Equal(
+            new byte[] { 1, 2, 3, 4 },
+            record.ToArray());
+
+        Assert.True(backlog.TryDequeue(record));
+        Assert.Equal(
+            new byte[] { 5, 6, 7, 8 },
+            record.ToArray());
+
+        Assert.False(backlog.TryDequeue(record));
+        Assert.Equal(2, backlog.RecordsEnqueued);
+        Assert.Equal(2, backlog.RecordsDequeued);
+    }
+
+    [Fact]
+    public void HappyFlow_UnsafeSequentialCanonicalReceiveBypassesRing3()
+    {
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(4),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeSequential,
+                    maximumPayloadBytes: 4,
+                    sequentialBacklogCapacityRecords: 8));
+
+        byte[]? published = null;
+
+        Memory<byte> slot =
+            server.BeginNegotiatedReceiveSlot();
+
+        slot.Span[0] = 0x11;
+        slot.Span[1] = 0x22;
+        slot.Span[2] = 0x33;
+        slot.Span[3] = 0x44;
+
+        server.CommitNegotiatedReceiveSlot(
+            span => published = span.ToArray());
+
+        Assert.Equal(
+            new byte[] { 0x11, 0x22, 0x33, 0x44 },
+            published);
+
+        Assert.Equal(
+            0,
+            server.ReceiveSweepRecordsObserved);
+
+        Assert.Equal(
+            0,
+            server.SequentialBacklogCount);
+    }
+
 }
