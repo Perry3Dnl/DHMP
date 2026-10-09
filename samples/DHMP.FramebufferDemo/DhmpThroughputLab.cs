@@ -833,7 +833,6 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
     private sealed class InMemoryPacketSender : IDhmpPacketSender
     {
-        private readonly DhmpServer _server;
         private readonly int _recordSize;
         private readonly DhmpStressConfirmationMode _confirmationMode;
         private readonly DhmpServer _returnServer;
@@ -853,7 +852,6 @@ internal sealed class DhmpThroughputLab : BackgroundService
             DhmpStressConfirmationMode confirmationMode,
             WorkerMetrics metrics)
         {
-            _server = server;
             _recordSize = recordSize;
             _confirmationMode = confirmationMode;
             _returnServer =
