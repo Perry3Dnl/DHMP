@@ -1,0 +1,274 @@
+[
+  {
+    "bytes": 16,
+    "mode": "current DHMP raw sender",
+    "medianNs": 4117.755126953125,
+    "min": 3923.08349609375,
+    "max": 5661.6607666015625,
+    "medianPairedReductionPct": 0,
+    "perTrial": [
+      4375.8697509765625,
+      3962.4908447265625,
+      4051.3580322265625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "Socket.SendToAsync",
+    "medianNs": 4033.28857421875,
+    "min": 3935.11962890625,
+    "max": 6219.158935546875,
+    "medianPairedReductionPct": 0.400158231142389,
+    "perTrial": [
+      4326.7547607421875,
+      4022.283935546875,
+      4031.0455322265625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "cached SocketAddress SendToAsync",
+    "medianNs": 4055.5633544921875,
+    "min": 3957.354736328125,
+    "max": 6115.75927734375,
+    "medianPairedReductionPct": 0.6037443728053482,
+    "perTrial": [
+      4276.4923095703125,
+      4038.19580078125,
+      3988.96484375
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "connected Socket.SendAsync",
+    "medianNs": 3749.169921875,
+    "min": 3566.2567138671875,
+    "max": 5859.4635009765625,
+    "medianPairedReductionPct": 9.706679166213284,
+    "perTrial": [
+      3937.139892578125,
+      3640.9881591796875,
+      3711.43798828125
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "Socket.SendTo Span synchronous",
+    "medianNs": 4139.6575927734375,
+    "min": 4052.62451171875,
+    "max": 4497.149658203125,
+    "medianPairedReductionPct": -0.5102263860989664,
+    "perTrial": [
+      4339.3096923828125,
+      4107.8460693359375,
+      4119.9737548828125
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "connected Socket.Send Span synchronous",
+    "medianNs": 3564.4287109375,
+    "min": 3505.6915283203125,
+    "max": 4030.084228515625,
+    "medianPairedReductionPct": 10.67480487204502,
+    "perTrial": [
+      3921.1029052734375,
+      3558.538818359375,
+      3550.494384765625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "native send nonblocking",
+    "medianNs": 3551.898193359375,
+    "min": 3501.5655517578125,
+    "max": 3850.06103515625,
+    "medianPairedReductionPct": 12.47561694278132,
+    "perTrial": [
+      3827.7801513671875,
+      3548.6419677734375,
+      3543.603515625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 16,
+    "mode": "native sendmmsg 32",
+    "medianNs": 3476.4404296875,
+    "min": 3432.275390625,
+    "max": 3766.4276123046875,
+    "medianPairedReductionPct": 14.878041126031727,
+    "perTrial": [
+      3674.359130859375,
+      3444.903564453125,
+      3458.5174560546875
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "current DHMP raw sender",
+    "medianNs": 4145.001220703125,
+    "min": 4080.7098388671875,
+    "max": 6940.0634765625,
+    "medianPairedReductionPct": 0,
+    "perTrial": [
+      4549.62158203125,
+      4100.9490966796875,
+      4209.0728759765625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "Socket.SendToAsync",
+    "medianNs": 4087.3138427734375,
+    "min": 4032.04345703125,
+    "max": 6544.66552734375,
+    "medianPairedReductionPct": 1.3012883453836777,
+    "perTrial": [
+      4083.9447021484375,
+      4088.1378173828125,
+      4087.3138427734375
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "cached SocketAddress SendToAsync",
+    "medianNs": 4120.184326171875,
+    "min": 3998.81591796875,
+    "max": 6462.811279296875,
+    "medianPairedReductionPct": 0.531329462218677,
+    "perTrial": [
+      4075.5889892578125,
+      4120.184326171875,
+      4780.9600830078125
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "connected Socket.SendAsync",
+    "medianNs": 3979.40673828125,
+    "min": 3857.110595703125,
+    "max": 6263.006591796875,
+    "medianPairedReductionPct": 3.6981917638330586,
+    "perTrial": [
+      3971.2371826171875,
+      3979.40673828125,
+      6081.4666748046875
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "Socket.SendTo Span synchronous",
+    "medianNs": 4984.6923828125,
+    "min": 4042.0318603515625,
+    "max": 6428.7841796875,
+    "medianPairedReductionPct": 0.011338252466075449,
+    "perTrial": [
+      5398.0804443359375,
+      4144.53125,
+      6236.2884521484375
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "connected Socket.Send Span synchronous",
+    "medianNs": 3965.27099609375,
+    "min": 3689.6759033203125,
+    "max": 6028.302001953125,
+    "medianPairedReductionPct": 4.606679644352574,
+    "perTrial": [
+      3843.560791015625,
+      3892.724609375,
+      5930.4840087890625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "native send nonblocking",
+    "medianNs": 3830.37109375,
+    "min": 3540.1031494140625,
+    "max": 5872.3663330078125,
+    "medianPairedReductionPct": 10.587892981018744,
+    "perTrial": [
+      3556.4971923828125,
+      3666.7449951171875,
+      5063.6810302734375
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  },
+  {
+    "bytes": 1408,
+    "mode": "native sendmmsg 32",
+    "medianNs": 3915.716552734375,
+    "min": 3549.9359130859375,
+    "max": 5570.54443359375,
+    "medianPairedReductionPct": 12.697302548008672,
+    "perTrial": [
+      3578.5675048828125,
+      3571.2371826171875,
+      5438.5009765625
+    ],
+    "accepted": 688128,
+    "received": 688128,
+    "allReceived": true,
+    "pending": 0
+  }
+]
