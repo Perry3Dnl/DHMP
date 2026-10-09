@@ -12,7 +12,7 @@ public sealed class DhmpServer
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
-    private readonly DhmpLatestStateWindow _receiveSweepSlots;
+    private readonly DhmpLatestStateWindow? _receiveSweepSlots;
     private readonly object _sequentialBacklogGate = new();
     private DhmpSequentialBacklog? _sequentialBacklog;
 
@@ -40,14 +40,15 @@ public sealed class DhmpServer
                 wireContract,
                 receivePolicy);
 
-        // Sequential and Latest use the physical three-slot arrival ring.
-        // UnsafeSequential intentionally bypasses it and can receive directly
-        // into its FIFO tail. Keeping the Ring-3 instance allocated here avoids
-        // mode-dependent object shape and preserves compatibility APIs, but the
-        // UnsafeSequential direct receive path never touches its payload slots.
+        // Normal Sequential and Latest own the physical three-slot arrival
+        // ring. UnsafeSequential intentionally owns no Ring-3 payload storage:
+        // its fixed-slot transport target is the FIFO tail itself.
         _receiveSweepSlots =
-            new DhmpLatestStateWindow(
-                wireContract.RecordSize);
+            receivePolicy.Mode ==
+                DhmpProcessingMode.UnsafeSequential
+                ? null
+                : new DhmpLatestStateWindow(
+                    wireContract.RecordSize);
     }
 
     public DhmpWireContract WireContract =>
@@ -76,14 +77,14 @@ public sealed class DhmpServer
     /// This advances for Sequential, Latest and Native Smoothing alike.
     /// </summary>
     public long ReceiveSweepRecordsObserved =>
-        _receiveSweepSlots.RecordsObserved;
+        _receiveSweepSlots?.RecordsObserved ?? 0;
 
     public bool NativeSmoothingEnabled =>
         _receivePolicy.NativeSmoothing;
 
     public int NativeSmoothingRecordCount =>
         NativeSmoothingEnabled
-            ? _receiveSweepSlots.Count
+            ? GetReceiveSweepSlots().Count
             : 0;
 
     /// <summary>
@@ -97,7 +98,7 @@ public sealed class DhmpServer
     {
         if (_receivePolicy.Mode == DhmpProcessingMode.Latest)
         {
-            _receiveSweepSlots.ReceiveLatestRecordSingleWriter(
+            GetReceiveSweepSlots().ReceiveLatestRecordSingleWriter(
                 record,
                 publishBatch);
             return;
@@ -117,7 +118,7 @@ public sealed class DhmpServer
         else
         {
             Span<byte> slot =
-                _receiveSweepSlots.BeginSweep();
+                GetReceiveSweepSlots().BeginSweep();
 
             record.CopyTo(slot);
 
@@ -148,7 +149,7 @@ public sealed class DhmpServer
                 .BeginDirectWrite();
         }
 
-        return _receiveSweepSlots
+        return GetReceiveSweepSlots()
             .BeginSweepMemorySingleWriter();
     }
 
@@ -210,7 +211,7 @@ public sealed class DhmpServer
             return;
         }
 
-        _receiveSweepSlots.CancelSweep();
+        GetReceiveSweepSlots().CancelSweep();
     }
 
     internal void CommitNegotiatedReceiveSlotToSequentialBacklog()
@@ -284,7 +285,7 @@ public sealed class DhmpServer
                  offset += recordSize)
             {
                 Span<byte> slot =
-                    _receiveSweepSlots.BeginSweep();
+                    GetReceiveSweepSlots().BeginSweep();
 
                 try
                 {
@@ -299,7 +300,7 @@ public sealed class DhmpServer
                 }
                 catch
                 {
-                    _receiveSweepSlots.CancelSweep();
+                    GetReceiveSweepSlots().CancelSweep();
                     throw;
                 }
             }
@@ -341,7 +342,7 @@ public sealed class DhmpServer
         // Fused Latest fast path: one packet->Ring-3 copy per record, then
         // metadata-only publication/grab. No Begin/Commit/Grab helper chain,
         // no per-record modulo and no redundant read-back of the published slot.
-        _receiveSweepSlots
+        GetReceiveSweepSlots()
             .ReceiveLatestPacketSingleWriter(
                 complete,
                 publishBatch);
@@ -482,7 +483,7 @@ public sealed class DhmpServer
     public Span<byte> BeginSequentialSweep()
     {
         EnsureRingSequentialMode();
-        return _receiveSweepSlots.BeginSweep();
+        return GetReceiveSweepSlots().BeginSweep();
     }
 
     /// <summary>
@@ -503,7 +504,7 @@ public sealed class DhmpServer
     public void CancelSequentialSweep()
     {
         EnsureRingSequentialMode();
-        _receiveSweepSlots.CancelSweep();
+        GetReceiveSweepSlots().CancelSweep();
     }
 
     public void SweepSequential(
@@ -643,6 +644,11 @@ public sealed class DhmpServer
                 "Latest sweep/grab APIs require DhmpProcessingMode.Latest.");
         }
 
-        return _receiveSweepSlots;
+        return GetReceiveSweepSlots();
     }
+
+    private DhmpLatestStateWindow GetReceiveSweepSlots() =>
+        _receiveSweepSlots ??
+        throw new InvalidOperationException(
+            "UnsafeSequential intentionally has no Ring-3 receive storage.");
 }
