@@ -69,7 +69,7 @@ A successful Control V1 handshake advertises the remote receive ceiling and clam
 
 The .NET reference implementation uses `DhmpReceivePolicy` for:
 
-- `Sequential`, experimental `UnsafeSequential`, or `Latest` publication/storage policy;
+- `Sequential`, experimental `UnsafeSequential`, `Latest`, or experimental `UnsafeLatest` publication/storage policy;
 - maximum accepted DHMP payload bytes.
 
 A receiver may therefore use Latest while the sender has no knowledge of that choice.
@@ -79,6 +79,8 @@ Sequential preserves every received record in arrival order through Ring-3 and t
 Experimental UnsafeSequential preserves FIFO order for records accepted into the process but lets plaintext fixed-slot transports receive directly into FIFO-owned memory, bypassing Ring-3 and its payload copy. When the FIFO is full, the receive loop stops posting the next socket receive earlier, so kernel/network loss under overload is easier to trigger. It adds no ACK, retransmission or delivery guarantee.
 
 Latest publishes the received record immediately as the newest state.
+
+Experimental UnsafeLatest is the minimal newest-state policy: plaintext fixed-slot transports receive into one reusable server-owned record slot and publish that borrowed span synchronously. The next receive may overwrite the same slot after the callback returns. It has no Ring-3 history, independent Latest grabber or Native Smoothing window.
 
 Neither policy changes the V1 wire bytes.
 
