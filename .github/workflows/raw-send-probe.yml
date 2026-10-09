@@ -25,7 +25,10 @@ jobs:
           sudo ip -n dhmp-send-probe -6 addr add fd00::1/128 dev lo nodad
           sudo ip -n dhmp-send-probe -6 addr add fd00::2/128 dev lo nodad
       - name: Measure sends and verify receiver counts and contents
-        run: sudo ip netns exec dhmp-send-probe "$(command -v dotnet)" tests/DHMP.RawSendProbe/bin/Release/net10.0/DHMP.RawSendProbe.dll
+        run: |
+          for trial in 1 2 3; do
+            sudo ip netns exec dhmp-send-probe "$(command -v dotnet)" tests/DHMP.RawSendProbe/bin/Release/net10.0/DHMP.RawSendProbe.dll
+          done
       - name: Remove lab namespace
         if: always()
         run: sudo ip netns del dhmp-send-probe || true

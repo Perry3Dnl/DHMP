@@ -45,29 +45,38 @@ foreach (int bytes in new[] { 16, 1408 })
     connected.Bind(new IPEndPoint(local, 0));
     connected.Connect(new IPEndPoint(remote, 0));
     var endpoint = new IPEndPoint(remote, 0);
+    var serializedEndpoint = endpoint.Serialize();
     using var native = new NativeSender(connected, payload);
     long asyncCalls = 0, immediate = 0;
     Action actualSend = () => {
         ValueTask pending = actual.SendPacketAsync(payload);
         asyncCalls++;
         if (pending.IsCompletedSuccessfully) immediate++;
-        pending.GetAwaiter().GetResult();
+        if (pending.IsCompleted) pending.GetAwaiter().GetResult();
+        else pending.AsTask().GetAwaiter().GetResult();
     };
     Action sendToAsync = () => {
         ValueTask<int> pending = unconnected.SendToAsync(payload.AsMemory(), SocketFlags.None, endpoint);
         asyncCalls++;
         if (pending.IsCompletedSuccessfully) immediate++;
-        if (pending.GetAwaiter().GetResult() != bytes) throw new IOException("Partial packet.");
+        if ((pending.IsCompleted ? pending.GetAwaiter().GetResult() : pending.AsTask().GetAwaiter().GetResult()) != bytes) throw new IOException("Partial packet.");
+    };
+    Action cachedAddressAsync = () => {
+        ValueTask<int> pending = unconnected.SendToAsync(payload.AsMemory(), SocketFlags.None, serializedEndpoint);
+        asyncCalls++;
+        if (pending.IsCompletedSuccessfully) immediate++;
+        if ((pending.IsCompleted ? pending.GetAwaiter().GetResult() : pending.AsTask().GetAwaiter().GetResult()) != bytes) throw new IOException("Partial packet.");
     };
     Action connectedAsync = () => {
         ValueTask<int> pending = connected.SendAsync(payload.AsMemory(), SocketFlags.None);
         asyncCalls++;
         if (pending.IsCompletedSuccessfully) immediate++;
-        if (pending.GetAwaiter().GetResult() != bytes) throw new IOException("Partial packet.");
+        if ((pending.IsCompleted ? pending.GetAwaiter().GetResult() : pending.AsTask().GetAwaiter().GetResult()) != bytes) throw new IOException("Partial packet.");
     };
     var cases = new (string Name, int Batch, Action Send)[] {
         ("current DHMP raw sender", 1, actualSend),
         ("Socket.SendToAsync", 1, sendToAsync),
+        ("cached SocketAddress SendToAsync", 1, cachedAddressAsync),
         ("connected Socket.SendAsync", 1, connectedAsync),
         ("Socket.SendTo Span synchronous", 1, () => { if (unconnected.SendTo(payload.AsSpan(), SocketFlags.None, endpoint) != bytes) throw new IOException("Partial packet."); }),
         ("connected Socket.Send Span synchronous", 1, () => { if (connected.Send(payload.AsSpan(), SocketFlags.None) != bytes) throw new IOException("Partial packet."); }),
@@ -78,11 +87,11 @@ foreach (int bytes in new[] { 16, 1408 })
     foreach (var test in cases)
     {
         long before = Interlocked.Read(ref received);
-        for (int i = 0; i < 1024 / test.Batch; i++) test.Send();
-        WaitForDrain(before + 1024);
+        for (int i = 0; i < packetCount / test.Batch; i++) test.Send();
+        WaitForDrain(before + packetCount);
     }
     var samples = cases.Select(_ => new List<object>()).ToArray();
-    for (int round = 0; round < 5; round++)
+    for (int round = 0; round < 7; round++)
     for (int step = 0; step < cases.Length; step++)
     {
         int index = round % 2 == 0 ? step : cases.Length - step - 1;
@@ -118,7 +127,7 @@ foreach (int bytes in new[] { 16, 1408 })
 }
 Console.WriteLine("RAW_SEND_PROBE=" + JsonSerializer.Serialize(new {
     runtime = RuntimeInformation.FrameworkDescription, architecture = RuntimeInformation.ProcessArchitecture.ToString(),
-    scope = "Isolated raw IPv6 loopback; fixed unchanged DHMP records. Five alternating-order samples. Sender elapsed measures kernel acceptance; receiver counts and full contents are verified separately. Native buffers/descriptors prepared once; native methods are research-only and not cancellation/disposal-compatible production replacements.", rows }));
+    scope = "Isolated raw IPv6 loopback; fixed unchanged DHMP records. Seven alternating-order samples after 32768 warmup packets per candidate. Sender elapsed measures kernel acceptance; receiver counts and full contents are verified separately. Native buffers/descriptors prepared once; native methods are research-only and not cancellation/disposal-compatible production replacements.", rows }));
 
 unsafe sealed class NativeSender : IDisposable
 {
