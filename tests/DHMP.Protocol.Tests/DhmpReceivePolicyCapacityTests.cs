@@ -60,4 +60,24 @@ public sealed class DhmpReceivePolicyCapacityTests
                     DhmpSequentialBacklogOverflowPolicy.Unbounded));
     }
 
+
+    [Fact]
+    public void UnsafeLatest_is_valid_but_does_not_allow_native_smoothing()
+    {
+        var valid =
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.UnsafeLatest,
+                maximumPayloadBytes: 1408);
+
+        Assert.Equal(
+            DhmpProcessingMode.UnsafeLatest,
+            valid.Mode);
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.UnsafeLatest,
+                maximumPayloadBytes: 1408,
+                nativeSmoothing: true));
+    }
+
 }
