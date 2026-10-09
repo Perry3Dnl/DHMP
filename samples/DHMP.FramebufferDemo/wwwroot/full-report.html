@@ -159,8 +159,10 @@
 
     <section class="report-section">
       <p class="eyebrow">LOW-NOISE AGGREGATE TIMING</p>
-      <h2>10 MB passes, timed for at least 100 ms</h2>
-      <div class="comparison-callout"><strong>One outer Stopwatch.</strong> For every canonical receive mode and record size, this test processes complete passes of at least 10,000,000 logical payload bytes and repeats whole passes until at least 100 ms has elapsed. It then computes ns/packet as actual elapsed nanoseconds ÷ total packets. This avoids one timer sample per packet and makes small timing differences easier to trust.</div>
+      <h2>10 MB passes, three samples of at least 100 ms</h2>
+      <div class="comparison-callout"><strong>All mode and send-option combinations.</strong> Every record size and receive mode runs with Unlimited, RejectWindow and SmoothPacing, each with None, ApplicationId and FullEcho confirmation. After a 50 ms warmup, three samples repeat complete ≥10 MB passes for ≥100 ms each. ns/packet = actual total elapsed ns ÷ total packets; CV shows variation between samples. Rate limits are effectively unlimited: this measures policy overhead. Full-path timing includes copying bytes into the receive slot and processing the return confirmation locally; it is not network throughput. Direct bookkeeping is shared across send options.</div>
+      <label>Rate policy <select id="aggregateRatePolicy"><option>Unlimited</option><option>RejectWindow</option><option>SmoothPacing</option></select></label>
+      <label>Confirmation <select id="aggregateConfirmation"><option>None</option><option>ApplicationId</option><option>FullEcho</option></select></label>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
           <h3>Aggregate direct receive ns/packet</h3>
@@ -169,14 +171,14 @@
         </article>
         <article class="chart-card chart-wide">
           <h3>Aggregate full software path ns/packet</h3>
-          <p class="muted">Lower is better. Client validation → synthetic transport handoff → direct receive publication, measured with one outer timer.</p>
+          <p class="muted">Lower is better. Client policy → record copy into receive slot → publication → optional local confirmation return. Three samples; lower is better.</p>
           <canvas id="aggregateClientTimingChart"></canvas>
         </article>
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr>
-            <th>Configuration</th><th>Bytes</th><th>Packets / ≥10 MB pass</th><th>Direct passes / clock check</th><th>Direct total packets</th><th>Direct elapsed ms</th><th>Direct ns/packet</th><th>Direct packets/s</th><th>Full total packets</th><th>Full elapsed ms</th><th>Full ns/packet</th><th>Full packets/s</th><th>Full logical GB/s</th>
+            <th>Configuration</th><th>Rate policy</th><th>Confirmation</th><th>Return bytes</th><th>Bytes</th><th>Packets / ≥10 MB pass</th><th>Direct passes / clock check</th><th>Direct total packets</th><th>Direct elapsed ms</th><th>Direct ns/packet</th><th>Direct packets/s</th><th>Full total packets</th><th>Full elapsed ms</th><th>Full ns/packet</th><th>Full packets/s</th><th>Full logical GB/s</th><th>Full samples</th><th>Full median ns</th><th>Full CV %</th>
           </tr></thead>
           <tbody id="aggregateTimingBody"></tbody>
         </table>
@@ -331,6 +333,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261009-aggregate100ms"></script>
+<script src="/full-report.js?v=20261009-aggregate-options"></script>
 </body>
 </html>
