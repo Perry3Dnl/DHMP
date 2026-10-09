@@ -228,6 +228,45 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
         System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
     }
 
+    /// <summary>
+    /// Experimental batch-only API. Each input is one complete V1 packet; the
+    /// caller owns rate policy and must keep all payloads valid through return.
+    /// Returns the accepted prefix length, including zero on EAGAIN. Remaining
+    /// packets are never silently queued, retried, or considered delivered.
+    /// </summary>
+    public int SendPacketsBatch(
+        ReadOnlyMemory<byte>[] packets,
+        int offset,
+        int count,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(packets);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        if (count < 1 || count > DhmpLinuxSendMmsg.MaximumBatchSize ||
+            offset > packets.Length - count)
+            throw new ArgumentOutOfRangeException(nameof(count),
+                "Batch must contain 1 to 32 available packets.");
+
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        int ceiling = CurrentMaximumPayloadBytes;
+        for (int i = offset; i < offset + count; i++)
+            if (packets[i].IsEmpty || packets[i].Length > ceiling)
+                throw new DhmpProtocolException(
+                    $"Raw IPv6 batch contains an empty or oversized packet; live ceiling is {ceiling} bytes.");
+
+        try
+        {
+            return DhmpLinuxSendMmsg.Submit(_socket, packets, offset, count);
+        }
+        catch (SocketException error)
+            when (error.SocketErrorCode == SocketError.MessageSize)
+        {
+            throw new DhmpPathMtuException(
+                packets[offset].Length, ceiling, error);
+        }
+    }
+
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) == 0)
