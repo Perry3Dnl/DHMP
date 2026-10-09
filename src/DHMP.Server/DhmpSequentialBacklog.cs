@@ -34,6 +34,14 @@ internal sealed class DhmpSequentialBacklog
     private int _dataWaiters;
     private bool _directWriteReserved;
 
+    // Fixed Backpressure is true SPSC. Producer and consumer publish their
+    // own monotonic cursors instead of contending on one Interlocked count.
+    // This keeps the hot path to acquire/release loads/stores and avoids a
+    // locked read-modify-write for every accepted record.
+    private long _fixedProducerSequence;
+    private long _fixedConsumerSequence;
+
+    // DropOldest / Unbounded still use the synchronized count path.
     private long _count;
     private long _recordsEnqueued;
     private long _recordsDequeued;
@@ -96,19 +104,40 @@ internal sealed class DhmpSequentialBacklog
     public long CapacityRecords => _capacityRecords;
 
     public long Count =>
-        Interlocked.Read(ref _count);
+        _overflowPolicy ==
+            DhmpSequentialBacklogOverflowPolicy.Backpressure
+            ? FixedBackpressureCount
+            : Interlocked.Read(ref _count);
 
     public long RecordsEnqueued =>
-        Interlocked.Read(ref _recordsEnqueued);
+        Volatile.Read(ref _recordsEnqueued);
 
     public long RecordsDequeued =>
-        Interlocked.Read(ref _recordsDequeued);
+        Volatile.Read(ref _recordsDequeued);
 
     public long RecordsDropped =>
-        Interlocked.Read(ref _recordsDropped);
+        Volatile.Read(ref _recordsDropped);
 
     public long BackpressureWaits =>
-        Interlocked.Read(ref _backpressureWaits);
+        Volatile.Read(ref _backpressureWaits);
+
+    private long FixedBackpressureCount
+    {
+        get
+        {
+            // Read consumer first. If either side advances concurrently this
+            // may be slightly stale, but it cannot report a negative count.
+            long consumer =
+                Volatile.Read(
+                    ref _fixedConsumerSequence);
+
+            long producer =
+                Volatile.Read(
+                    ref _fixedProducerSequence);
+
+            return producer - consumer;
+        }
+    }
 
     public void Enqueue(ReadOnlySpan<byte> record)
     {
@@ -172,16 +201,9 @@ internal sealed class DhmpSequentialBacklog
 
         // SPSC invariant: only the producer mutates the tail cursor.
         record.CopyTo(GetTailFixedSpan());
-        AdvanceTailFixed();
 
-        // Publish the completed FIFO slot only after its bytes are stable.
-        long newCount =
-            Interlocked.Increment(ref _count);
-
-        if (newCount == 1)
-            WakeDataConsumerIfNeeded();
-
-        Interlocked.Increment(ref _recordsEnqueued);
+        PublishFixedTail();
+        _recordsEnqueued++;
     }
 
     /// <summary>
@@ -228,17 +250,10 @@ internal sealed class DhmpSequentialBacklog
                 "No Sequential FIFO direct-write slot is reserved.");
         }
 
-        AdvanceTailFixed();
+        PublishFixedTail();
         _directWriteReserved = false;
 
-        long newCount =
-            Interlocked.Increment(ref _count);
-
-        if (newCount == 1)
-            WakeDataConsumerIfNeeded();
-
-        Interlocked.Increment(
-            ref _recordsEnqueued);
+        _recordsEnqueued++;
     }
 
     public void CancelDirectWrite()
@@ -254,16 +269,16 @@ internal sealed class DhmpSequentialBacklog
 
     private void WaitForFixedCapacity()
     {
-        while (Interlocked.Read(ref _count) == _capacityRecords)
+        while (IsFixedBackpressureFull())
         {
-            Interlocked.Increment(ref _backpressureWaits);
+            _backpressureWaits++;
             Interlocked.Increment(ref _backpressureWaiters);
 
             try
             {
                 lock (_gate)
                 {
-                    while (Interlocked.Read(ref _count) == _capacityRecords)
+                    while (IsFixedBackpressureFull())
                         Monitor.Wait(_gate);
                 }
             }
@@ -272,6 +287,34 @@ internal sealed class DhmpSequentialBacklog
                 Interlocked.Decrement(ref _backpressureWaiters);
             }
         }
+    }
+
+    private bool IsFixedBackpressureFull() =>
+        _fixedProducerSequence -
+        Volatile.Read(
+            ref _fixedConsumerSequence) >=
+        _capacityRecords;
+
+    private void PublishFixedTail()
+    {
+        long producer =
+            _fixedProducerSequence;
+
+        bool wasEmpty =
+            producer ==
+            Volatile.Read(
+                ref _fixedConsumerSequence);
+
+        AdvanceTailFixed();
+
+        // Release-publish the record only after its bytes and tail cursor are
+        // stable. The consumer's Volatile.Read is the acquire side.
+        Volatile.Write(
+            ref _fixedProducerSequence,
+            producer + 1);
+
+        if (wasEmpty)
+            WakeDataConsumerIfNeeded();
     }
 
     /// <summary>
@@ -286,16 +329,28 @@ internal sealed class DhmpSequentialBacklog
 
         if (_overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
         {
-            if (Interlocked.Read(ref _count) == 0)
+            long consumerSequence =
+                _fixedConsumerSequence;
+
+            if (Volatile.Read(
+                    ref _fixedProducerSequence) ==
+                consumerSequence)
+            {
                 return false;
+            }
 
             consumer(GetHeadFixedSpan());
             AdvanceHeadFixed();
 
-            Interlocked.Decrement(ref _count);
+            // Release the consumed slot after the callback has finished using
+            // it. The producer acquires this cursor before reusing capacity.
+            Volatile.Write(
+                ref _fixedConsumerSequence,
+                consumerSequence + 1);
+
             WakeBackpressuredProducerIfNeeded();
 
-            Interlocked.Increment(ref _recordsDequeued);
+            _recordsDequeued++;
             return true;
         }
 
@@ -348,7 +403,7 @@ internal sealed class DhmpSequentialBacklog
             {
                 lock (_gate)
                 {
-                    while (Interlocked.Read(ref _count) == 0 &&
+                    while (Count == 0 &&
                            !cancellationToken.IsCancellationRequested)
                     {
                         Monitor.Wait(
@@ -373,16 +428,27 @@ internal sealed class DhmpSequentialBacklog
 
         if (_overflowPolicy == DhmpSequentialBacklogOverflowPolicy.Backpressure)
         {
-            if (Interlocked.Read(ref _count) == 0)
-                return false;
+            long consumerSequence =
+                _fixedConsumerSequence;
 
-            GetHeadFixedSpan().CopyTo(destination[.._recordSize]);
+            if (Volatile.Read(
+                    ref _fixedProducerSequence) ==
+                consumerSequence)
+            {
+                return false;
+            }
+
+            GetHeadFixedSpan()
+                .CopyTo(destination[.._recordSize]);
             AdvanceHeadFixed();
 
-            Interlocked.Decrement(ref _count);
+            Volatile.Write(
+                ref _fixedConsumerSequence,
+                consumerSequence + 1);
+
             WakeBackpressuredProducerIfNeeded();
 
-            Interlocked.Increment(ref _recordsDequeued);
+            _recordsDequeued++;
             return true;
         }
 
