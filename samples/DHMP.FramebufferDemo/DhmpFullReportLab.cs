@@ -255,6 +255,7 @@ internal sealed class DhmpFullReportLab
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
                     "Canonical Full Report Sequential rows use a 64-record local FIFO. Local multi-record batch rows size that synthetic FIFO to at least one complete batch so synchronous batch publication cannot self-backpressure before its grabber runs."
                 },
+                Environment.GetEnvironmentVariable("DHMP_DEMO_COMMIT") ??
                 Environment.GetEnvironmentVariable("DHMP_BUILD_SHA") ??
                 Environment.GetEnvironmentVariable("GITHUB_SHA"));
 
