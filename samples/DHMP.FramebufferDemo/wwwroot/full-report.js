@@ -611,6 +611,15 @@
 
   function render(report) {
     latestReport = report;
+    const generated = report.generatedUtc ? new Date(report.generatedUtc) : null;
+    const validDate = generated && !Number.isNaN(generated.getTime());
+    const timestamp = validDate ? generated.toLocaleString() : 'Unknown';
+    const revision = report.buildRevision || 'Not provided by server';
+    $('reportProvenance').textContent =
+      'Measured: ' + timestamp + ' | UTC: ' +
+      (validDate ? generated.toISOString() : 'unknown') +
+      ' | Server build: ' + revision +
+      ' | Download filename uses measurement time, not download time.';
     $('report').classList.remove('hidden');
     $('downloadJson').disabled = false;
 
@@ -893,7 +902,13 @@
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = 'dhmp-full-report-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+    const runTime = latestReport.generatedUtc
+      ? new Date(latestReport.generatedUtc)
+      : null;
+    const stamp = runTime && !Number.isNaN(runTime.getTime())
+      ? runTime.toISOString().replace(/[:.]/g, '-')
+      : 'unknown-run-time';
+    anchor.download = 'dhmp-full-report-' + stamp + '.json';
     anchor.click();
     URL.revokeObjectURL(url);
   });
