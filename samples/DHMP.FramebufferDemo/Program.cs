@@ -206,7 +206,8 @@ app.MapPost(
                 out var receiveMode) ||
             receiveMode is not DHMP.Protocol.DhmpProcessingMode.Sequential and
                 not DHMP.Protocol.DhmpProcessingMode.UnsafeSequential and
-                not DHMP.Protocol.DhmpProcessingMode.Latest)
+                not DHMP.Protocol.DhmpProcessingMode.Latest and
+                not DHMP.Protocol.DhmpProcessingMode.UnsafeLatest)
         {
             return Results.BadRequest(
                 new { error = "Unsupported receive mode." });
