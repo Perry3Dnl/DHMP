@@ -154,41 +154,78 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
     void IDhmpPathBudgetTarget.FallBackToMinimumPathBudget()
         => FallBackToMinimumPathBudget();
 
-    public async ValueTask SendPacketAsync(
+    public ValueTask SendPacketAsync(
         ReadOnlyMemory<byte> payload,
         CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        int currentMaximum =
-            CurrentMaximumPayloadBytes;
-
-        if (payload.IsEmpty || payload.Length > currentMaximum)
-            throw new DhmpProtocolException(
-                $"Raw IPv6 sender received an empty or oversized DHMP packet payload. Current live ceiling is {currentMaximum} bytes.");
-
-        int sent;
-
         try
         {
-            sent = await _socket.SendAsync(
-                payload,
-                SocketFlags.None,
-                cancellationToken).ConfigureAwait(false);
+            ObjectDisposedException.ThrowIf(
+                Volatile.Read(ref _disposed) != 0, this);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int currentMaximum = CurrentMaximumPayloadBytes;
+            if (payload.IsEmpty || payload.Length > currentMaximum)
+                throw new DhmpProtocolException(
+                    $"Raw IPv6 sender received an empty or oversized DHMP packet payload. Current live ceiling is {currentMaximum} bytes.");
+
+            // Most connected raw socket sends complete inline. Avoid creating
+            // an async state machine unless kernel I/O actually suspends.
+            ValueTask<int> pending = _socket.SendAsync(
+                payload, SocketFlags.None, cancellationToken);
+
+            if (!pending.IsCompletedSuccessfully)
+                return CompletePendingSendAsync(pending, payload.Length, currentMaximum);
+
+            int sent = pending.GetAwaiter().GetResult();
+            EnsureCompleteSend(sent, payload.Length);
+            return ValueTask.CompletedTask;
+        }
+        catch (SocketException error)
+            when (error.SocketErrorCode == SocketError.MessageSize)
+        {
+            return DeferredFailureAsync(
+                new DhmpPathMtuException(
+                    payload.Length, CurrentMaximumPayloadBytes, error));
+        }
+        catch (Exception error)
+        {
+            // Keep the original async method's deferred exception/cancel contract.
+            return DeferredFailureAsync(error);
+        }
+    }
+
+    private static async ValueTask CompletePendingSendAsync(
+        ValueTask<int> pending,
+        int payloadLength,
+        int currentMaximum)
+    {
+        int sent;
+        try
+        {
+            sent = await pending.ConfigureAwait(false);
         }
         catch (SocketException error)
             when (error.SocketErrorCode == SocketError.MessageSize)
         {
             throw new DhmpPathMtuException(
-                payload.Length,
-                currentMaximum,
-                error);
+                payloadLength, currentMaximum, error);
         }
 
-        if (sent != payload.Length)
+        EnsureCompleteSend(sent, payloadLength);
+    }
+
+    private static void EnsureCompleteSend(int sent, int expected)
+    {
+        if (sent != expected)
             throw new IOException(
-                $"Raw IPv6 socket accepted {sent} of {payload.Length} DHMP payload bytes.");
+                $"Raw IPv6 socket accepted {sent} of {expected} DHMP payload bytes.");
+    }
+
+    private static async ValueTask DeferredFailureAsync(Exception error)
+    {
+        await Task.CompletedTask.ConfigureAwait(false);
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
     }
 
     public void Dispose()
