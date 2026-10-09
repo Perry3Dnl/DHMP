@@ -1,3 +1,4 @@
+// Test-only single-send baseline from main 678b2d2.
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using DHMP.Protocol;
@@ -12,19 +13,17 @@ namespace DHMP.Client;
 /// message count. When an adaptive controller is supplied, authenticated feedback may lower the
 /// pacing rate and no-pressure feedback may recover it gradually. The local Pmax remains authoritative.
 /// </remarks>
-public sealed class DhmpClient
+internal sealed class BeforeClient
 {
     private readonly IDhmpPacketSender _sender;
     private readonly IDhmpDynamicPacketSender? _dynamicSender;
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpSendPolicy _sendPolicy;
-    private readonly int _recordSize;
-    private readonly int _maximumPayloadBytes;
     private readonly DhmpPmaxBudget? _budget;
     private readonly DhmpPacingSchedule? _pacer;
     private readonly DhmpAdaptiveRateController? _adaptiveRateController;
 
-    public DhmpClient(
+    public BeforeClient(
         IDhmpPacketSender sender,
         DhmpWireContract wireContract,
         DhmpSendPolicy sendPolicy,
@@ -59,10 +58,6 @@ public sealed class DhmpClient
         _dynamicSender = sender as IDhmpDynamicPacketSender;
         _wireContract = wireContract;
         _sendPolicy = sendPolicy;
-        // Constructor validation proves the fixed record fits these immutable
-        // limits. Only an optional live path budget needs checking per send.
-        _recordSize = wireContract.RecordSize;
-        _maximumPayloadBytes = sendPolicy.MaximumPayloadBytes;
         _adaptiveRateController =
             adaptiveRateController;
 
@@ -106,9 +101,21 @@ public sealed class DhmpClient
     {
         get
         {
-            int rawMaximum = _maximumPayloadBytes;
-            if (_dynamicSender is not null)
-                rawMaximum = Math.Min(rawMaximum, _dynamicSender.CurrentMaximumPayloadBytes);
+            int senderMaximum =
+                _sender.MaximumPayloadBytes;
+
+            if (_sender is IDhmpDynamicPacketSender dynamicSender)
+            {
+                senderMaximum =
+                    Math.Min(
+                        senderMaximum,
+                        dynamicSender.CurrentMaximumPayloadBytes);
+            }
+
+            int rawMaximum =
+                Math.Min(
+                    _sendPolicy.MaximumPayloadBytes,
+                    senderMaximum);
 
             return
                 rawMaximum /
@@ -121,22 +128,25 @@ public sealed class DhmpClient
         ReadOnlyMemory<byte> record,
         CancellationToken cancellationToken = default)
     {
+        if (_sendPolicy.RatePolicy != DhmpRatePolicy.Unlimited)
+            return SendWithRatePolicyAsync(record, cancellationToken);
+
         // Preserve the original async boundary's ExecutionContext and
         // SynchronizationContext restoration without a resumable await state.
-        var operation = new SingleSendOperation(this, record, cancellationToken);
+        var operation = new UnlimitedSendOperation(this, record, cancellationToken);
         var boundary = AsyncValueTaskMethodBuilder.Create();
         boundary.Start(ref operation);
         return operation.Result;
     }
 
-    private struct SingleSendOperation : IAsyncStateMachine
+    private struct UnlimitedSendOperation : IAsyncStateMachine
     {
-        private readonly DhmpClient _client;
+        private readonly BeforeClient _client;
         private readonly ReadOnlyMemory<byte> _record;
         private readonly CancellationToken _cancellationToken;
         internal ValueTask Result;
 
-        internal SingleSendOperation(DhmpClient client, ReadOnlyMemory<byte> record, CancellationToken cancellationToken)
+        internal UnlimitedSendOperation(BeforeClient client, ReadOnlyMemory<byte> record, CancellationToken cancellationToken)
         {
             _client = client;
             _record = record;
@@ -150,31 +160,28 @@ public sealed class DhmpClient
             {
                 _cancellationToken.ThrowIfCancellationRequested();
 
-                int recordSize = _client._recordSize;
+                int recordSize = _client._wireContract.RecordSize;
 
                 if (_record.Length != recordSize)
                     throw new DhmpProtocolException(
                         $"Expected one {recordSize}-byte DHMP record; received {_record.Length} bytes.");
 
-                if (_client._dynamicSender is not null &&
-                    _client._dynamicSender.CurrentMaximumPayloadBytes < recordSize)
+                int senderMaximum = _client._sender.MaximumPayloadBytes;
+
+                IDhmpDynamicPacketSender? dynamicSender = _client._dynamicSender;
+                if (dynamicSender is not null)
+                {
+                    int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
+                    if (liveMaximum < senderMaximum)
+                        senderMaximum = liveMaximum;
+                }
+
+                if (_client._sendPolicy.MaximumPayloadBytes < senderMaximum)
+                    senderMaximum = _client._sendPolicy.MaximumPayloadBytes;
+
+                if (senderMaximum < recordSize)
                     throw new DhmpProtocolException(
                         "Current DHMP path budget cannot fit one complete record.");
-
-                if (_client._budget is not null && !_client._budget.TryConsume(1))
-                    throw new DhmpProtocolException(
-                        "Configured local DHMP send budget exhausted.");
-
-                if (_client._pacer is not null)
-                {
-                    ValueTask pacing = _client.PaceAsync(1, _cancellationToken);
-                    if (!pacing.IsCompletedSuccessfully)
-                    {
-                        Result = _client.AwaitPacingAndSendAsync(pacing, _record, _cancellationToken);
-                        return;
-                    }
-                    pacing.GetAwaiter().GetResult();
-                }
 
                 ValueTask pending = _client._sender.SendPacketAsync(_record, _cancellationToken);
                 if (!pending.IsCompletedSuccessfully)
@@ -208,13 +215,52 @@ public sealed class DhmpClient
         System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
     }
 
-    private async ValueTask AwaitPacingAndSendAsync(
-        ValueTask pacing,
+    private async ValueTask SendWithRatePolicyAsync(
         ReadOnlyMemory<byte> record,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
-        await pacing.ConfigureAwait(false);
-        await _sender.SendPacketAsync(record, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        int recordSize = _wireContract.RecordSize;
+
+        if (record.Length != recordSize)
+            throw new DhmpProtocolException(
+                $"Expected one {recordSize}-byte DHMP record; received {record.Length} bytes.");
+
+        int senderMaximum = _sender.MaximumPayloadBytes;
+
+        if (_sender is IDhmpDynamicPacketSender dynamicSender)
+        {
+            int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
+            if (liveMaximum < senderMaximum)
+                senderMaximum = liveMaximum;
+        }
+
+        if (_sendPolicy.MaximumPayloadBytes < senderMaximum)
+            senderMaximum = _sendPolicy.MaximumPayloadBytes;
+
+        if (senderMaximum < recordSize)
+            throw new DhmpProtocolException(
+                "Current DHMP path budget cannot fit one complete record.");
+
+        if (_sendPolicy.RatePolicy == DhmpRatePolicy.SmoothPacing)
+        {
+            await PaceAsync(
+                1,
+                cancellationToken)
+            .ConfigureAwait(false);
+        }
+        else if (_sendPolicy.RatePolicy == DhmpRatePolicy.RejectWindow &&
+                 !_budget!.TryConsume(1))
+        {
+            throw new DhmpProtocolException(
+                "Configured local DHMP send budget exhausted.");
+        }
+
+        await _sender.SendPacketAsync(
+            record,
+            cancellationToken)
+        .ConfigureAwait(false);
     }
 
     public async ValueTask SendBatchAsync(
@@ -272,7 +318,7 @@ public sealed class DhmpClient
         }
     }
 
-    private ValueTask PaceAsync(
+    private async ValueTask PaceAsync(
         int messages,
         CancellationToken cancellationToken)
     {
@@ -288,27 +334,17 @@ public sealed class DhmpClient
                 now);
 
         if (delay > TimeSpan.Zero)
-            return PaceAfterDelayAsync(messages, delay, cancellationToken);
+        {
+            await Task.Delay(
+                delay,
+                cancellationToken)
+            .ConfigureAwait(false);
+        }
 
-        CommitPacing(messages, cancellationToken);
-        return ValueTask.CompletedTask;
-    }
-
-    private async ValueTask PaceAfterDelayAsync(
-        int messages,
-        TimeSpan delay,
-        CancellationToken cancellationToken)
-    {
-        await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
-        CommitPacing(messages, cancellationToken);
-    }
-
-    private void CommitPacing(int messages, CancellationToken cancellationToken)
-    {
         cancellationToken
             .ThrowIfCancellationRequested();
 
-        _pacer!.UpdateRate(
+        _pacer.UpdateRate(
             CurrentMessagesPerSecond);
 
         _pacer.Commit(
@@ -316,4 +352,5 @@ public sealed class DhmpClient
             Stopwatch.GetTimestamp());
     }
 }
+
 

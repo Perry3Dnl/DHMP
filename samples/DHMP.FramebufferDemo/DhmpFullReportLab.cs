@@ -969,13 +969,13 @@ internal sealed class DhmpFullReportLab
             results.Add(
                 new DhmpProtocolComparisonBenchmark(
                     "DHMP Raw IPv6",
-                    $"{workers} workers, raw IPv6 transmit",
+                    $"{workers} workers, Unlimited client → production raw IPv6 sender",
                     packetBytes,
                     network.RawPacketRate,
                     network.RawPayloadGigabytesPerSecond,
                     50_000L * workers,
                     false,
-                    "Measured on the benchmark interfaces using the normal kernel raw-IPv6 path."));
+                    "Measured on the benchmark interfaces via DhmpClient Unlimited and DhmpRawIpv6PacketSender connected SendAsync. Kernel acceptance timing; receipt and physical-wire throughput are not measured. Historical SendTo-only runs have a different scope."));
 
             results.Add(
                 new DhmpProtocolComparisonBenchmark(

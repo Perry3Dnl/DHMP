@@ -1,0 +1,45 @@
+name: Sender path validation and comparison
+on:
+  pull_request:
+    paths:
+      - 'src/DHMP.Client/**'
+      - 'tests/DHMP.SendPathCheck/**'
+      - 'samples/DHMP.FramebufferDemo/DhmpAfXdpLiveLab.cs'
+      - '.github/workflows/send-path-check.yml'
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compare all policies over local copy path
+        run: dotnet run --project tests/DHMP.SendPathCheck/DHMP.SendPathCheck.csproj --configuration Release
+      - name: Build real report sender smoke
+        run: dotnet build tests/DHMP.FullReport.Smoke/DHMP.FullReport.Smoke.csproj --configuration Release
+      - name: Configure raw IPv6 lab
+        run: |
+          sudo sysctl -w net.core.rmem_max=33554432 net.core.wmem_max=33554432
+          sudo ip netns add dhmp-send-path
+          sudo ip -n dhmp-send-path link set lo up
+          sudo ip -n dhmp-send-path -6 addr add fd00::1/128 dev lo nodad
+          sudo ip -n dhmp-send-path -6 addr add fd00::2/128 dev lo nodad
+          sudo ip netns exec dhmp-send-path ip link add dhmpxdp0 type veth peer name dhmppeer0
+          sudo ip -n dhmp-send-path link set dhmpxdp0 up
+          sudo ip -n dhmp-send-path link set dhmppeer0 up
+          sudo ip -n dhmp-send-path -6 addr add fd42:6468:6d70:1::1/64 dev dhmpxdp0 nodad
+      - name: Compare clients over identical real production raw sender
+        run: |
+          for trial in 1 2 3; do
+            sudo ip netns exec dhmp-send-path "$(command -v dotnet)" tests/DHMP.SendPathCheck/bin/Release/net10.0/DHMP.SendPathCheck.dll --raw
+          done
+      - name: Exercise actual report worker with scoped multicast and cancellation
+        run: sudo ip netns exec dhmp-send-path "$(command -v dotnet)" tests/DHMP.FullReport.Smoke/bin/Release/net10.0/DHMP.FullReport.Smoke.dll --raw-sender
+      - name: Remove namespace
+        if: always()
+        run: sudo ip netns del dhmp-send-path || true
+
