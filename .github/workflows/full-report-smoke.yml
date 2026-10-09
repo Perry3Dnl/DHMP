@@ -1,0 +1,22 @@
+name: Full Report aggregate smoke
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  aggregate-options:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Verify aggregate modes, send options and timing counts
+        run: dotnet run --project tests/DHMP.FullReport.Smoke/DHMP.FullReport.Smoke.csproj --configuration Release
+      - name: Check report JavaScript
+        run: node --check samples/DHMP.FramebufferDemo/wwwroot/full-report.js

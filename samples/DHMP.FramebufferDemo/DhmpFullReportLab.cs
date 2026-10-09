@@ -15,6 +15,7 @@ internal sealed class DhmpFullReportLab
     private const int ReferencePacketBytes = 1408;
     private const long AggregateTargetBytesPerPass = 10_000_000;
     private const double AggregateMinimumSeconds = 0.100;
+    private const int AggregateRepetitions = 3;
 
     private static readonly int[] CanonicalRecordSizes =
         [16, 256, 1024, 1408, 4096, 16384, 65520];
@@ -69,7 +70,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 98;
+            _totalSteps = 98 + CanonicalRecordSizes.Length * 5 * (3 * 3 - 1);
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -134,16 +135,17 @@ internal sealed class DhmpFullReportLab
                              (DhmpProcessingMode.Latest, true)
                          })
                 {
-                    SetPhase(
-                        $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} aggregate 10 MB / ≥100 ms {recordBytes:N0} B");
-
-                    aggregateTiming.Add(
-                        RunAggregateTimingBenchmark(
-                            recordBytes,
-                            mode,
-                            smoothing));
-
-                    CompleteStep();
+                    DhmpAggregateTimingSample? direct = null;
+                    foreach (DhmpRatePolicy ratePolicy in Enum.GetValues<DhmpRatePolicy>())
+                    foreach (DhmpStressConfirmationMode confirmation in Enum.GetValues<DhmpStressConfirmationMode>())
+                    {
+                        SetPhase($"{mode}{(smoothing ? " + smoothing" : string.Empty)} / {ratePolicy} / {confirmation}: 3 × ≥100 ms, {recordBytes:N0} B");
+                        var result = RunAggregateTimingBenchmark(
+                            recordBytes, mode, smoothing, ratePolicy, confirmation, direct);
+                        direct = result.DirectReceive;
+                        aggregateTiming.Add(result);
+                        CompleteStep();
+                    }
                 }
             }
 
@@ -237,6 +239,7 @@ internal sealed class DhmpFullReportLab
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
                     "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
+                    "aggregateTiming measures every canonical size/mode with all rate policies and confirmation modes. Rate limits are long.MaxValue to measure policy overhead without intentional throttling. FullClient copies supplied bytes into the receive slot and processes the confirmation return; ApplicationId returns one 8-byte application ID padded to a 16-byte record, FullEcho returns the whole record. DirectReceive is shared across send options because those options do not affect receive bookkeeping. Each path has a 50 ms warmup and three >=100 ms samples with sample statistics. This is local software processing, not physical network throughput.",
                     "aggregateTiming repeats complete passes of at least 10,000,000 logical payload bytes under one outer Stopwatch until at least 100 ms has elapsed, then divides actual elapsed nanoseconds by total packet count. A calibration pass groups enough 10 MB passes to target roughly 5 ms between clock reads, preventing Stopwatch polling from dominating very fast large-record modes.",
                     "Sequential, UnsafeSequential, Latest and UnsafeLatest all receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
@@ -461,98 +464,64 @@ internal sealed class DhmpFullReportLab
     private static DhmpAggregateTimingBenchmark RunAggregateTimingBenchmark(
         int recordBytes,
         DhmpProcessingMode mode,
-        bool nativeSmoothing)
+        bool nativeSmoothing,
+        DhmpRatePolicy ratePolicy,
+        DhmpStressConfirmationMode confirmation,
+        DhmpAggregateTimingSample? sharedDirect)
     {
-        var wire =
-            new DhmpWireContract(
-                recordBytes);
-
-        var policy =
-            CreateBenchmarkReceivePolicy(
-                mode,
-                MaximumPayloadBytes,
-                nativeSmoothing);
-
-        int published = 0;
-
-        Action<ReadOnlySpan<byte>> publish =
-            span => published +=
-                span.Length /
-                recordBytes;
-
-        var server =
-            new DhmpServer(
-                wire,
-                policy);
-
-        Action directReceive =
-            CreateDirectReceiveAction(
-                server,
-                publish);
-
-        var sender =
-            new DirectReceiveReportSender(
-                server,
-                publish);
-
-        var client =
-            new DhmpClient(
-                sender,
-                wire,
-                new DhmpSendPolicy(
-                    long.MaxValue,
-                    MaximumPayloadBytes,
-                    DhmpRatePolicy.Unlimited));
-
-        byte[] record =
-            GC.AllocateUninitializedArray<byte>(
-                recordBytes);
-
-        Action fullClient =
-            () => client.SendAsync(record)
-                .GetAwaiter()
-                .GetResult();
-
-        // Warm both code paths before starting the aggregate clock. The actual
-        // aggregate sample then uses one outer Stopwatch only.
-        for (int i = 0; i < 10_000; i++)
-        {
-            directReceive();
-            fullClient();
-        }
-
-        long packetsPerPass =
-            Math.Max(
-                1L,
-                (AggregateTargetBytesPerPass +
-                 recordBytes - 1L) /
-                recordBytes);
-
-        DhmpAggregateTimingSample direct =
-            MeasureAggregateTiming(
-                directReceive,
-                recordBytes,
-                packetsPerPass);
-
-        DhmpAggregateTimingSample fullClientSample =
-            MeasureAggregateTiming(
-                fullClient,
-                recordBytes,
-                packetsPerPass);
-
+        var wire = new DhmpWireContract(recordBytes);
+        var server = new DhmpServer(wire,
+            CreateBenchmarkReceivePolicy(mode, MaximumPayloadBytes, nativeSmoothing));
+        long published = 0;
+        Action<ReadOnlySpan<byte>> publish = span => published += span.Length / recordBytes;
+        Action directReceive = CreateDirectReceiveAction(server, publish);
+        var sender = new AggregateReportSender(server, publish, confirmation);
+        var client = new DhmpClient(sender, wire,
+            new DhmpSendPolicy(long.MaxValue, MaximumPayloadBytes, ratePolicy));
+        byte[] record = new byte[recordBytes];
+        record.AsSpan().Fill(0x5a);
+        Action fullClient = () => client.SendAsync(record).GetAwaiter().GetResult();
+        long packetsPerPass = (AggregateTargetBytesPerPass + recordBytes - 1L) / recordBytes;
+        var direct = sharedDirect ?? MeasureAggregateTiming(directReceive, recordBytes, packetsPerPass);
+        var full = MeasureAggregateTiming(fullClient, recordBytes, packetsPerPass);
+        if (sender.TotalPackets == 0 || sender.LastPublishedByte != record[0])
+            throw new InvalidOperationException("Aggregate path did not publish the supplied record.");
         GC.KeepAlive(published);
-
-        return new DhmpAggregateTimingBenchmark(
-            recordBytes,
-            mode.ToString(),
-            nativeSmoothing,
-            AggregateTargetBytesPerPass,
-            packetsPerPass,
-            direct,
-            fullClientSample);
+        return new DhmpAggregateTimingBenchmark(recordBytes, mode.ToString(), nativeSmoothing,
+            ratePolicy.ToString(), confirmation.ToString(), sender.ReturnBytesPerPacket,
+            AggregateTargetBytesPerPass, packetsPerPass, direct, full);
     }
 
     private static DhmpAggregateTimingSample MeasureAggregateTiming(
+        Action action, int recordBytes, long packetsPerPass)
+    {
+        // Time-based warmup also gives tiered compilation time to settle.
+        long warmupStart = Stopwatch.GetTimestamp();
+        do
+        {
+            for (int i = 0; i < 10_000; i++) action();
+        } while (Stopwatch.GetElapsedTime(warmupStart).TotalSeconds < 0.050);
+
+        var samples = new DhmpAggregateTimingSample[AggregateRepetitions];
+        var nanoseconds = new double[AggregateRepetitions];
+        long packets = 0, bytes = 0;
+        double milliseconds = 0;
+        for (int i = 0; i < samples.Length; i++)
+        {
+            var sample = MeasureAggregateTimingPass(action, recordBytes, packetsPerPass);
+            samples[i] = sample;
+            nanoseconds[i] = sample.NanosecondsPerPacket;
+            packets += sample.TotalPackets;
+            bytes += sample.TotalLogicalBytes;
+            milliseconds += sample.ElapsedMilliseconds;
+        }
+        double packetRate = packets / (milliseconds / 1_000d);
+        return new DhmpAggregateTimingSample(packets, bytes, samples[0].PassesPerClockCheck,
+            milliseconds, milliseconds * 1_000_000d / packets, packetRate,
+            packetRate * recordBytes / 1_000_000_000d, Stats(nanoseconds), samples);
+    }
+
+    private static DhmpAggregateTimingSample MeasureAggregateTimingPass(
         Action action,
         int recordBytes,
         long packetsPerPass)
@@ -1837,6 +1806,76 @@ internal sealed class DhmpFullReportLab
         }
     }
 
+    private sealed class AggregateReportSender : IDhmpPacketSender
+    {
+        private readonly DhmpServer _server;
+        private readonly Action<ReadOnlySpan<byte>> _publish;
+        private readonly Action<ReadOnlySpan<byte>> _observe;
+        private readonly DhmpStressConfirmationMode _confirmation;
+        private readonly DhmpServer? _returnServer;
+        private readonly byte[] _id = new byte[RecordSize];
+        private readonly Memory<byte> _unsafeSlot;
+        public long TotalPackets { get; private set; }
+        public byte LastPublishedByte { get; private set; }
+        public int MaximumPayloadBytes => DhmpFullReportLab.MaximumPayloadBytes;
+        public int ReturnBytesPerPacket => _confirmation == DhmpStressConfirmationMode.None
+            ? 0 : _confirmation == DhmpStressConfirmationMode.ApplicationId
+                ? RecordSize : _server.WireContract.RecordSize;
+
+        public AggregateReportSender(DhmpServer server, Action<ReadOnlySpan<byte>> publish,
+            DhmpStressConfirmationMode confirmation)
+        {
+            _server = server;
+            _publish = publish;
+            _confirmation = confirmation;
+            _observe = span => { LastPublishedByte = span[0]; _publish(span); };
+            if (server.ReceivePolicy.Mode == DhmpProcessingMode.UnsafeLatest)
+                _unsafeSlot = server.GetUnsafeLatestReceiveMemoryUnchecked();
+            if (confirmation != DhmpStressConfirmationMode.None)
+                _returnServer = new DhmpServer(
+                    new DhmpWireContract(confirmation == DhmpStressConfirmationMode.ApplicationId
+                        ? RecordSize : server.WireContract.RecordSize),
+                    CreateBenchmarkReceivePolicy(DhmpProcessingMode.Sequential, MaximumPayloadBytes));
+        }
+
+        public ValueTask SendPacketAsync(ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (payload.Length != _server.WireContract.RecordSize)
+                throw new DhmpProtocolException("Aggregate sender requires one negotiated record.");
+            if (_server.ReceivePolicy.Mode == DhmpProcessingMode.UnsafeLatest)
+            {
+                payload.Span.CopyTo(_unsafeSlot.Span);
+                _server.PublishUnsafeLatestReceiveUnchecked(_observe);
+            }
+            else
+            {
+                Memory<byte> slot = _server.BeginNegotiatedReceiveSlot();
+                try
+                {
+                    payload.Span.CopyTo(slot.Span);
+                    _server.CommitNegotiatedReceiveSlot(_observe);
+                }
+                catch
+                {
+                    _server.CancelNegotiatedReceiveSlot();
+                    throw;
+                }
+            }
+            if (_confirmation == DhmpStressConfirmationMode.ApplicationId)
+            {
+                // One application-owned 8-byte ID, padded to a 16-byte return record.
+                payload.Span[..8].CopyTo(_id);
+                _returnServer!.ProcessNegotiatedRecord(_id, static _ => { });
+            }
+            else if (_confirmation == DhmpStressConfirmationMode.FullEcho)
+                _returnServer!.ProcessNegotiatedRecord(payload.Span, static _ => { });
+            TotalPackets++;
+            return ValueTask.CompletedTask;
+        }
+    }
+
     private sealed class ConfirmationReportSender : IDhmpPacketSender
     {
         private readonly DhmpServer _forwardServer;
@@ -1989,6 +2028,9 @@ internal sealed record DhmpAggregateTimingBenchmark(
     int PacketBytes,
     string ReceiveMode,
     bool NativeSmoothing,
+    string RatePolicy,
+    string ConfirmationMode,
+    int ReturnBytesPerForwardPacket,
     long TargetLogicalBytesPerPass,
     long PacketsPerPass,
     DhmpAggregateTimingSample DirectReceive,
@@ -2001,7 +2043,9 @@ internal sealed record DhmpAggregateTimingSample(
     double ElapsedMilliseconds,
     double NanosecondsPerPacket,
     double PacketRate,
-    double LogicalPayloadGigabytesPerSecond);
+    double LogicalPayloadGigabytesPerSecond,
+    DhmpSampleStats? NanosecondsPerPacketStats = null,
+    DhmpAggregateTimingSample[]? Samples = null);
 
 internal sealed record DhmpLocalBatchBenchmark(
     int BatchBytes,
@@ -2082,3 +2126,4 @@ internal sealed record DhmpSampleStats(
     double Max,
     double Average,
     double CoefficientOfVariationPercent);
+

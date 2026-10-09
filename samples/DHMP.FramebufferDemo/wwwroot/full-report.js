@@ -1,5 +1,6 @@
 (() => {
   const $ = id => document.getElementById(id);
+  const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]));
   let latestReport = null;
   let timer = 0;
 
@@ -495,6 +496,10 @@
       ? report.aggregateTiming
       : [];
 
+    const selectedAggregateRows = aggregateRows.filter(row =>
+      (row.ratePolicy || 'Unlimited') === $('aggregateRatePolicy').value &&
+      (row.confirmationMode || 'None') === $('aggregateConfirmation').value);
+
     if (aggregateRows.length) {
       drawGroupedBarChart(
         'aggregateDirectTimingChart',
@@ -502,7 +507,7 @@
         modeLabels.map(label => ({
           label,
           values: packetSizes.map(size => {
-            const row = aggregateRows.find(r =>
+            const row = selectedAggregateRows.find(r =>
               modeName(r) === label && Number(r.packetBytes) === size);
             return row ? Number(row.directReceive?.nanosecondsPerPacket || 0) : 0;
           })
@@ -515,7 +520,7 @@
         modeLabels.map(label => ({
           label,
           values: packetSizes.map(size => {
-            const row = aggregateRows.find(r =>
+            const row = selectedAggregateRows.find(r =>
               modeName(r) === label && Number(r.packetBytes) === size);
             return row ? Number(row.fullClient?.nanosecondsPerPacket || 0) : 0;
           })
@@ -725,6 +730,9 @@
     $('aggregateTimingBody').innerHTML = aggregateRowsForTable.map(row =>
       '<tr>' +
       '<td>' + modeName(row) + '</td>' +
+      '<td>' + escapeHtml(row.ratePolicy || 'Unlimited') + '</td>' +
+      '<td>' + escapeHtml(row.confirmationMode || 'None') + '</td>' +
+      '<td>' + fullInteger(row.returnBytesPerForwardPacket || 0) + '</td>' +
       '<td>' + Number(row.packetBytes).toLocaleString() + '</td>' +
       '<td>' + fullInteger(row.packetsPerPass) + '</td>' +
       '<td>' + fullInteger(row.directReceive?.passesPerClockCheck || 1) + '</td>' +
@@ -737,6 +745,9 @@
       '<td>' + fullDecimal(row.fullClient?.nanosecondsPerPacket || 0, 3) + '</td>' +
       '<td>' + fullInteger(row.fullClient?.packetRate || 0) + '</td>' +
       '<td>' + fullDecimal(row.fullClient?.logicalPayloadGigabytesPerSecond || 0, 2) + '</td>' +
+      '<td>' + (row.fullClient?.samples?.length || 1) + '</td>' +
+      '<td>' + fullDecimal(row.fullClient?.nanosecondsPerPacketStats?.median ?? row.fullClient?.nanosecondsPerPacket ?? 0, 3) + '</td>' +
+      '<td>' + (row.fullClient?.nanosecondsPerPacketStats ? fullDecimal(row.fullClient.nanosecondsPerPacketStats.coefficientOfVariationPercent, 2) : '—') + '</td>' +
       '</tr>').join('');
 
     const localBatchRows = Array.isArray(report.localBatchMatrix)
@@ -886,6 +897,9 @@
     anchor.click();
     URL.revokeObjectURL(url);
   });
+
+  ['aggregateRatePolicy', 'aggregateConfirmation'].forEach(id =>
+    $(id).addEventListener('change', () => { if (latestReport) renderCharts(latestReport); }));
 
   window.addEventListener('resize', () => {
     if (latestReport) renderCharts(latestReport);
