@@ -67,7 +67,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 56;
+            _totalSteps = 63;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -100,6 +100,7 @@ internal sealed class DhmpFullReportLab
                          {
                              (DhmpProcessingMode.Sequential, false),
                              (DhmpProcessingMode.UnsafeSequential, false),
+                             (DhmpProcessingMode.UnsafeLatest, false),
                              (DhmpProcessingMode.Latest, false),
                              (DhmpProcessingMode.Latest, true)
                          })
@@ -199,20 +200,21 @@ internal sealed class DhmpFullReportLab
                 {
                     "Core processor ceiling is a software processing ceiling, not physical wire throughput.",
                     "Canonical pathMatrix rows measure exactly one negotiated record per DHMP packet.",
-                    "Canonical serverNanoseconds measures direct receive-destination bookkeeping after transport byte movement: Ring-3 for normal Sequential/Latest, FIFO tail for UnsafeSequential. It does not include transport byte movement.",
-                    "Canonical prebufferedServerNanoseconds reports the convenience path where a record already stored elsewhere must be copied into server-owned receive storage. Normal Sequential then also transfers Ring-3 ownership into FIFO; UnsafeSequential copies directly into FIFO.",
+                    "Canonical serverNanoseconds measures direct receive-destination bookkeeping after transport byte movement: Ring-3 for normal Sequential/Latest, FIFO tail for UnsafeSequential, or one reusable borrowed slot for UnsafeLatest. It does not include transport byte movement.",
+                    "Canonical prebufferedServerNanoseconds reports the convenience path for an already-buffered record. Normal Sequential copies into Ring-3 then FIFO, UnsafeSequential copies into FIFO, Latest copies into Ring-3, while UnsafeLatest can synchronously publish the caller-owned record without an additional server copy.",
                     "localBatchMatrix rows are software-only compatibility/batch calls and are never wire packet-rate claims.",
                     "Logical payload GB/s in localBatchMatrix represents bytes processed by local batch APIs, not raw DHMP wire throughput.",
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
                     "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
-                    "Sequential, UnsafeSequential and Latest all receive exactly one record per canonical packet.",
+                    "Sequential, UnsafeSequential, Latest and UnsafeLatest all receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
                     "Plaintext single-peer Latest and Latest + Native Smoothing both receive directly into Ring-3; Native Smoothing changes only the downstream grabber and adds no intermediate receive copy.",
                     "UnsafeSequential is an experimental local receive policy: plaintext fixed-slot receive reserves the FIFO tail itself, so transport writes directly into FIFO-owned memory and Ring-3 is not touched.",
                     "UnsafeSequential preserves FIFO order for records accepted into the process, but a full FIFO stops posting the next socket receive earlier; kernel/network loss under overload is therefore easier to trigger and no reliability claim is implied.",
+                    "UnsafeLatest is an experimental single-slot newest-state mode: plaintext fixed-slot receive writes into one reusable server-owned record buffer, publishes it synchronously, and may overwrite it on the next receive. It has no independent Latest grabber, no Ring-3 history, and no Native Smoothing window.",
                     "Protected raw receive, multi-peer routed raw receive and UDP compatibility currently require intermediate receive/decode/routing buffers before server publication; their copy costs are not presented as part of the copy-free direct-slot processing ceiling.",
                     "Normal Sequential direct receive still transfers each completed Ring-3 record into its FIFO because Sequential owns records beyond the three-slot arrival window; that ownership copy remains in the measured Sequential cost.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
@@ -1152,6 +1154,7 @@ internal sealed class DhmpFullReportLab
                  {
                      (DhmpProcessingMode.Sequential, false),
                      (DhmpProcessingMode.UnsafeSequential, false),
+                     (DhmpProcessingMode.UnsafeLatest, false),
                      (DhmpProcessingMode.Latest, false),
                      (DhmpProcessingMode.Latest, true)
                  })
@@ -1238,6 +1241,7 @@ internal sealed class DhmpFullReportLab
                  {
                      (DhmpProcessingMode.Sequential, false),
                      (DhmpProcessingMode.UnsafeSequential, false),
+                     (DhmpProcessingMode.UnsafeLatest, false),
                      (DhmpProcessingMode.Latest, false),
                      (DhmpProcessingMode.Latest, true)
                  })
