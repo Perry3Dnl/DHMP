@@ -84,8 +84,9 @@ public sealed class DhmpServer
         _sequentialBacklog?.BackpressureWaits ?? 0;
 
     /// <summary>
-    /// Number of records completed by the shared physical receive sweeper.
-    /// This advances for Sequential, Latest and Native Smoothing alike.
+    /// Number of records completed by the shared physical Ring-3 receive
+    /// sweeper. UnsafeSequential and UnsafeLatest intentionally do not advance
+    /// this counter because neither mode owns Ring-3 payload storage.
     /// </summary>
     public long ReceiveSweepRecordsObserved =>
         _receiveSweepSlots?.RecordsObserved ?? 0;
@@ -314,11 +315,11 @@ public sealed class DhmpServer
     }
 
     /// <summary>
-    /// Canonical receive path. Complete records first enter the shared
-    /// three-slot arrival ring. The sweeper/grabber policy then consumes those
-    /// completed slots. Sequential moves every record through its FIFO backlog,
-    /// Latest publishes the newest completed slot, and Native Smoothing exposes
-    /// the completed N-2/N-1/N arrival window to its downstream grabber.
+    /// Compatibility receive path for already-buffered packet bytes.
+    /// Normal Sequential/Latest retain their Ring-3 semantics. UnsafeSequential
+    /// copies accepted records directly into FIFO ownership. UnsafeLatest
+    /// publishes only the newest complete caller-owned record synchronously and
+    /// keeps no Ring-3 history.
     /// </summary>
     public void ProcessPacket(
         ReadOnlySpan<byte> packet,
