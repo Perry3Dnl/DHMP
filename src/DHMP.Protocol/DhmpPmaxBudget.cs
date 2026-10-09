@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace DHMP.Protocol;
 
@@ -12,22 +13,60 @@ public sealed class DhmpPmaxBudget
 
     public DhmpPmaxBudget(long pmax)
     {
-        if (pmax <= 0) throw new ArgumentOutOfRangeException(nameof(pmax));
+        if (pmax <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(pmax));
+
         _pmax = pmax;
-        _windowStart = Stopwatch.GetTimestamp();
+        _windowStart =
+            Stopwatch.GetTimestamp();
     }
 
-    public bool TryConsume(int messages = 1)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool TryConsume(
+        int messages = 1)
     {
-        if (messages <= 0) throw new ArgumentOutOfRangeException(nameof(messages));
-        if (messages > _pmax) return false;
-        var now = Stopwatch.GetTimestamp();
-        if (now - _windowStart >= Stopwatch.Frequency)
+        if (messages == 1)
         {
-            _windowStart = now;
+            long now =
+                Stopwatch.GetTimestamp();
+
+            if (now - _windowStart >=
+                Stopwatch.Frequency)
+            {
+                _windowStart = now;
+                _count = 0;
+            }
+
+            if (_count >= _pmax)
+                return false;
+
+            _count++;
+            return true;
+        }
+
+        if (messages <= 0)
+            throw new ArgumentOutOfRangeException(
+                nameof(messages));
+
+        if (messages > _pmax)
+            return false;
+
+        long batchNow =
+            Stopwatch.GetTimestamp();
+
+        if (batchNow - _windowStart >=
+            Stopwatch.Frequency)
+        {
+            _windowStart =
+                batchNow;
             _count = 0;
         }
-        if (messages > _pmax - _count) return false;
+
+        if (messages >
+            _pmax - _count)
+            return false;
+
         _count += messages;
         return true;
     }
