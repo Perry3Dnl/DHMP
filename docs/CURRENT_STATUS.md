@@ -13,11 +13,12 @@ Release objective: [finish the existing feature set into a stable base](STABLE_B
 - `DhmpProtocol` defines data wire version, control version, experimental data binding 253 and experimental control binding 254.
 - `DhmpWireContract` contains only protocol version and fixed record size.
 - `DhmpSendPolicy` contains local Pmax, `RejectWindow`/`SmoothPacing` behavior and outbound packet ceiling. `DhmpAdaptiveRateController` can now reduce/recover SmoothPacing from authenticated receiver pressure without exceeding local Pmax.
-- `DhmpReceivePolicy` contains local Sequential/Latest plus experimental UnsafeSequential mode and the inbound packet ceiling.
+- `DhmpReceivePolicy` contains local Sequential/Latest plus experimental UnsafeSequential and UnsafeLatest modes and the inbound packet ceiling.
 - The canonical raw data path consumes exactly one negotiated fixed record per packet. `DhmpPacketProcessor` remains a local compatibility/batch helper.
 - Sequential moves every received record through the shared arrival Ring-3 into its FIFO backlog; the raw plaintext producer and consumer are decoupled.
 - Experimental UnsafeSequential keeps the same bounded Backpressure FIFO semantics but lets the plaintext fixed-slot receiver write directly into the FIFO tail, bypassing Ring-3 and its payload copy. This is an overload-risk/performance comparison mode, not a stronger delivery mode.
-- Latest publishes the received record as the newest state. Optional `DhmpLatestGenerationFilter` drops stale/duplicate Latest state across packets using an application-owned 64-bit generation field.
+- Latest publishes the received record as the newest state through Ring-3.
+- Experimental UnsafeLatest reuses one fixed receive slot and publishes it synchronously without Ring-3 history. The callback must not retain the borrowed span; the next receive may overwrite it. Independent Latest grabbing and Native Smoothing are unavailable in this mode. Optional `DhmpLatestGenerationFilter` drops stale/duplicate Latest state across packets using an application-owned 64-bit generation field.
 - The V1 framing core has no carry storage or cross-packet record reassembly. The explicit DAPI/1 application schema may assemble bounded application messages from complete fixed records above that core.
 - `DhmpClient` requires a wire contract, local send policy and explicit `IDhmpPacketSender`.
 - `DhmpServer` uses the same wire contract with its own local receive policy.
