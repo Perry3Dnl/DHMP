@@ -13,8 +13,10 @@ public sealed class DhmpServer
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
     private readonly DhmpLatestStateWindow? _receiveSweepSlots;
+    private readonly byte[]? _unsafeLatestSlot;
     private readonly object _sequentialBacklogGate = new();
     private DhmpSequentialBacklog? _sequentialBacklog;
+    private bool _unsafeLatestReceiveActive;
 
     public DhmpServer(
         DhmpWireContract wireContract,
@@ -41,14 +43,23 @@ public sealed class DhmpServer
                 receivePolicy);
 
         // Normal Sequential and Latest own the physical three-slot arrival
-        // ring. UnsafeSequential intentionally owns no Ring-3 payload storage:
-        // its fixed-slot transport target is the FIFO tail itself.
+        // ring. UnsafeSequential receives directly into its FIFO tail.
+        // UnsafeLatest owns exactly one reusable receive slot and exposes it
+        // only during the synchronous publication callback.
         _receiveSweepSlots =
-            receivePolicy.Mode ==
-                DhmpProcessingMode.UnsafeSequential
+            receivePolicy.Mode is
+                DhmpProcessingMode.UnsafeSequential or
+                DhmpProcessingMode.UnsafeLatest
                 ? null
                 : new DhmpLatestStateWindow(
                     wireContract.RecordSize);
+
+        _unsafeLatestSlot =
+            receivePolicy.Mode ==
+                DhmpProcessingMode.UnsafeLatest
+                ? GC.AllocateUninitializedArray<byte>(
+                    wireContract.RecordSize)
+                : null;
     }
 
     public DhmpWireContract WireContract =>
@@ -104,6 +115,13 @@ public sealed class DhmpServer
             return;
         }
 
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            publishBatch(record);
+            return;
+        }
+
         DhmpSequentialBacklog backlog =
             GetSequentialBacklog();
 
@@ -137,7 +155,7 @@ public sealed class DhmpServer
     /// <summary>
     /// Reserve the negotiated fixed-size transport receive destination.
     /// Sequential/Latest return Ring-3 memory. UnsafeSequential returns the
-    /// next FIFO tail slot directly, eliminating Ring-3 payload ownership.
+    /// next FIFO tail. UnsafeLatest returns one reusable server-owned slot.
     /// The caller must commit or cancel exactly once.
     /// </summary>
     internal Memory<byte> BeginNegotiatedReceiveSlot()
@@ -147,6 +165,21 @@ public sealed class DhmpServer
         {
             return GetSequentialBacklog()
                 .BeginDirectWrite();
+        }
+
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            if (_unsafeLatestReceiveActive)
+            {
+                throw new InvalidOperationException(
+                    "An UnsafeLatest receive slot is already active.");
+            }
+
+            _unsafeLatestReceiveActive = true;
+
+            return GetUnsafeLatestSlot()
+                .AsMemory();
         }
 
         return GetReceiveSweepSlots()
@@ -180,6 +213,30 @@ public sealed class DhmpServer
             return;
         }
 
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            if (!_unsafeLatestReceiveActive)
+            {
+                throw new InvalidOperationException(
+                    "No UnsafeLatest receive slot is active.");
+            }
+
+            try
+            {
+                // Borrowed single-slot semantics: publication must complete
+                // before the next receive can reuse and overwrite this memory.
+                publishBatch(
+                    GetUnsafeLatestSlot());
+            }
+            finally
+            {
+                _unsafeLatestReceiveActive = false;
+            }
+
+            return;
+        }
+
         ReadOnlySpan<byte> slot =
             GetReceiveSweepSlots().CommitSweepAndGetSlotSingleWriter();
 
@@ -208,6 +265,16 @@ public sealed class DhmpServer
         {
             GetSequentialBacklog()
                 .CancelDirectWrite();
+            return;
+        }
+
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            if (!_unsafeLatestReceiveActive)
+                return;
+
+            _unsafeLatestReceiveActive = false;
             return;
         }
 
@@ -335,6 +402,17 @@ public sealed class DhmpServer
                 completeBytes,
                 recordSize,
                 publishBatch);
+
+            return;
+        }
+
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            publishBatch(
+                complete.Slice(
+                    complete.Length - recordSize,
+                    recordSize));
 
             return;
         }
@@ -646,6 +724,11 @@ public sealed class DhmpServer
 
         return GetReceiveSweepSlots();
     }
+
+    private byte[] GetUnsafeLatestSlot() =>
+        _unsafeLatestSlot ??
+        throw new InvalidOperationException(
+            "UnsafeLatest receive storage is only available in UnsafeLatest mode.");
 
     private DhmpLatestStateWindow GetReceiveSweepSlots() =>
         _receiveSweepSlots ??
