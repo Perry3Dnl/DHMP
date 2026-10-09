@@ -1151,6 +1151,7 @@ internal sealed class DhmpFullReportLab
         foreach ((DhmpProcessingMode mode, bool smoothing) in new[]
                  {
                      (DhmpProcessingMode.Sequential, false),
+                     (DhmpProcessingMode.UnsafeSequential, false),
                      (DhmpProcessingMode.Latest, false),
                      (DhmpProcessingMode.Latest, true)
                  })
