@@ -313,6 +313,11 @@
   receiveButtons.forEach(button=>button.addEventListener('click',()=>{
     selectedReceiveMode=button.dataset.receiveMode;
     selectedNativeSmoothing=button.dataset.nativeSmoothing==='true';
+
+    if(selectedReceiveMode!=='Sequential'){
+      selectedConfirmationMode='None';
+    }
+
     renderSelectedControls();
     queueConfigure();
   }));
