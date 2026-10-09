@@ -22,8 +22,9 @@ public sealed class DhmpPacketProcessor
 
         _wireContract = wireContract;
         _latest =
-            receivePolicy.Mode ==
-            DhmpProcessingMode.Latest;
+            receivePolicy.Mode is
+                DhmpProcessingMode.Latest or
+                DhmpProcessingMode.UnsafeLatest;
     }
 
     public void Process(
@@ -38,7 +39,7 @@ public sealed class DhmpPacketProcessor
 
     /// <summary>
     /// Ignore any incomplete tail, expose only whole records to the optional internal observer,
-    /// then apply Sequential/Latest publication. No per-packet protocol exception is raised.
+    /// then apply Sequential/Latest-family publication. No per-packet protocol exception is raised.
     /// </summary>
     public void Process(
         ReadOnlySpan<byte> packet,
