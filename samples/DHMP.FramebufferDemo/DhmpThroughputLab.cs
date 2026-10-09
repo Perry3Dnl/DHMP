@@ -745,7 +745,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
         Action<ReadOnlySpan<byte>> publish)
     {
         // Matches the plaintext fixed-slot transport contract: network I/O
-        // writes the record directly into Ring-3, then DHMP commits metadata.
+        // writes directly into mode-owned receive memory (Ring-3 for normal
+        // Sequential/Latest, FIFO tail for UnsafeSequential), then DHMP commits.
         _ = server.BeginNegotiatedReceiveSlot();
 
         try

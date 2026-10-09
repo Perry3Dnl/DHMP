@@ -199,14 +199,14 @@ internal sealed class DhmpFullReportLab
                 {
                     "Core processor ceiling is a software processing ceiling, not physical wire throughput.",
                     "Canonical pathMatrix rows measure exactly one negotiated record per DHMP packet.",
-                    "Canonical serverNanoseconds measures direct Ring-3 receive-slot bookkeeping after transport byte movement; it does not copy the record into Ring-3.",
-                    "Canonical prebufferedServerNanoseconds reports the convenience path where a record already stored elsewhere is copied into Ring-3, so copy cost stays visible instead of being mistaken for direct-receive overhead.",
+                    "Canonical serverNanoseconds measures direct receive-destination bookkeeping after transport byte movement: Ring-3 for normal Sequential/Latest, FIFO tail for UnsafeSequential. It does not include transport byte movement.",
+                    "Canonical prebufferedServerNanoseconds reports the convenience path where a record already stored elsewhere must be copied into server-owned receive storage. Normal Sequential then also transfers Ring-3 ownership into FIFO; UnsafeSequential copies directly into FIFO.",
                     "localBatchMatrix rows are software-only compatibility/batch calls and are never wire packet-rate claims.",
                     "Logical payload GB/s in localBatchMatrix represents bytes processed by local batch APIs, not raw DHMP wire throughput.",
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
                     "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
-                    "Latest and Sequential both receive exactly one record per canonical packet.",
+                    "Sequential, UnsafeSequential and Latest all receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
@@ -744,7 +744,7 @@ internal sealed class DhmpFullReportLab
                     dhmp.LogicalPayloadGigabytesPerSecond,
                     100_000L * workers,
                     false,
-                    "Measured by this Full Report run. Transport byte movement is excluded because the real fixed-slot receiver writes directly into Ring-3. This is a logical software-processing ceiling, not physical wire or memory throughput."));
+                    "Measured by this Full Report run. Transport byte movement is excluded because the fixed-slot receiver writes directly into the mode-owned destination: Ring-3 for normal Sequential/Latest or FIFO tail for UnsafeSequential. This is a logical software-processing ceiling, not physical wire or memory throughput."));
         }
 
         try

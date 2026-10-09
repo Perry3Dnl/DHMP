@@ -19,7 +19,7 @@
     <header class="hero">
       <p class="eyebrow">DHMP HIGH-THROUGHPUT STRESS LAB</p>
       <h1>Push the protocol until the server runs out of headroom.</h1>
-      <p class="lead">This page measures DHMP's canonical direct-slot processing path entirely on the server. Each selected payload size is one negotiated record and one DHMP packet. The synthetic transport hands that packet straight to the server-owned Ring-3 slot, matching the real plaintext fixed-slot receiver, so no extra payload copy is inserted by the benchmark. Transport/NIC byte movement is intentionally not timed here.</p>
+      <p class="lead">This page measures DHMP's canonical direct-slot processing path entirely on the server. Each selected payload size is one negotiated record and one DHMP packet. The synthetic transport hands that packet straight to the mode-owned receive destination — Ring-3 for normal Sequential/Latest or FIFO tail for UnsafeSequential — matching the real plaintext fixed-slot receiver. Transport/NIC byte movement is intentionally not timed here.</p>
     </header>
 
     <section class="status">
