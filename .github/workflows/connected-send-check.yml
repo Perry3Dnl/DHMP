@@ -52,6 +52,8 @@ jobs:
         run: |
           sudo ip -n dhmp-connected-src link set dhmp-tx mtu 1280
           sudo ip -n dhmp-connected-dst link set dhmp-rx mtu 1280
+          sudo ip -n dhmp-connected-src -6 route replace fd01::1/128 dev dhmp-tx src fd01::2 mtu 1280
+          sudo ip -n dhmp-connected-src -6 route get fd01::1
           sudo ip netns exec dhmp-connected-src "$(command -v dotnet)" tests/DHMP.ConnectedSendCheck/bin/Release/net10.0/DHMP.ConnectedSendCheck.dll mtu
       - name: Force pending sends and validate cancellation and disposal
         run: |

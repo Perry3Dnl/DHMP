@@ -102,6 +102,11 @@ async Task CheckContracts()
 
 async Task CheckMtu()
 {
+    using (var baseline = new LegacyEndpointSender(Options()))
+    {
+        await Expect<DhmpPathMtuException>(() => baseline.SendPacketAsync(new byte[1408]).AsTask());
+        Console.WriteLine("CONNECTED_PMTU_BASELINE=old endpoint sender rejected the same oversized packet");
+    }
     using var sender = new DhmpRawIpv6PacketSender(Options());
     var error = await Expect<DhmpPathMtuException>(() => sender.SendPacketAsync(new byte[1408]).AsTask());
     Require(error.AttemptedPayloadBytes == 1408 && error.PayloadCeilingBytes == 1408 &&
