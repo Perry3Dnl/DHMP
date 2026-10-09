@@ -15,6 +15,7 @@ namespace DHMP.Client;
 public sealed class DhmpClient
 {
     private readonly IDhmpPacketSender _sender;
+    private readonly IDhmpDynamicPacketSender? _dynamicSender;
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpSendPolicy _sendPolicy;
     private readonly DhmpPmaxBudget? _budget;
@@ -53,6 +54,7 @@ public sealed class DhmpClient
         }
 
         _sender = sender;
+        _dynamicSender = sender as IDhmpDynamicPacketSender;
         _wireContract = wireContract;
         _sendPolicy = sendPolicy;
         _adaptiveRateController =
@@ -165,7 +167,8 @@ public sealed class DhmpClient
 
                 int senderMaximum = _client._sender.MaximumPayloadBytes;
 
-                if (_client._sender is IDhmpDynamicPacketSender dynamicSender)
+                IDhmpDynamicPacketSender? dynamicSender = _client._dynamicSender;
+                if (dynamicSender is not null)
                 {
                     int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
                     if (liveMaximum < senderMaximum)
