@@ -1,0 +1,695 @@
+{
+  "commit": "e0a175250cd4888230ab098c4b2189e6e4149885",
+  "runUrl": "https://github.com/Perry3Dnl/DHMP/actions/runs/37926732326",
+  "summary": [
+    {
+      "bytes": 16,
+      "endpoint": 3487.286376953125,
+      "connected": 3420.7061767578125,
+      "reduction": 1.9092266306354855,
+      "perTrial": [
+        {
+          "endpoint": 4032.1044921875,
+          "connected": 3846.9940185546875
+        },
+        {
+          "endpoint": 3493.8385009765625,
+          "connected": 3406.1676025390625
+        },
+        {
+          "endpoint": 3432.3516845703125,
+          "connected": 3449.3316650390625
+        }
+      ],
+      "received": 1376256
+    },
+    {
+      "bytes": 1408,
+      "endpoint": 3491.9219970703125,
+      "connected": 3370.3338623046875,
+      "reduction": 3.4819831275623048,
+      "perTrial": [
+        {
+          "endpoint": 3389.227294921875,
+          "connected": 3400.750732421875
+        },
+        {
+          "endpoint": 3562.872314453125,
+          "connected": 3290.6280517578125
+        },
+        {
+          "endpoint": 3532.2021484375,
+          "connected": 3376.7120361328125
+        }
+      ],
+      "received": 1376256
+    }
+  ],
+  "trials": [
+    {
+      "scope": "Linux raw IPv6 loopback, complete old/new DHMP sender wrappers; kernel acceptance timing with receiver count/content verification, not physical-NIC throughput",
+      "rows": [
+        {
+          "bytes": 16,
+          "endpoint": [
+            {
+              "nanosecondsPerAcceptedPacket": 7096.7529296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4631.0882568359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4433.270263671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4032.1044921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4002.0111083984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3383.6090087890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3414.7857666015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ],
+          "connected": [
+            {
+              "nanosecondsPerAcceptedPacket": 4563.2659912109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4906.8359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4042.4591064453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3846.9940185546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3404.5867919921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3270.294189453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3263.5467529296875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "endpoint": [
+            {
+              "nanosecondsPerAcceptedPacket": 3389.227294921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3473.7762451171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3685.94970703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3375.7415771484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3345.794677734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3388.5528564453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3409.7808837890625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ],
+          "connected": [
+            {
+              "nanosecondsPerAcceptedPacket": 3400.848388671875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3427.4810791015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3397.5860595703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3370.3338623046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3288.4124755859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3400.750732421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3477.3773193359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scope": "Linux raw IPv6 loopback, complete old/new DHMP sender wrappers; kernel acceptance timing with receiver count/content verification, not physical-NIC throughput",
+      "rows": [
+        {
+          "bytes": 16,
+          "endpoint": [
+            {
+              "nanosecondsPerAcceptedPacket": 4408.8409423828125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3657.9864501953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3596.453857421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3487.286376953125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3437.8143310546875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3465.0482177734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3493.8385009765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ],
+          "connected": [
+            {
+              "nanosecondsPerAcceptedPacket": 3331.231689453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3431.06689453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3605.572509765625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3420.7061767578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3353.289794921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3406.1676025390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3343.402099609375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "endpoint": [
+            {
+              "nanosecondsPerAcceptedPacket": 3553.7445068359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3564.4256591796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3562.872314453125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3465.2618408203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3477.3529052734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3588.07373046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3593.1243896484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ],
+          "connected": [
+            {
+              "nanosecondsPerAcceptedPacket": 3290.6280517578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3287.5,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3348.1201171875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3374.9847412109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3333.795166015625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3284.716796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3289.697265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scope": "Linux raw IPv6 loopback, complete old/new DHMP sender wrappers; kernel acceptance timing with receiver count/content verification, not physical-NIC throughput",
+      "rows": [
+        {
+          "bytes": 16,
+          "endpoint": [
+            {
+              "nanosecondsPerAcceptedPacket": 4350.7110595703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3429.6722412109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3432.3516845703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3422.88818359375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3452.3468017578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3430.8807373046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3464.1937255859375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ],
+          "connected": [
+            {
+              "nanosecondsPerAcceptedPacket": 3416.5313720703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3552.91748046875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3579.0008544921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 4150.946044921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3401.5350341796875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3400.555419921875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3449.3316650390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ]
+        },
+        {
+          "bytes": 1408,
+          "endpoint": [
+            {
+              "nanosecondsPerAcceptedPacket": 3548.6358642578125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3539.2822265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3411.9110107421875,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3478.6163330078125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3667.5384521484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3532.2021484375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3491.9219970703125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ],
+          "connected": [
+            {
+              "nanosecondsPerAcceptedPacket": 3337.200927734375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3376.7120361328125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3388.238525390625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3385.97412109375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3429.55322265625,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3322.540283203125,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            },
+            {
+              "nanosecondsPerAcceptedPacket": 3317.08984375,
+              "acceptedPackets": 32768,
+              "receivedPackets": 32768,
+              "immediateCompletions": 32768,
+              "pendingAtObservation": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
