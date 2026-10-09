@@ -121,10 +121,9 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         try
         {
             bool directRingReceive =
-                _decoder is null &&
-                (_server.ReceivePolicy.Mode ==
-                    DhmpProcessingMode.Sequential ||
-                 !_server.ReceivePolicy.NativeSmoothing);
+                UsesDirectRingReceive(
+                    _server,
+                    _decoder);
 
             if (directRingReceive)
             {
@@ -145,6 +144,19 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         {
             Volatile.Write(ref _running, 0);
         }
+    }
+
+    // Plaintext single-peer Raw IPv6 already knows the negotiated record
+    // size before receive. The socket can therefore write directly into the
+    // next Ring-3 slot for Sequential, Latest and Latest + Native Smoothing.
+    // Native Smoothing changes only the downstream grabber; it must not force
+    // an intermediate network buffer + record.CopyTo(Ring-3).
+    internal static bool UsesDirectRingReceive(
+        DhmpServer server,
+        IDhmpPacketDecoder? decoder)
+    {
+        ArgumentNullException.ThrowIfNull(server);
+        return decoder is null;
     }
 
     private async Task RunPlaintextFixedSlotAsync(
