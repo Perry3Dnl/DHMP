@@ -54,7 +54,7 @@ The V1 framing core introduces no partial-record carry, ACK, retransmission, rep
 Implemented:
 
 - headerless exact-one-record raw packet validation;
-- Sequential and packet-local Latest publication;
+- Sequential, experimental UnsafeSequential direct-FIFO publication, and packet-local Latest publication;
 - explicit `DhmpWireContract`, `DhmpSendPolicy` and `DhmpReceivePolicy`;
 - explicit outbound `IDhmpPacketSender` boundary;
 - client/server protocol facades;

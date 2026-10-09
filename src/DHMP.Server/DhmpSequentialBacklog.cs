@@ -32,6 +32,7 @@ internal sealed class DhmpSequentialBacklog
     private int _tailRecord;
     private int _backpressureWaiters;
     private int _dataWaiters;
+    private bool _directWriteReserved;
 
     private long _count;
     private long _recordsEnqueued;
@@ -167,6 +168,92 @@ internal sealed class DhmpSequentialBacklog
 
     private void EnqueueBackpressure(ReadOnlySpan<byte> record)
     {
+        WaitForFixedCapacity();
+
+        // SPSC invariant: only the producer mutates the tail cursor.
+        record.CopyTo(GetTailFixedSpan());
+        AdvanceTailFixed();
+
+        // Publish the completed FIFO slot only after its bytes are stable.
+        long newCount =
+            Interlocked.Increment(ref _count);
+
+        if (newCount == 1)
+            WakeDataConsumerIfNeeded();
+
+        Interlocked.Increment(ref _recordsEnqueued);
+    }
+
+    /// <summary>
+    /// Reserve the next fixed Backpressure FIFO slot so a transport can receive
+    /// directly into backlog-owned memory. The single producer must commit or
+    /// cancel exactly once before reserving another slot.
+    /// </summary>
+    public Memory<byte> BeginDirectWrite()
+    {
+        if (_overflowPolicy !=
+            DhmpSequentialBacklogOverflowPolicy.Backpressure)
+        {
+            throw new InvalidOperationException(
+                "Direct FIFO receive requires the fixed Backpressure overflow policy.");
+        }
+
+        if (_directWriteReserved)
+        {
+            throw new InvalidOperationException(
+                "A Sequential FIFO direct-write slot is already reserved.");
+        }
+
+        WaitForFixedCapacity();
+
+        byte[] segment =
+            EnsureSegmentAllocated(
+                _tailSegment);
+
+        _directWriteReserved = true;
+
+        return segment.AsMemory(
+            _tailRecord * _recordSize,
+            _recordSize);
+    }
+
+    /// <summary>
+    /// Publish a transport-filled FIFO tail slot. No payload bytes are copied.
+    /// </summary>
+    public void CommitDirectWrite()
+    {
+        if (!_directWriteReserved)
+        {
+            throw new InvalidOperationException(
+                "No Sequential FIFO direct-write slot is reserved.");
+        }
+
+        AdvanceTailFixed();
+        _directWriteReserved = false;
+
+        long newCount =
+            Interlocked.Increment(ref _count);
+
+        if (newCount == 1)
+            WakeDataConsumerIfNeeded();
+
+        Interlocked.Increment(
+            ref _recordsEnqueued);
+    }
+
+    public void CancelDirectWrite()
+    {
+        if (!_directWriteReserved)
+        {
+            throw new InvalidOperationException(
+                "No Sequential FIFO direct-write slot is reserved.");
+        }
+
+        _directWriteReserved = false;
+    }
+
+    private void WaitForFixedCapacity()
+    {
         while (Interlocked.Read(ref _count) == _capacityRecords)
         {
             Interlocked.Increment(ref _backpressureWaits);
@@ -185,19 +272,6 @@ internal sealed class DhmpSequentialBacklog
                 Interlocked.Decrement(ref _backpressureWaiters);
             }
         }
-
-        // SPSC invariant: only the producer mutates the tail cursor.
-        record.CopyTo(GetTailFixedSpan());
-        AdvanceTailFixed();
-
-        // Publish the completed FIFO slot only after its bytes are stable.
-        long newCount =
-            Interlocked.Increment(ref _count);
-
-        if (newCount == 1)
-            WakeDataConsumerIfNeeded();
-
-        Interlocked.Increment(ref _recordsEnqueued);
     }
 
     /// <summary>

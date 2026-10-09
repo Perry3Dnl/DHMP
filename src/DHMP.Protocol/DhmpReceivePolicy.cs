@@ -21,12 +21,25 @@ public readonly record struct DhmpReceivePolicy
             DhmpSequentialBacklogOverflowPolicy.Backpressure,
         long? sequentialBacklogCapacityRecords = null)
     {
-        if (mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
+        if (mode is not DhmpProcessingMode.Sequential and
+            not DhmpProcessingMode.UnsafeSequential and
+            not DhmpProcessingMode.Latest)
+        {
             throw new ArgumentOutOfRangeException(nameof(mode));
+        }
         if (maximumPayloadBytes <= 0 || maximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(maximumPayloadBytes));
         if (nativeSmoothing && mode != DhmpProcessingMode.Latest)
             throw new ArgumentException("Native smoothing is only valid with Latest receive mode.", nameof(nativeSmoothing));
+
+        if (mode == DhmpProcessingMode.UnsafeSequential &&
+            sequentialBacklogOverflowPolicy !=
+                DhmpSequentialBacklogOverflowPolicy.Backpressure)
+        {
+            throw new ArgumentException(
+                "UnsafeSequential currently requires a fixed Backpressure FIFO so a transport can reserve and commit one FIFO slot directly.",
+                nameof(sequentialBacklogOverflowPolicy));
+        }
         if (sequentialBacklogMillions <= 0)
             throw new ArgumentOutOfRangeException(nameof(sequentialBacklogMillions));
         if (sequentialBacklogCapacityRecords is <= 0)
@@ -80,12 +93,23 @@ public readonly record struct DhmpReceivePolicy
     public void Validate(DhmpWireContract wireContract)
     {
         wireContract.Validate();
-        if (Mode is not DhmpProcessingMode.Sequential and not DhmpProcessingMode.Latest)
+        if (Mode is not DhmpProcessingMode.Sequential and
+            not DhmpProcessingMode.UnsafeSequential and
+            not DhmpProcessingMode.Latest)
+        {
             throw new ArgumentException("A supported DHMP receive mode is required.");
+        }
         if (MaximumPayloadBytes < wireContract.RecordSize || MaximumPayloadBytes > ushort.MaxValue)
             throw new ArgumentException("A valid local DHMP receive packet limit is required.");
         if (NativeSmoothing && Mode != DhmpProcessingMode.Latest)
             throw new ArgumentException("Native smoothing requires Latest receive mode.");
+        if (Mode == DhmpProcessingMode.UnsafeSequential &&
+            SequentialBacklogOverflowPolicy !=
+                DhmpSequentialBacklogOverflowPolicy.Backpressure)
+        {
+            throw new ArgumentException(
+                "UnsafeSequential requires the fixed Backpressure FIFO policy.");
+        }
         if (SequentialBacklogMillions <= 0 ||
             SequentialBacklogCapacityRecordsOverride is <= 0 ||
             !Enum.IsDefined(SequentialBacklogOverflowPolicy))

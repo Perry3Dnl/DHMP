@@ -68,10 +68,11 @@
         <span class="control-label">Receive mode</span>
         <div class="mode-buttons" data-group="receive">
           <button type="button" class="mode-button active" data-receive-mode="Sequential">Sequential</button>
+          <button type="button" class="mode-button" data-receive-mode="UnsafeSequential">UnsafeSequential</button>
           <button type="button" class="mode-button" data-receive-mode="Latest">Latest</button>
           <button type="button" class="mode-button" data-receive-mode="Latest" data-native-smoothing="true">Latest + Native Smoothing</button>
         </div>
-        <p class="muted">Sequential publishes every complete record. Latest publishes only the newest record. Latest + Native Smoothing uses the same Latest packet path; its grabber consumes the shared three-slot N-2/N-1/N sweep window downstream.</p>
+        <p class="muted">Sequential receives into Ring-3 and transfers every record into the FIFO. UnsafeSequential is an experimental comparison mode: plaintext fixed-slot receive writes directly into FIFO-owned memory and skips Ring-3, removing that payload copy but giving up the three-slot arrival stage. If the FIFO fills, the socket receive stops being posted earlier and kernel/network drops become easier to trigger. Latest publishes only the newest record; Native Smoothing uses the same Latest packet path.</p>
       </div>
       <div class="mode-group">
         <span class="control-label">Confirmation mode</span>
@@ -173,7 +174,7 @@
         <div class="wide"><span>Last worker error</span><strong id="workerError">none</strong></div>
       </div>
 
-      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement. The instrumented server number measures Ring-3 begin/commit/publication after the transport has written directly into the receive slot. For Sequential, the required Ring-3 → FIFO ownership transfer is still included because Sequential must preserve every record; Latest and Native Smoothing do not add an intermediate payload copy. Allocation telemetry is process-wide and sampled once per second. This is an in-process logical processing benchmark: NIC/kernel byte movement is deliberately excluded and is measured separately on the Kernel Bypass / Full Report I/O paths.</p>
+      <p class="telemetry-note">Core processor ceiling is a separate single-thread tight-loop measurement. The instrumented server number measures the selected direct receive destination after transport byte movement: Ring-3 for Sequential/Latest, FIFO tail for UnsafeSequential. Sequential includes its Ring-3 → FIFO ownership copy; UnsafeSequential removes that copy; Latest and Native Smoothing keep their Ring-3 slots. This is an in-process logical processing benchmark: NIC/kernel byte movement is deliberately excluded and is measured separately on the Kernel Bypass / Full Report I/O paths.</p>
     </section>
 
     <section class="explain">
@@ -187,7 +188,7 @@
       </div>
       <div>
         <strong>Mode-aware correctness</strong>
-        <p>Sequential and Latest both receive exactly one negotiated record per accepted packet in this benchmark. Native Smoothing does not change that publication count. Confirmation modes use Sequential publication: Application ID returns the application ID inside a fixed-size confirmation record, while Full Echo returns the complete record bytes.</p>
+        <p>Sequential, UnsafeSequential and Latest all receive exactly one negotiated record per accepted packet in this benchmark. UnsafeSequential changes only local storage ownership, not V1 wire bytes. Native Smoothing does not change publication count. Confirmation modes intentionally remain on normal Sequential only.</p>
       </div>
     </section>
 
@@ -195,6 +196,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/stress.js?v=20261009-direct-slots"></script>
+  <script src="/stress.js?v=20261009-unsafe-sequential"></script>
 </body>
 </html>

@@ -12,7 +12,7 @@ public sealed class DhmpServer
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpReceivePolicy _receivePolicy;
     private readonly DhmpPacketProcessor _processor;
-    private readonly DhmpLatestStateWindow _receiveSweepSlots;
+    private readonly DhmpLatestStateWindow? _receiveSweepSlots;
     private readonly object _sequentialBacklogGate = new();
     private DhmpSequentialBacklog? _sequentialBacklog;
 
@@ -40,14 +40,15 @@ public sealed class DhmpServer
                 wireContract,
                 receivePolicy);
 
-        // All receive modes share the same physical three-slot arrival ring.
-        // The transport/packet path fills this ring first. The sweeper/grabber
-        // then consumes completed arrival slots: Latest grabs the newest one,
-        // Native Smoothing reads N-2/N-1/N, and Sequential moves every
-        // completed arrival through its FIFO backlog.
+        // Normal Sequential and Latest own the physical three-slot arrival
+        // ring. UnsafeSequential intentionally owns no Ring-3 payload storage:
+        // its fixed-slot transport target is the FIFO tail itself.
         _receiveSweepSlots =
-            new DhmpLatestStateWindow(
-                wireContract.RecordSize);
+            receivePolicy.Mode ==
+                DhmpProcessingMode.UnsafeSequential
+                ? null
+                : new DhmpLatestStateWindow(
+                    wireContract.RecordSize);
     }
 
     public DhmpWireContract WireContract =>
@@ -60,7 +61,7 @@ public sealed class DhmpServer
         _receivePolicy.Mode == DhmpProcessingMode.Latest;
 
     public bool SequentialGrabberAvailable =>
-        _receivePolicy.Mode == DhmpProcessingMode.Sequential;
+        IsSequentialFamilyMode();
 
     public long SequentialBacklogCount =>
         _sequentialBacklog?.Count ?? 0;
@@ -76,14 +77,14 @@ public sealed class DhmpServer
     /// This advances for Sequential, Latest and Native Smoothing alike.
     /// </summary>
     public long ReceiveSweepRecordsObserved =>
-        _receiveSweepSlots.RecordsObserved;
+        _receiveSweepSlots?.RecordsObserved ?? 0;
 
     public bool NativeSmoothingEnabled =>
         _receivePolicy.NativeSmoothing;
 
     public int NativeSmoothingRecordCount =>
         NativeSmoothingEnabled
-            ? _receiveSweepSlots.Count
+            ? GetReceiveSweepSlots().Count
             : 0;
 
     /// <summary>
@@ -97,7 +98,7 @@ public sealed class DhmpServer
     {
         if (_receivePolicy.Mode == DhmpProcessingMode.Latest)
         {
-            _receiveSweepSlots.ReceiveLatestRecordSingleWriter(
+            GetReceiveSweepSlots().ReceiveLatestRecordSingleWriter(
                 record,
                 publishBatch);
             return;
@@ -106,14 +107,25 @@ public sealed class DhmpServer
         DhmpSequentialBacklog backlog =
             GetSequentialBacklog();
 
-        Span<byte> slot =
-            _receiveSweepSlots.BeginSweep();
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeSequential)
+        {
+            // Compatibility/pre-buffered path: the record already exists
+            // elsewhere, so one copy into FIFO ownership is unavoidable.
+            // Direct transports avoid even this copy via Begin/Commit slot.
+            backlog.Enqueue(record);
+        }
+        else
+        {
+            Span<byte> slot =
+                GetReceiveSweepSlots().BeginSweep();
 
-        record.CopyTo(slot);
+            record.CopyTo(slot);
 
-        backlog.Enqueue(
-            _receiveSweepSlots
-                .CommitSweepAndGetSlotSingleWriter());
+            backlog.Enqueue(
+                GetReceiveSweepSlots()
+                    .CommitSweepAndGetSlotSingleWriter());
+        }
 
         if (!backlog.TryConsume(publishBatch))
         {
@@ -123,12 +135,23 @@ public sealed class DhmpServer
     }
 
     /// <summary>
-    /// Reserve the next physical Ring-3 slot for a negotiated fixed-size
-    /// transport receive. Intended for direct socket receive into server-owned
-    /// memory; the caller must commit or cancel exactly once.
+    /// Reserve the negotiated fixed-size transport receive destination.
+    /// Sequential/Latest return Ring-3 memory. UnsafeSequential returns the
+    /// next FIFO tail slot directly, eliminating Ring-3 payload ownership.
+    /// The caller must commit or cancel exactly once.
     /// </summary>
-    internal Memory<byte> BeginNegotiatedReceiveSlot() =>
-        _receiveSweepSlots.BeginSweepMemorySingleWriter();
+    internal Memory<byte> BeginNegotiatedReceiveSlot()
+    {
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeSequential)
+        {
+            return GetSequentialBacklog()
+                .BeginDirectWrite();
+        }
+
+        return GetReceiveSweepSlots()
+            .BeginSweepMemorySingleWriter();
+    }
 
     /// <summary>
     /// Publish a directly received negotiated slot. Latest hands the exact
@@ -140,8 +163,25 @@ public sealed class DhmpServer
     {
         ArgumentNullException.ThrowIfNull(publishBatch);
 
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeSequential)
+        {
+            DhmpSequentialBacklog unsafeBacklog =
+                GetSequentialBacklog();
+
+            unsafeBacklog.CommitDirectWrite();
+
+            if (!unsafeBacklog.TryConsume(publishBatch))
+            {
+                throw new InvalidOperationException(
+                    "UnsafeSequential FIFO lost a committed record before synchronous publication.");
+            }
+
+            return;
+        }
+
         ReadOnlySpan<byte> slot =
-            _receiveSweepSlots.CommitSweepAndGetSlotSingleWriter();
+            GetReceiveSweepSlots().CommitSweepAndGetSlotSingleWriter();
 
         if (_receivePolicy.Mode == DhmpProcessingMode.Latest)
         {
@@ -161,25 +201,44 @@ public sealed class DhmpServer
         }
     }
 
-    internal void CancelNegotiatedReceiveSlot() =>
-        _receiveSweepSlots.CancelSweep();
+    internal void CancelNegotiatedReceiveSlot()
+    {
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeSequential)
+        {
+            GetSequentialBacklog()
+                .CancelDirectWrite();
+            return;
+        }
+
+        GetReceiveSweepSlots().CancelSweep();
+    }
 
     internal void CommitNegotiatedReceiveSlotToSequentialBacklog()
     {
-        EnsureSequentialMode();
+        EnsureSequentialFamilyMode();
+
+        DhmpSequentialBacklog backlog =
+            GetSequentialBacklog();
+
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeSequential)
+        {
+            backlog.CommitDirectWrite();
+            return;
+        }
 
         ReadOnlySpan<byte> slot =
-            _receiveSweepSlots.CommitSweepAndGetSlotSingleWriter();
+            GetReceiveSweepSlots().CommitSweepAndGetSlotSingleWriter();
 
-        GetSequentialBacklog()
-            .Enqueue(slot);
+        backlog.Enqueue(slot);
     }
 
     internal void ConsumeSequentialUntilCancelled(
         Action<ReadOnlySpan<byte>> consumer,
         CancellationToken cancellationToken)
     {
-        EnsureSequentialMode();
+        EnsureSequentialFamilyMode();
 
         GetSequentialBacklog()
             .ConsumeUntilCancelled(
@@ -226,7 +285,7 @@ public sealed class DhmpServer
                  offset += recordSize)
             {
                 Span<byte> slot =
-                    _receiveSweepSlots.BeginSweep();
+                    GetReceiveSweepSlots().BeginSweep();
 
                 try
                 {
@@ -236,61 +295,46 @@ public sealed class DhmpServer
                         .CopyTo(slot);
 
                     backlog.Enqueue(
-                        _receiveSweepSlots
+                        GetReceiveSweepSlots()
                             .CommitSweepAndGetSlotSingleWriter());
                 }
                 catch
                 {
-                    _receiveSweepSlots.CancelSweep();
+                    GetReceiveSweepSlots().CancelSweep();
                     throw;
                 }
             }
 
-            int recordCount =
-                completeBytes /
-                recordSize;
+            PublishSequentialCompatibilityBatch(
+                backlog,
+                completeBytes,
+                recordSize,
+                publishBatch);
 
-            byte[] publicationBuffer =
-                ArrayPool<byte>.Shared.Rent(
-                    completeBytes);
+            return;
+        }
 
-            try
+        if (_receivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeSequential)
+        {
+            DhmpSequentialBacklog backlog =
+                GetSequentialBacklog();
+
+            for (int offset = 0;
+                 offset < complete.Length;
+                 offset += recordSize)
             {
-                Span<byte> publication =
-                    publicationBuffer.AsSpan(
-                        0,
-                        completeBytes);
-
-                for (int index = 0;
-                     index < recordCount;
-                     index++)
-                {
-                    bool dequeued =
-                        backlog.TryDequeue(
-                            publication.Slice(
-                                index * recordSize,
-                                recordSize));
-
-                    if (!dequeued)
-                    {
-                        throw new InvalidOperationException(
-                            "Sequential grabber lost a record before synchronous publication.");
-                    }
-                }
-
-                // Preserve the established ProcessPacket contract: Sequential
-                // publishes one complete packet batch, not one callback per
-                // record. Internally every record still crossed the sweeper
-                // and FIFO grabber first.
-                publishBatch(
-                    publication);
+                backlog.Enqueue(
+                    complete.Slice(
+                        offset,
+                        recordSize));
             }
-            finally
-            {
-                ArrayPool<byte>.Shared.Return(
-                    publicationBuffer,
-                    clearArray: false);
-            }
+
+            PublishSequentialCompatibilityBatch(
+                backlog,
+                completeBytes,
+                recordSize,
+                publishBatch);
 
             return;
         }
@@ -298,10 +342,58 @@ public sealed class DhmpServer
         // Fused Latest fast path: one packet->Ring-3 copy per record, then
         // metadata-only publication/grab. No Begin/Commit/Grab helper chain,
         // no per-record modulo and no redundant read-back of the published slot.
-        _receiveSweepSlots
+        GetReceiveSweepSlots()
             .ReceiveLatestPacketSingleWriter(
                 complete,
                 publishBatch);
+    }
+
+    private static void PublishSequentialCompatibilityBatch(
+        DhmpSequentialBacklog backlog,
+        int completeBytes,
+        int recordSize,
+        Action<ReadOnlySpan<byte>> publishBatch)
+    {
+        int recordCount =
+            completeBytes /
+            recordSize;
+
+        byte[] publicationBuffer =
+            ArrayPool<byte>.Shared.Rent(
+                completeBytes);
+
+        try
+        {
+            Span<byte> publication =
+                publicationBuffer.AsSpan(
+                    0,
+                    completeBytes);
+
+            for (int index = 0;
+                 index < recordCount;
+                 index++)
+            {
+                bool dequeued =
+                    backlog.TryDequeue(
+                        publication.Slice(
+                            index * recordSize,
+                            recordSize));
+
+                if (!dequeued)
+                {
+                    throw new InvalidOperationException(
+                        "Sequential grabber lost a record before synchronous publication.");
+                }
+            }
+
+            publishBatch(publication);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(
+                publicationBuffer,
+                clearArray: false);
+        }
     }
 
     /// <summary>
@@ -390,8 +482,8 @@ public sealed class DhmpServer
     /// </summary>
     public Span<byte> BeginSequentialSweep()
     {
-        EnsureSequentialMode();
-        return _receiveSweepSlots.BeginSweep();
+        EnsureRingSequentialMode();
+        return GetReceiveSweepSlots().BeginSweep();
     }
 
     /// <summary>
@@ -401,18 +493,18 @@ public sealed class DhmpServer
     /// </summary>
     public void CommitSequentialSweep()
     {
-        EnsureSequentialMode();
+        EnsureRingSequentialMode();
 
         GetSequentialBacklog()
             .Enqueue(
-                _receiveSweepSlots
+                GetReceiveSweepSlots()
                     .CommitSweepAndGetSlotSingleWriter());
     }
 
     public void CancelSequentialSweep()
     {
-        EnsureSequentialMode();
-        _receiveSweepSlots.CancelSweep();
+        EnsureRingSequentialMode();
+        GetReceiveSweepSlots().CancelSweep();
     }
 
     public void SweepSequential(
@@ -441,11 +533,14 @@ public sealed class DhmpServer
     public void ProcessPacketToSequentialBacklog(
         ReadOnlySpan<byte> packet)
     {
-        EnsureSequentialMode();
+        EnsureSequentialFamilyMode();
 
         _processor.Process(
             packet,
-            SweepSequentialBatch);
+            _receivePolicy.Mode ==
+                DhmpProcessingMode.UnsafeSequential
+                ? EnqueueUnsafeSequentialBatch
+                : SweepSequentialBatch);
     }
 
     /// <summary>
@@ -455,7 +550,7 @@ public sealed class DhmpServer
     public bool TryDequeueSequential(
         Span<byte> destination)
     {
-        EnsureSequentialMode();
+        EnsureSequentialFamilyMode();
 
         return GetSequentialBacklog()
             .TryDequeue(destination);
@@ -478,9 +573,29 @@ public sealed class DhmpServer
         }
     }
 
+    private void EnqueueUnsafeSequentialBatch(
+        ReadOnlySpan<byte> batch)
+    {
+        int recordSize =
+            _wireContract.RecordSize;
+
+        DhmpSequentialBacklog backlog =
+            GetSequentialBacklog();
+
+        for (int offset = 0;
+             offset < batch.Length;
+             offset += recordSize)
+        {
+            backlog.Enqueue(
+                batch.Slice(
+                    offset,
+                    recordSize));
+        }
+    }
+
     private DhmpSequentialBacklog GetSequentialBacklog()
     {
-        EnsureSequentialMode();
+        EnsureSequentialFamilyMode();
 
         if (_sequentialBacklog is not null)
             return _sequentialBacklog;
@@ -497,12 +612,27 @@ public sealed class DhmpServer
         }
     }
 
-    private void EnsureSequentialMode()
+    private bool IsSequentialFamilyMode() =>
+        _receivePolicy.Mode is
+            DhmpProcessingMode.Sequential or
+            DhmpProcessingMode.UnsafeSequential;
+
+    private void EnsureSequentialFamilyMode()
     {
-        if (_receivePolicy.Mode != DhmpProcessingMode.Sequential)
+        if (!IsSequentialFamilyMode())
         {
             throw new InvalidOperationException(
-                "Sequential sweep/backlog APIs require DhmpProcessingMode.Sequential.");
+                "Sequential FIFO APIs require Sequential or UnsafeSequential receive mode.");
+        }
+    }
+
+    private void EnsureRingSequentialMode()
+    {
+        if (_receivePolicy.Mode !=
+            DhmpProcessingMode.Sequential)
+        {
+            throw new InvalidOperationException(
+                "Ring-3 Sequential sweep APIs require DhmpProcessingMode.Sequential.");
         }
     }
 
@@ -514,6 +644,11 @@ public sealed class DhmpServer
                 "Latest sweep/grab APIs require DhmpProcessingMode.Latest.");
         }
 
-        return _receiveSweepSlots;
+        return GetReceiveSweepSlots();
     }
+
+    private DhmpLatestStateWindow GetReceiveSweepSlots() =>
+        _receiveSweepSlots ??
+        throw new InvalidOperationException(
+            "UnsafeSequential intentionally has no Ring-3 receive storage.");
 }

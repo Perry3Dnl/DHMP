@@ -31,4 +31,33 @@ public sealed class DhmpReceivePolicyCapacityTests
             1_000_000,
             standard.SequentialBacklogCapacityRecords);
     }
+
+    [Fact]
+    public void UnsafeSequential_requires_fixed_backpressure_fifo()
+    {
+        var valid =
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.UnsafeSequential,
+                maximumPayloadBytes: 1408,
+                sequentialBacklogCapacityRecords: 64);
+
+        Assert.Equal(
+            DhmpProcessingMode.UnsafeSequential,
+            valid.Mode);
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.UnsafeSequential,
+                maximumPayloadBytes: 1408,
+                sequentialBacklogOverflowPolicy:
+                    DhmpSequentialBacklogOverflowPolicy.DropOldest));
+
+        Assert.Throws<ArgumentException>(() =>
+            new DhmpReceivePolicy(
+                DhmpProcessingMode.UnsafeSequential,
+                maximumPayloadBytes: 1408,
+                sequentialBacklogOverflowPolicy:
+                    DhmpSequentialBacklogOverflowPolicy.Unbounded));
+    }
+
 }

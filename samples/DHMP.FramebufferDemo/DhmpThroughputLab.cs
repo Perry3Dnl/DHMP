@@ -62,6 +62,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             throw new ArgumentOutOfRangeException(nameof(workers));
 
         if (receiveMode is not DhmpProcessingMode.Sequential and
+            not DhmpProcessingMode.UnsafeSequential and
             not DhmpProcessingMode.Latest)
             throw new ArgumentOutOfRangeException(nameof(receiveMode));
 

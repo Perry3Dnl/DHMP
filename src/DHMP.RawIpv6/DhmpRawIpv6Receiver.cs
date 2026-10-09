@@ -121,7 +121,7 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         try
         {
             bool directRingReceive =
-                UsesDirectRingReceive(
+                UsesDirectFixedSlotReceive(
                     _server,
                     _decoder);
 
@@ -147,11 +147,11 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
     }
 
     // Plaintext single-peer Raw IPv6 already knows the negotiated record
-    // size before receive. The socket can therefore write directly into the
-    // next Ring-3 slot for Sequential, Latest and Latest + Native Smoothing.
-    // Native Smoothing changes only the downstream grabber; it must not force
-    // an intermediate network buffer + record.CopyTo(Ring-3).
-    internal static bool UsesDirectRingReceive(
+    // size before receive. The socket can therefore write directly into
+    // server-owned fixed storage. Sequential/Latest use Ring-3; experimental
+    // UnsafeSequential uses the FIFO tail directly. A decoder still requires
+    // buffered ciphertext/plaintext ownership before publication.
+    internal static bool UsesDirectFixedSlotReceive(
         DhmpServer server,
         IDhmpPacketDecoder? decoder)
     {
@@ -163,8 +163,12 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         Action<ReadOnlySpan<byte>> publishBatch,
         CancellationToken cancellationToken)
     {
-        if (_server.ReceivePolicy.Mode !=
-            DhmpProcessingMode.Sequential)
+        bool sequentialFamily =
+            _server.ReceivePolicy.Mode is
+                DhmpProcessingMode.Sequential or
+                DhmpProcessingMode.UnsafeSequential;
+
+        if (!sequentialFamily)
         {
             await RunPlaintextProducerAsync(
                 publishBatch,

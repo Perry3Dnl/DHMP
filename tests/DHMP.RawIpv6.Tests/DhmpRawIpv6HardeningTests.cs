@@ -9,7 +9,7 @@ public sealed class DhmpRawIpv6HardeningTests
 {
 
     [Fact]
-    public void HappyFlow_PlaintextNativeSmoothingUsesDirectRingReceive()
+    public void HappyFlow_PlaintextNativeSmoothingUsesDirectFixedSlotReceive()
     {
         var smoothingServer =
             new DhmpServer(
@@ -20,16 +20,33 @@ public sealed class DhmpRawIpv6HardeningTests
                     nativeSmoothing: true));
 
         Assert.True(
-            DhmpRawIpv6Receiver.UsesDirectRingReceive(
+            DhmpRawIpv6Receiver.UsesDirectFixedSlotReceive(
                 smoothingServer,
                 decoder: null));
 
         Assert.False(
-            DhmpRawIpv6Receiver.UsesDirectRingReceive(
+            DhmpRawIpv6Receiver.UsesDirectFixedSlotReceive(
                 smoothingServer,
                 new FixedDecoder(
                     overheadBytes: 24,
                     plaintextBytes: 1408)));
+    }
+
+    [Fact]
+    public void HappyFlow_PlaintextUnsafeSequentialUsesDirectFixedSlotReceive()
+    {
+        var unsafeServer =
+            new DhmpServer(
+                new DhmpWireContract(1408),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeSequential,
+                    maximumPayloadBytes: 1408,
+                    sequentialBacklogCapacityRecords: 64));
+
+        Assert.True(
+            DhmpRawIpv6Receiver.UsesDirectFixedSlotReceive(
+                unsafeServer,
+                decoder: null));
     }
 
     [Fact]
