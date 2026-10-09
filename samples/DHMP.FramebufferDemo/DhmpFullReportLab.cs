@@ -369,15 +369,18 @@ internal sealed class DhmpFullReportLab
                     MaximumPayloadBytes,
                     DhmpRatePolicy.Unlimited));
 
+        Action directReceive =
+            CreateDirectReceiveAction(
+                server,
+                publish);
+
         for (int i = 0; i < WarmupIterations; i++)
         {
             processor.Process(
                 record,
                 publish);
 
-            ProcessDirectReceive(
-                server,
-                publish);
+            directReceive();
 
             server.ProcessNegotiatedRecord(
                 record,
@@ -414,9 +417,7 @@ internal sealed class DhmpFullReportLab
             serverNs[repetition] =
                 MeasureNanosecondsPerCall(
                     MeasuredIterations,
-                    () => ProcessDirectReceive(
-                        server,
-                        publish));
+                    directReceive);
 
             prebufferedServerNs[repetition] =
                 MeasureNanosecondsPerCall(
@@ -455,6 +456,169 @@ internal sealed class DhmpFullReportLab
             packetRate,
             packetRate * recordBytes / 1_000_000_000d,
             1);
+    }
+
+    private static DhmpAggregateTimingBenchmark RunAggregateTimingBenchmark(
+        int recordBytes,
+        DhmpProcessingMode mode,
+        bool nativeSmoothing)
+    {
+        var wire =
+            new DhmpWireContract(
+                recordBytes);
+
+        var policy =
+            CreateBenchmarkReceivePolicy(
+                mode,
+                MaximumPayloadBytes,
+                nativeSmoothing);
+
+        int published = 0;
+
+        Action<ReadOnlySpan<byte>> publish =
+            span => published +=
+                span.Length /
+                recordBytes;
+
+        var server =
+            new DhmpServer(
+                wire,
+                policy);
+
+        Action directReceive =
+            CreateDirectReceiveAction(
+                server,
+                publish);
+
+        var sender =
+            new DirectReceiveReportSender(
+                server,
+                publish);
+
+        var client =
+            new DhmpClient(
+                sender,
+                wire,
+                new DhmpSendPolicy(
+                    long.MaxValue,
+                    MaximumPayloadBytes,
+                    DhmpRatePolicy.Unlimited));
+
+        byte[] record =
+            GC.AllocateUninitializedArray<byte>(
+                recordBytes);
+
+        Action fullClient =
+            () => client.SendAsync(record)
+                .GetAwaiter()
+                .GetResult();
+
+        // Warm both code paths before starting the aggregate clock. The actual
+        // aggregate sample then uses one outer Stopwatch only.
+        for (int i = 0; i < 10_000; i++)
+        {
+            directReceive();
+            fullClient();
+        }
+
+        long packetsPerPass =
+            Math.Max(
+                1L,
+                (AggregateTargetBytesPerPass +
+                 recordBytes - 1L) /
+                recordBytes);
+
+        DhmpAggregateTimingSample direct =
+            MeasureAggregateTiming(
+                directReceive,
+                recordBytes,
+                packetsPerPass);
+
+        DhmpAggregateTimingSample client =
+            MeasureAggregateTiming(
+                fullClient,
+                recordBytes,
+                packetsPerPass);
+
+        GC.KeepAlive(published);
+
+        return new DhmpAggregateTimingBenchmark(
+            recordBytes,
+            mode.ToString(),
+            nativeSmoothing,
+            AggregateTargetBytesPerPass,
+            packetsPerPass,
+            direct,
+            client);
+    }
+
+    private static DhmpAggregateTimingSample MeasureAggregateTiming(
+        Action action,
+        int recordBytes,
+        long packetsPerPass)
+    {
+        long minimumTicks =
+            Math.Max(
+                1L,
+                (long)Math.Ceiling(
+                    Stopwatch.Frequency *
+                    AggregateMinimumSeconds));
+
+        long totalPackets = 0;
+
+        long started =
+            Stopwatch.GetTimestamp();
+
+        long elapsed;
+
+        do
+        {
+            for (long packet = 0;
+                 packet < packetsPerPass;
+                 packet++)
+            {
+                action();
+            }
+
+            totalPackets +=
+                packetsPerPass;
+
+            elapsed =
+                Stopwatch.GetTimestamp() -
+                started;
+        }
+        while (elapsed < minimumTicks);
+
+        double elapsedSeconds =
+            (double)elapsed /
+            Stopwatch.Frequency;
+
+        double elapsedNanoseconds =
+            elapsedSeconds *
+            1_000_000_000d;
+
+        double nanosecondsPerPacket =
+            elapsedNanoseconds /
+            totalPackets;
+
+        double packetRate =
+            totalPackets /
+            elapsedSeconds;
+
+        long totalLogicalBytes =
+            checked(
+                totalPackets *
+                (long)recordBytes);
+
+        return new DhmpAggregateTimingSample(
+            totalPackets,
+            totalLogicalBytes,
+            elapsedSeconds * 1_000d,
+            nanosecondsPerPacket,
+            packetRate,
+            packetRate *
+            recordBytes /
+            1_000_000_000d);
     }
 
     private static DhmpLocalBatchBenchmark RunLocalBatchBenchmark(
@@ -1400,15 +1564,38 @@ internal sealed class DhmpFullReportLab
             checks.All(check => check.Passed));
     }
 
+    private static Action CreateDirectReceiveAction(
+        DhmpServer server,
+        Action<ReadOnlySpan<byte>> publish)
+    {
+        if (server.ReceivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            // Match the real Raw IPv6 hot path: resolve the permanently reused
+            // single slot once outside the packet loop, then publish without
+            // per-packet mode or active-slot guards.
+            _ = server
+                .GetUnsafeLatestReceiveMemoryUnchecked();
+
+            return () =>
+                server.PublishUnsafeLatestReceiveUnchecked(
+                    publish);
+        }
+
+        return () =>
+            ProcessDirectReceive(
+                server,
+                publish);
+    }
+
     private static void ProcessDirectReceive(
         DhmpServer server,
         Action<ReadOnlySpan<byte>> publish)
     {
         // In the real plaintext fixed-slot path the socket writes directly
         // into server-owned receive memory: Ring-3 for normal Sequential/
-        // Latest, or the FIFO tail for UnsafeSequential. The timed benchmark
-        // measures only DHMP reserve/commit/publication bookkeeping after
-        // transport byte movement.
+        // Latest or the FIFO tail for UnsafeSequential. UnsafeLatest uses the
+        // specialized unchecked action above.
         _ = server.BeginNegotiatedReceiveSlot();
 
         try
@@ -1529,15 +1716,20 @@ internal sealed class DhmpFullReportLab
     private sealed class DirectReceiveReportSender :
         IDhmpPacketSender
     {
-        private readonly DhmpServer _server;
-        private readonly Action<ReadOnlySpan<byte>> _publish;
+        private readonly int _recordSize;
+        private readonly Action _directReceive;
 
         public DirectReceiveReportSender(
             DhmpServer server,
             Action<ReadOnlySpan<byte>> publish)
         {
-            _server = server;
-            _publish = publish;
+            _recordSize =
+                server.WireContract.RecordSize;
+
+            _directReceive =
+                CreateDirectReceiveAction(
+                    server,
+                    publish);
         }
 
         public int MaximumPayloadBytes =>
@@ -1550,15 +1742,13 @@ internal sealed class DhmpFullReportLab
             cancellationToken.ThrowIfCancellationRequested();
 
             if (payload.Length !=
-                _server.WireContract.RecordSize)
+                _recordSize)
             {
                 throw new DhmpProtocolException(
                     "Direct-slot benchmark sender requires exactly one negotiated record.");
             }
 
-            ProcessDirectReceive(
-                _server,
-                _publish);
+            _directReceive();
 
             return ValueTask.CompletedTask;
         }
@@ -1700,6 +1890,7 @@ internal sealed record DhmpFullReport(
     DhmpReportEnvironment Environment,
     DhmpReportSummary Summary,
     DhmpPathBenchmark[] PathMatrix,
+    DhmpAggregateTimingBenchmark[] AggregateTiming,
     DhmpLocalBatchBenchmark[] LocalBatchMatrix,
     DhmpWorkerScalingBenchmark[] WorkerScaling,
     DhmpRatePolicyBenchmark[] RatePolicies,
@@ -1749,6 +1940,23 @@ internal sealed record DhmpPathBenchmark(
     double LogicalRecordsPerSecond,
     double LogicalPayloadGigabytesPerSecond,
     int PublishedRecordsPerPacket);
+
+internal sealed record DhmpAggregateTimingBenchmark(
+    int PacketBytes,
+    string ReceiveMode,
+    bool NativeSmoothing,
+    long TargetLogicalBytesPerPass,
+    long PacketsPerPass,
+    DhmpAggregateTimingSample DirectReceive,
+    DhmpAggregateTimingSample FullClient);
+
+internal sealed record DhmpAggregateTimingSample(
+    long TotalPackets,
+    long TotalLogicalBytes,
+    double ElapsedMilliseconds,
+    double NanosecondsPerPacket,
+    double PacketRate,
+    double LogicalPayloadGigabytesPerSecond);
 
 internal sealed record DhmpLocalBatchBenchmark(
     int BatchBytes,
