@@ -726,6 +726,24 @@ public sealed class DhmpServer
         return GetReceiveSweepSlots();
     }
 
+    /// <summary>
+    /// Unchecked single-producer transport hot path for UnsafeLatest.
+    /// The caller must already have established UnsafeLatest mode and must not
+    /// issue overlapping receives. The returned memory is permanently reused.
+    /// </summary>
+    internal Memory<byte> GetUnsafeLatestReceiveMemoryUnchecked() =>
+        _unsafeLatestSlot!.AsMemory();
+
+    /// <summary>
+    /// Publish the reusable UnsafeLatest receive slot with no per-record mode,
+    /// active-slot or exception-cleanup bookkeeping. This is intentionally
+    /// internal and only valid for a transport that guarantees exactly one
+    /// outstanding receive and synchronous publication before reuse.
+    /// </summary>
+    internal void PublishUnsafeLatestReceiveUnchecked(
+        Action<ReadOnlySpan<byte>> publishBatch) =>
+        publishBatch(_unsafeLatestSlot!);
+
     private byte[] GetUnsafeLatestSlot() =>
         _unsafeLatestSlot ??
         throw new InvalidOperationException(

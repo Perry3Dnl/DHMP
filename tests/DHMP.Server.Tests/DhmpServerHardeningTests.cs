@@ -60,6 +60,42 @@ public sealed class DhmpServerHardeningTests
     }
 
     [Fact]
+    public void HappyFlow_UnsafeLatestUncheckedTransportPathReusesOneSlot()
+    {
+        const int RecordSize = 8;
+
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(RecordSize),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.UnsafeLatest,
+                    maximumPayloadBytes: RecordSize));
+
+        Memory<byte> first =
+            server.GetUnsafeLatestReceiveMemoryUnchecked();
+
+        Memory<byte> second =
+            server.GetUnsafeLatestReceiveMemoryUnchecked();
+
+        Assert.True(first.Equals(second));
+
+        first.Span.Clear();
+        first.Span[0] = 0x3C;
+        first.Span[^1] = 0xA7;
+
+        byte[]? published = null;
+
+        server.PublishUnsafeLatestReceiveUnchecked(
+            span => published = span.ToArray());
+
+        Assert.NotNull(published);
+        Assert.Equal(RecordSize, published!.Length);
+        Assert.Equal((byte)0x3C, published[0]);
+        Assert.Equal((byte)0xA7, published[^1]);
+        Assert.Equal(0, server.ReceiveSweepRecordsObserved);
+    }
+
+    [Fact]
     public void HappyFlow_UnsafeLatestCompatibilityPacketPublishesOnlyNewestCompleteRecord()
     {
         var server =

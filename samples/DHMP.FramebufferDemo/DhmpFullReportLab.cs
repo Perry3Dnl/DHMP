@@ -13,6 +13,8 @@ internal sealed class DhmpFullReportLab
     private const int MeasuredIterations = 120_000;
     private const int Repetitions = 5;
     private const int ReferencePacketBytes = 1408;
+    private const long AggregateTargetBytesPerPass = 10_000_000;
+    private const double AggregateMinimumSeconds = 0.100;
 
     private static readonly int[] CanonicalRecordSizes =
         [16, 256, 1024, 1408, 4096, 16384, 65520];
@@ -67,7 +69,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 63;
+            _totalSteps = 98;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -110,6 +112,33 @@ internal sealed class DhmpFullReportLab
 
                     matrix.Add(
                         RunCanonicalPathBenchmark(
+                            recordBytes,
+                            mode,
+                            smoothing));
+
+                    CompleteStep();
+                }
+            }
+
+            var aggregateTiming =
+                new List<DhmpAggregateTimingBenchmark>();
+
+            foreach (int recordBytes in CanonicalRecordSizes)
+            {
+                foreach ((DhmpProcessingMode mode, bool smoothing) in new[]
+                         {
+                             (DhmpProcessingMode.Sequential, false),
+                             (DhmpProcessingMode.UnsafeSequential, false),
+                             (DhmpProcessingMode.UnsafeLatest, false),
+                             (DhmpProcessingMode.Latest, false),
+                             (DhmpProcessingMode.Latest, true)
+                         })
+                {
+                    SetPhase(
+                        $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} aggregate 10 MB / ≥100 ms {recordBytes:N0} B");
+
+                    aggregateTiming.Add(
+                        RunAggregateTimingBenchmark(
                             recordBytes,
                             mode,
                             smoothing));
@@ -187,6 +216,7 @@ internal sealed class DhmpFullReportLab
                 environment,
                 summary,
                 matrix.ToArray(),
+                aggregateTiming.ToArray(),
                 localBatchMatrix.ToArray(),
                 scaling,
                 ratePolicies,
@@ -207,6 +237,7 @@ internal sealed class DhmpFullReportLab
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
                     "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
+                    "aggregateTiming repeats complete passes of at least 10,000,000 logical payload bytes under one outer Stopwatch until at least 100 ms has elapsed, then divides actual elapsed nanoseconds by total packet count. A calibration pass groups enough 10 MB passes to target roughly 5 ms between clock reads, preventing Stopwatch polling from dominating very fast large-record modes.",
                     "Sequential, UnsafeSequential, Latest and UnsafeLatest all receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
@@ -215,6 +246,7 @@ internal sealed class DhmpFullReportLab
                     "UnsafeSequential is an experimental local receive policy: plaintext fixed-slot receive reserves the FIFO tail itself, so transport writes directly into FIFO-owned memory and Ring-3 is not touched.",
                     "UnsafeSequential preserves FIFO order for records accepted into the process, but a full FIFO stops posting the next socket receive earlier; kernel/network loss under overload is therefore easier to trigger and no reliability claim is implied.",
                     "UnsafeLatest is an experimental single-slot newest-state mode: plaintext fixed-slot receive writes into one reusable server-owned record buffer, publishes it synchronously, and may overwrite it on the next receive. It has no independent Latest grabber, no Ring-3 history, and no Native Smoothing window.",
+                    "The Raw IPv6 UnsafeLatest transport hot path resolves its reusable slot once outside the receive loop and uses an internal unchecked synchronous publish after each accepted receive; the guarded Begin/Commit API remains available for misuse detection outside that transport loop.",
                     "Protected raw receive, multi-peer routed raw receive and UDP compatibility currently require intermediate receive/decode/routing buffers before server publication; their copy costs are not presented as part of the copy-free direct-slot processing ceiling.",
                     "Normal Sequential direct receive still transfers each completed Ring-3 record into its FIFO because Sequential owns records beyond the three-slot arrival window; that ownership copy remains in the measured Sequential cost.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
@@ -337,15 +369,18 @@ internal sealed class DhmpFullReportLab
                     MaximumPayloadBytes,
                     DhmpRatePolicy.Unlimited));
 
+        Action directReceive =
+            CreateDirectReceiveAction(
+                server,
+                publish);
+
         for (int i = 0; i < WarmupIterations; i++)
         {
             processor.Process(
                 record,
                 publish);
 
-            ProcessDirectReceive(
-                server,
-                publish);
+            directReceive();
 
             server.ProcessNegotiatedRecord(
                 record,
@@ -382,9 +417,7 @@ internal sealed class DhmpFullReportLab
             serverNs[repetition] =
                 MeasureNanosecondsPerCall(
                     MeasuredIterations,
-                    () => ProcessDirectReceive(
-                        server,
-                        publish));
+                    directReceive);
 
             prebufferedServerNs[repetition] =
                 MeasureNanosecondsPerCall(
@@ -423,6 +456,213 @@ internal sealed class DhmpFullReportLab
             packetRate,
             packetRate * recordBytes / 1_000_000_000d,
             1);
+    }
+
+    private static DhmpAggregateTimingBenchmark RunAggregateTimingBenchmark(
+        int recordBytes,
+        DhmpProcessingMode mode,
+        bool nativeSmoothing)
+    {
+        var wire =
+            new DhmpWireContract(
+                recordBytes);
+
+        var policy =
+            CreateBenchmarkReceivePolicy(
+                mode,
+                MaximumPayloadBytes,
+                nativeSmoothing);
+
+        int published = 0;
+
+        Action<ReadOnlySpan<byte>> publish =
+            span => published +=
+                span.Length /
+                recordBytes;
+
+        var server =
+            new DhmpServer(
+                wire,
+                policy);
+
+        Action directReceive =
+            CreateDirectReceiveAction(
+                server,
+                publish);
+
+        var sender =
+            new DirectReceiveReportSender(
+                server,
+                publish);
+
+        var client =
+            new DhmpClient(
+                sender,
+                wire,
+                new DhmpSendPolicy(
+                    long.MaxValue,
+                    MaximumPayloadBytes,
+                    DhmpRatePolicy.Unlimited));
+
+        byte[] record =
+            GC.AllocateUninitializedArray<byte>(
+                recordBytes);
+
+        Action fullClient =
+            () => client.SendAsync(record)
+                .GetAwaiter()
+                .GetResult();
+
+        // Warm both code paths before starting the aggregate clock. The actual
+        // aggregate sample then uses one outer Stopwatch only.
+        for (int i = 0; i < 10_000; i++)
+        {
+            directReceive();
+            fullClient();
+        }
+
+        long packetsPerPass =
+            Math.Max(
+                1L,
+                (AggregateTargetBytesPerPass +
+                 recordBytes - 1L) /
+                recordBytes);
+
+        DhmpAggregateTimingSample direct =
+            MeasureAggregateTiming(
+                directReceive,
+                recordBytes,
+                packetsPerPass);
+
+        DhmpAggregateTimingSample fullClientSample =
+            MeasureAggregateTiming(
+                fullClient,
+                recordBytes,
+                packetsPerPass);
+
+        GC.KeepAlive(published);
+
+        return new DhmpAggregateTimingBenchmark(
+            recordBytes,
+            mode.ToString(),
+            nativeSmoothing,
+            AggregateTargetBytesPerPass,
+            packetsPerPass,
+            direct,
+            fullClientSample);
+    }
+
+    private static DhmpAggregateTimingSample MeasureAggregateTiming(
+        Action action,
+        int recordBytes,
+        long packetsPerPass)
+    {
+        long minimumTicks =
+            Math.Max(
+                1L,
+                (long)Math.Ceiling(
+                    Stopwatch.Frequency *
+                    AggregateMinimumSeconds));
+
+        // Calibrate how many complete 10 MB passes should run between
+        // Stopwatch reads. Large records can make a 10 MB pass extremely
+        // short; checking the clock after every such pass would itself become
+        // measurable noise. Aim for roughly 5 ms of work per clock check.
+        long calibrationStarted =
+            Stopwatch.GetTimestamp();
+
+        for (long packet = 0;
+             packet < packetsPerPass;
+             packet++)
+        {
+            action();
+        }
+
+        long calibrationTicks =
+            Math.Max(
+                1L,
+                Stopwatch.GetTimestamp() -
+                calibrationStarted);
+
+        long targetCheckTicks =
+            Math.Max(
+                1L,
+                Stopwatch.Frequency /
+                200L);
+
+        long passesPerClockCheck =
+            Math.Max(
+                1L,
+                (targetCheckTicks +
+                 calibrationTicks - 1L) /
+                calibrationTicks);
+
+        long packetsPerClockCheck =
+            checked(
+                packetsPerPass *
+                passesPerClockCheck);
+
+        long totalPackets = 0;
+
+        long started =
+            Stopwatch.GetTimestamp();
+
+        long elapsed;
+
+        do
+        {
+            for (long pass = 0;
+                 pass < passesPerClockCheck;
+                 pass++)
+            {
+                for (long packet = 0;
+                     packet < packetsPerPass;
+                     packet++)
+                {
+                    action();
+                }
+            }
+
+            totalPackets +=
+                packetsPerClockCheck;
+
+            elapsed =
+                Stopwatch.GetTimestamp() -
+                started;
+        }
+        while (elapsed < minimumTicks);
+
+        double elapsedSeconds =
+            (double)elapsed /
+            Stopwatch.Frequency;
+
+        double elapsedNanoseconds =
+            elapsedSeconds *
+            1_000_000_000d;
+
+        double nanosecondsPerPacket =
+            elapsedNanoseconds /
+            totalPackets;
+
+        double packetRate =
+            totalPackets /
+            elapsedSeconds;
+
+        long totalLogicalBytes =
+            checked(
+                totalPackets *
+                (long)recordBytes);
+
+        return new DhmpAggregateTimingSample(
+            totalPackets,
+            totalLogicalBytes,
+            passesPerClockCheck,
+            elapsedSeconds * 1_000d,
+            nanosecondsPerPacket,
+            packetRate,
+            packetRate *
+            recordBytes /
+            1_000_000_000d);
     }
 
     private static DhmpLocalBatchBenchmark RunLocalBatchBenchmark(
@@ -746,7 +986,7 @@ internal sealed class DhmpFullReportLab
                     dhmp.LogicalPayloadGigabytesPerSecond,
                     100_000L * workers,
                     false,
-                    "Measured by this Full Report run. Transport byte movement is excluded because the fixed-slot receiver writes directly into the mode-owned destination: Ring-3 for normal Sequential/Latest or FIFO tail for UnsafeSequential. This is a logical software-processing ceiling, not physical wire or memory throughput."));
+                    "Measured by this Full Report run. Transport byte movement is excluded because the fixed-slot receiver writes directly into the mode-owned destination: Ring-3 for normal Sequential/Latest, FIFO tail for UnsafeSequential, or one reusable slot for UnsafeLatest. This is a logical software-processing ceiling, not physical wire or memory throughput."));
         }
 
         try
@@ -1368,15 +1608,38 @@ internal sealed class DhmpFullReportLab
             checks.All(check => check.Passed));
     }
 
+    private static Action CreateDirectReceiveAction(
+        DhmpServer server,
+        Action<ReadOnlySpan<byte>> publish)
+    {
+        if (server.ReceivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            // Match the real Raw IPv6 hot path: resolve the permanently reused
+            // single slot once outside the packet loop, then publish without
+            // per-packet mode or active-slot guards.
+            _ = server
+                .GetUnsafeLatestReceiveMemoryUnchecked();
+
+            return () =>
+                server.PublishUnsafeLatestReceiveUnchecked(
+                    publish);
+        }
+
+        return () =>
+            ProcessDirectReceive(
+                server,
+                publish);
+    }
+
     private static void ProcessDirectReceive(
         DhmpServer server,
         Action<ReadOnlySpan<byte>> publish)
     {
         // In the real plaintext fixed-slot path the socket writes directly
         // into server-owned receive memory: Ring-3 for normal Sequential/
-        // Latest, or the FIFO tail for UnsafeSequential. The timed benchmark
-        // measures only DHMP reserve/commit/publication bookkeeping after
-        // transport byte movement.
+        // Latest or the FIFO tail for UnsafeSequential. UnsafeLatest uses the
+        // specialized unchecked action above.
         _ = server.BeginNegotiatedReceiveSlot();
 
         try
@@ -1497,15 +1760,20 @@ internal sealed class DhmpFullReportLab
     private sealed class DirectReceiveReportSender :
         IDhmpPacketSender
     {
-        private readonly DhmpServer _server;
-        private readonly Action<ReadOnlySpan<byte>> _publish;
+        private readonly int _recordSize;
+        private readonly Action _directReceive;
 
         public DirectReceiveReportSender(
             DhmpServer server,
             Action<ReadOnlySpan<byte>> publish)
         {
-            _server = server;
-            _publish = publish;
+            _recordSize =
+                server.WireContract.RecordSize;
+
+            _directReceive =
+                CreateDirectReceiveAction(
+                    server,
+                    publish);
         }
 
         public int MaximumPayloadBytes =>
@@ -1518,15 +1786,13 @@ internal sealed class DhmpFullReportLab
             cancellationToken.ThrowIfCancellationRequested();
 
             if (payload.Length !=
-                _server.WireContract.RecordSize)
+                _recordSize)
             {
                 throw new DhmpProtocolException(
                     "Direct-slot benchmark sender requires exactly one negotiated record.");
             }
 
-            ProcessDirectReceive(
-                _server,
-                _publish);
+            _directReceive();
 
             return ValueTask.CompletedTask;
         }
@@ -1668,6 +1934,7 @@ internal sealed record DhmpFullReport(
     DhmpReportEnvironment Environment,
     DhmpReportSummary Summary,
     DhmpPathBenchmark[] PathMatrix,
+    DhmpAggregateTimingBenchmark[] AggregateTiming,
     DhmpLocalBatchBenchmark[] LocalBatchMatrix,
     DhmpWorkerScalingBenchmark[] WorkerScaling,
     DhmpRatePolicyBenchmark[] RatePolicies,
@@ -1717,6 +1984,24 @@ internal sealed record DhmpPathBenchmark(
     double LogicalRecordsPerSecond,
     double LogicalPayloadGigabytesPerSecond,
     int PublishedRecordsPerPacket);
+
+internal sealed record DhmpAggregateTimingBenchmark(
+    int PacketBytes,
+    string ReceiveMode,
+    bool NativeSmoothing,
+    long TargetLogicalBytesPerPass,
+    long PacketsPerPass,
+    DhmpAggregateTimingSample DirectReceive,
+    DhmpAggregateTimingSample FullClient);
+
+internal sealed record DhmpAggregateTimingSample(
+    long TotalPackets,
+    long TotalLogicalBytes,
+    long PassesPerClockCheck,
+    double ElapsedMilliseconds,
+    double NanosecondsPerPacket,
+    double PacketRate,
+    double LogicalPayloadGigabytesPerSecond);
 
 internal sealed record DhmpLocalBatchBenchmark(
     int BatchBytes,

@@ -164,6 +164,16 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         Action<ReadOnlySpan<byte>> publishBatch,
         CancellationToken cancellationToken)
     {
+        if (_server.ReceivePolicy.Mode ==
+            DhmpProcessingMode.UnsafeLatest)
+        {
+            await RunPlaintextUnsafeLatestAsync(
+                publishBatch,
+                cancellationToken)
+            .ConfigureAwait(false);
+            return;
+        }
+
         bool sequentialFamily =
             _server.ReceivePolicy.Mode is
                 DhmpProcessingMode.Sequential or
@@ -225,6 +235,66 @@ public sealed class DhmpRawIpv6Receiver : IDisposable
         catch (OperationCanceledException)
             when (cancellationToken.IsCancellationRequested)
         {
+        }
+    }
+
+    private async Task RunPlaintextUnsafeLatestAsync(
+        Action<ReadOnlySpan<byte>> publishBatch,
+        CancellationToken cancellationToken)
+    {
+        EndPoint remoteTemplate =
+            new IPEndPoint(
+                IPAddress.IPv6Any,
+                0);
+
+        int recordSize =
+            _server.WireContract.RecordSize;
+
+        // UnsafeLatest owns one permanently reused receive slot. Resolve it
+        // once outside the packet loop so the per-packet path is socket receive
+        // -> synchronous publish, with no mode/active-slot bookkeeping.
+        Memory<byte> receiveSlot =
+            _server.GetUnsafeLatestReceiveMemoryUnchecked();
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            SocketReceiveMessageFromResult result;
+
+            try
+            {
+                result =
+                    await _socket.ReceiveMessageFromAsync(
+                        receiveSlot,
+                        SocketFlags.None,
+                        remoteTemplate,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+                when (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            if ((result.SocketFlags & SocketFlags.Truncated) != 0)
+                continue;
+
+            if (result.RemoteEndPoint is not IPEndPoint peer ||
+                !peer.Address.Equals(_remoteAddress))
+            {
+                Interlocked.Increment(
+                    ref _foreignPeerPackets);
+                continue;
+            }
+
+            if (result.ReceivedBytes != recordSize)
+                continue;
+
+            _server.PublishUnsafeLatestReceiveUnchecked(
+                publishBatch);
+
+            Interlocked.Increment(
+                ref _acceptedPackets);
         }
     }
 
