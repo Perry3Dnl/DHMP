@@ -55,7 +55,7 @@ jobs:
           sudo ip -n dhmp-connected-src -6 route replace fd01::1/128 dev dhmp-tx src fd01::2 mtu 1280
           sudo ip -n dhmp-connected-src -6 route get fd01::1
           sudo ip netns exec dhmp-connected-src "$(command -v dotnet)" tests/DHMP.ConnectedSendCheck/bin/Release/net10.0/DHMP.ConnectedSendCheck.dll mtu
-      - name: Force pending sends and validate cancellation and disposal
+      - name: Validate real raw buffer exhaustion and shared connected socket pending lifecycle
         run: |
           sudo ip netns exec dhmp-connected-src tc qdisc add dev dhmp-tx root tbf rate 1kbit burst 1600 limit 1048576
           sudo ip netns exec dhmp-connected-src "$(command -v dotnet)" tests/DHMP.ConnectedSendCheck/bin/Release/net10.0/DHMP.ConnectedSendCheck.dll pressure

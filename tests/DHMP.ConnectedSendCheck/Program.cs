@@ -133,38 +133,77 @@ static async Task RunIp(params string[] arguments)
 async Task CheckPressure()
 {
     byte[] record = new byte[1200];
-    using (var sender = new DhmpRawIpv6PacketSender(Options(4096)))
-    using (var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10)))
+    using (var baseline = new LegacyEndpointSender(Options(4096)))
+    using (var current = new DhmpRawIpv6PacketSender(Options(4096)))
     {
-        ValueTask pending = FindPending(sender, record, cancellation.Token);
-        cancellation.Cancel();
-        var error = await Expect<OperationCanceledException>(() => pending.AsTask().WaitAsync(TimeSpan.FromSeconds(3)));
-        Require(error.CancellationToken == cancellation.Token, "Pending cancellation token changed.");
+        // On this Linux raw path a full egress/socket buffer returns ENOBUFS,
+        // rather than EAGAIN. Require the real result and preserve it unchanged.
+        foreach (var test in new (string Name, Func<ValueTask> Send)[] {
+            ("endpoint", () => baseline.SendPacketAsync(record)),
+            ("connected", () => current.SendPacketAsync(record)) })
+        {
+            bool observed = false;
+            for (int i = 0; i < 4096; i++)
+            {
+                try { await test.Send().AsTask().WaitAsync(TimeSpan.FromSeconds(3)); }
+                catch (SocketException error) when (error.SocketErrorCode == SocketError.NoBufferSpaceAvailable)
+                {
+                    observed = true;
+                    Console.WriteLine($"CONNECTED_RAW_PRESSURE={test.Name} passed actual ENOBUFS after {i} accepted sends");
+                    break;
+                }
+            }
+            Require(observed, "Raw lab did not exercise buffer exhaustion.");
+        }
     }
-    using (var sender = new DhmpRawIpv6PacketSender(Options(4096)))
+    // Exercise the connected managed socket API's genuinely pending operations
+    // separately. Unix datagrams supply deterministic EAGAIN without inventing
+    // an injectable transport or changing the raw sender's production behavior.
+    // This is shared Socket.SendAsync lifecycle evidence, not raw pending coverage.
+    for (int test = 0; test < 2; test++)
     {
-        ValueTask pending = FindPending(sender, record, CancellationToken.None);
-        sender.Dispose();
+        string path = Path.Combine(Path.GetTempPath(), $"dhmp-connected-{Guid.NewGuid():N}.sock");
         try
         {
-            await pending.AsTask().WaitAsync(TimeSpan.FromSeconds(3));
-            throw new InvalidOperationException("Disposed pending send unexpectedly succeeded.");
+            using var receiver = new Socket(AddressFamily.Unix, SocketType.Dgram, ProtocolType.Unspecified);
+            receiver.Bind(new UnixDomainSocketEndPoint(path));
+            using var socket = new Socket(AddressFamily.Unix, SocketType.Dgram, ProtocolType.Unspecified);
+            socket.SendBufferSize = 4096;
+            socket.Connect(new UnixDomainSocketEndPoint(path));
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            ValueTask<int> pending = FindManagedPending(socket, record, test == 0 ? cancellation.Token : CancellationToken.None);
+            if (test == 0)
+            {
+                cancellation.Cancel();
+                var error = await Expect<OperationCanceledException>(() => pending.AsTask().WaitAsync(TimeSpan.FromSeconds(3)));
+                Require(error.CancellationToken == cancellation.Token, "Pending cancellation token changed.");
+            }
+            else
+            {
+                socket.Dispose();
+                try
+                {
+                    await pending.AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+                    throw new InvalidOperationException("Disposed pending send unexpectedly succeeded.");
+                }
+                catch (ObjectDisposedException) { }
+                catch (SocketException error) when (error.SocketErrorCode is SocketError.OperationAborted or SocketError.Interrupted) { }
+            }
         }
-        catch (ObjectDisposedException) { }
-        catch (SocketException error) when (error.SocketErrorCode is SocketError.OperationAborted or SocketError.Interrupted) { }
+        finally { File.Delete(path); }
     }
-    Console.WriteLine("CONNECTED_PRESSURE=passed observed pending raw sends, cancellation and concurrent disposal");
+    Console.WriteLine("CONNECTED_MANAGED_PENDING=passed observed pending Unix datagram Socket.SendAsync cancellation and disposal; not raw pending coverage");
 }
 
-static ValueTask FindPending(DhmpRawIpv6PacketSender sender, byte[] record, CancellationToken token)
+static ValueTask<int> FindManagedPending(Socket socket, byte[] record, CancellationToken token)
 {
     for (int i = 0; i < 4096; i++)
     {
-        ValueTask pending = sender.SendPacketAsync(record, token);
+        ValueTask<int> pending = socket.SendAsync(record.AsMemory(), SocketFlags.None, token);
         if (!pending.IsCompleted) return pending;
-        pending.GetAwaiter().GetResult();
+        Require(pending.GetAwaiter().GetResult() == record.Length, "Managed datagram changed size.");
     }
-    throw new InvalidOperationException("Lab did not create an outstanding send; pressure coverage is required.");
+    throw new InvalidOperationException("Unix datagram lab did not create an outstanding send.");
 }
 
 void Measure()
