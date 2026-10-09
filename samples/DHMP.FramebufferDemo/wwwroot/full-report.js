@@ -643,7 +643,7 @@
         '</strong><small>Packet operations per second on the measured kernel-bypass path.</small></article>' +
         '<article class="proof-card"><span>Direct-slot headroom</span><strong>' +
         fullDecimal(bestDirectSlotThroughput, 1) +
-        ' GB/s</strong><small>Logical payload-equivalent processing ceiling after direct Ring-3 receive; not physical wire or memory bandwidth.</small></article>' +
+        ' GB/s</strong><small>Logical payload-equivalent processing ceiling after direct receive into the mode-owned destination; not physical wire or memory bandwidth.</small></article>' +
         '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
         fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
         ' B/call</strong><small>' +
