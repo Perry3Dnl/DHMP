@@ -127,7 +127,17 @@ for file in files:
 
         # Legacy stream transports remain forbidden. UDP datagram sockets are allowed
         # only in the explicit Connector compatibility backend selected by the resolver.
-        if forbidden.search(text) and not (is_comparison_benchmark or is_udp_compatibility):
+        boundary_text = text
+        if relative == "tests/DHMP.ConnectedSendCheck/Program.cs":
+            # This local-only fixture verifies Socket.SendAsync pending lifecycle.
+            # Exempt only these exact Unix datagram constructors, not IP datagrams,
+            # streams, arbitrary test transports, or a production backend.
+            boundary_text = re.sub(
+                r"new\s+Socket\(\s*AddressFamily\.Unix\s*,\s*SocketType\.Dgram\s*,\s*ProtocolType\.Unspecified\s*\)",
+                "",
+                boundary_text,
+            )
+        if forbidden.search(boundary_text) and not (is_comparison_benchmark or is_udp_compatibility):
             errors.append(f"Legacy transport/stream implementation in {relative}")
 
         if re.search(r"\b(?:namespace|using)\s+Dhmp\.", text):

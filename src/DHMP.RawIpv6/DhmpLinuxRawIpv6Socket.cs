@@ -18,6 +18,8 @@ public static class DhmpLinuxRawIpv6Socket
     private const int IpProtocolIpv6 = 41;
     // Linux UAPI include/uapi/linux/in6.h; RFC 3542 section 11.2.
     private const int Ipv6DontFragment = 62;
+    private const int Ipv6MtuDiscover = 23;
+    private const int Ipv6PmtuDiscoverDo = 2;
 
     public static Socket Open(byte protocolNumber)
     {
@@ -46,6 +48,20 @@ public static class DhmpLinuxRawIpv6Socket
         var handle = new SafeSocketHandle((IntPtr)descriptor, ownsHandle: true);
         try
         {
+            // Linux's DONTFRAG shortcut only covers selected IP protocol values
+            // (UDP and IPPROTO_RAW=255), not arbitrary raw protocols 253/254.
+            // PMTUDISC_DO also prevents fragmentation for our experimental bindings.
+            int pathMtuMode = Ipv6PmtuDiscoverDo;
+            if (NativeSetSocketOption(
+                    descriptor, IpProtocolIpv6, Ipv6MtuDiscover,
+                    ref pathMtuMode, sizeof(int)) != 0)
+            {
+                int error = Marshal.GetLastPInvokeError();
+                throw new IOException(
+                    $"Linux could not enforce the IPv6 path MTU for the DHMP raw socket (errno {error}).",
+                    new Win32Exception(error));
+            }
+
             int enabled = 1;
             if (NativeSetSocketOption(
                     descriptor,
@@ -80,3 +96,4 @@ public static class DhmpLinuxRawIpv6Socket
         ref int optionValue,
         uint optionLength);
 }
+

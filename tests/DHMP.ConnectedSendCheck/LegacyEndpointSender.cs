@@ -1,3 +1,4 @@
+// Test-only baseline copied from main d722667c. Never selected by production.
 using System.Net;
 using System.Net.Sockets;
 using DHMP.Protocol;
@@ -9,15 +10,16 @@ namespace DHMP.RawIpv6;
 /// The IPv6 kernel API owns the IPv6 header; DHMP supplies payload bytes only.
 /// The native socket is configured not to insert IPv6 Fragment headers.
 /// </summary>
-public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPathBudgetTarget, IDisposable
+internal sealed class LegacyEndpointSender : IDhmpDynamicPacketSender, IDhmpPathBudgetTarget, IDisposable
 {
     private readonly Socket _socket;
+    private readonly EndPoint _remoteEndPoint;
     private readonly bool _dynamicPathBudgetEnabled;
     private readonly int _dynamicAdditionalIpv6HeaderBytes;
     private int _currentMaximumPayloadBytes;
     private int _disposed;
 
-    public DhmpRawIpv6PacketSender(DhmpRawIpv6Options options)
+    public LegacyEndpointSender(DhmpRawIpv6Options options)
         : this(
             options,
             initialMaximumPayloadBytes: null,
@@ -26,7 +28,7 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
     {
     }
 
-    private DhmpRawIpv6PacketSender(
+    private LegacyEndpointSender(
         DhmpRawIpv6Options options,
         int? initialMaximumPayloadBytes,
         bool dynamicPathBudgetEnabled,
@@ -45,15 +47,14 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
         _dynamicAdditionalIpv6HeaderBytes =
             dynamicAdditionalIpv6HeaderBytes;
 
+        _remoteEndPoint = new IPEndPoint(options.RemoteAddress, 0);
+
         _socket = DhmpLinuxRawIpv6Socket.Open(options.DataProtocolNumber);
 
         try
         {
             _socket.SendBufferSize = options.SocketBufferBytes;
             _socket.Bind(new IPEndPoint(options.LocalAddress, 0));
-            // This sender has one fixed peer. Raw-socket Connect selects the
-            // destination once; it does not establish a TCP-style session.
-            _socket.Connect(new IPEndPoint(options.RemoteAddress, 0));
         }
         catch
         {
@@ -78,7 +79,7 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
     /// budget while retaining the options payload limit as the immutable hard ceiling.
     /// Authenticated DPLPMTUD may raise the live ceiling later.
     /// </summary>
-    public static DhmpRawIpv6PacketSender ForDynamicPath(
+    public static LegacyEndpointSender ForDynamicPath(
         DhmpRawIpv6Options options,
         int additionalIpv6HeaderBytes = 0)
     {
@@ -95,7 +96,7 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
                 "Configured raw sender ceiling is smaller than the IPv6 minimum-path payload budget.",
                 nameof(options));
 
-        return new DhmpRawIpv6PacketSender(
+        return new LegacyEndpointSender(
             options,
             baseBudget.MaximumProtocolPayloadBytes,
             dynamicPathBudgetEnabled: true,
@@ -172,9 +173,10 @@ public sealed class DhmpRawIpv6PacketSender : IDhmpDynamicPacketSender, IDhmpPat
 
         try
         {
-            sent = await _socket.SendAsync(
+            sent = await _socket.SendToAsync(
                 payload,
                 SocketFlags.None,
+                _remoteEndPoint,
                 cancellationToken).ConfigureAwait(false);
         }
         catch (SocketException error)
