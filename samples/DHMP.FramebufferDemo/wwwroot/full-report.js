@@ -727,6 +727,7 @@
       '<td>' + modeName(row) + '</td>' +
       '<td>' + Number(row.packetBytes).toLocaleString() + '</td>' +
       '<td>' + fullInteger(row.packetsPerPass) + '</td>' +
+      '<td>' + fullInteger(row.directReceive?.passesPerClockCheck || 1) + '</td>' +
       '<td>' + fullInteger(row.directReceive?.totalPackets || 0) + '</td>' +
       '<td>' + fullDecimal(row.directReceive?.elapsedMilliseconds || 0, 3) + '</td>' +
       '<td>' + fullDecimal(row.directReceive?.nanosecondsPerPacket || 0, 3) + '</td>' +
