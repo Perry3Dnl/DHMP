@@ -198,6 +198,8 @@ internal sealed class DhmpFullReportLab
                 {
                     "Core processor ceiling is a software processing ceiling, not physical wire throughput.",
                     "Canonical pathMatrix rows measure exactly one negotiated record per DHMP packet.",
+                    "Canonical serverNanoseconds measures direct Ring-3 receive-slot bookkeeping after transport byte movement; it does not copy the record into Ring-3.",
+                    "Canonical prebufferedServerNanoseconds reports the convenience path where a record already stored elsewhere is copied into Ring-3, so copy cost stays visible instead of being mistaken for direct-receive overhead.",
                     "localBatchMatrix rows are software-only compatibility/batch calls and are never wire packet-rate claims.",
                     "Logical payload GB/s in localBatchMatrix represents bytes processed by local batch APIs, not raw DHMP wire throughput.",
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
@@ -207,7 +209,7 @@ internal sealed class DhmpFullReportLab
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
-                    "Native Smoothing adds no per-packet Ring-3 copy. Sweeper and grabber costs are benchmarked separately.",
+                    "Plaintext single-peer Latest and Latest + Native Smoothing both receive directly into Ring-3; Native Smoothing changes only the downstream grabber and adds no intermediate receive copy.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
                     "Canonical Full Report Sequential rows use a 64-record local FIFO. Local multi-record batch rows size that synthetic FIFO to at least one complete batch so synchronous batch publication cannot self-backpressure before its grabber runs."
                 });
@@ -315,7 +317,7 @@ internal sealed class DhmpFullReportLab
                 policy);
 
         var sender =
-            new ReportSender(
+            new DirectReceiveReportSender(
                 server,
                 publish);
 
@@ -334,6 +336,10 @@ internal sealed class DhmpFullReportLab
                 record,
                 publish);
 
+            ProcessDirectReceive(
+                server,
+                publish);
+
             server.ProcessNegotiatedRecord(
                 record,
                 publish);
@@ -347,6 +353,9 @@ internal sealed class DhmpFullReportLab
             new double[Repetitions];
 
         double[] serverNs =
+            new double[Repetitions];
+
+        double[] prebufferedServerNs =
             new double[Repetitions];
 
         double[] clientNs =
@@ -364,6 +373,13 @@ internal sealed class DhmpFullReportLab
                         publish));
 
             serverNs[repetition] =
+                MeasureNanosecondsPerCall(
+                    MeasuredIterations,
+                    () => ProcessDirectReceive(
+                        server,
+                        publish));
+
+            prebufferedServerNs[repetition] =
                 MeasureNanosecondsPerCall(
                     MeasuredIterations,
                     () => server.ProcessNegotiatedRecord(
@@ -394,6 +410,7 @@ internal sealed class DhmpFullReportLab
             nativeSmoothing,
             Stats(processorNs),
             Stats(serverNs),
+            Stats(prebufferedServerNs),
             Stats(clientNs),
             packetRate,
             packetRate,
@@ -615,7 +632,7 @@ internal sealed class DhmpFullReportLab
                         static _ => { };
 
                     var sender =
-                        new ReportSender(
+                        new DirectReceiveReportSender(
                             server,
                             publish);
 
@@ -715,14 +732,14 @@ internal sealed class DhmpFullReportLab
         {
             results.Add(
                 new DhmpProtocolComparisonBenchmark(
-                    "DHMP in-memory full path",
-                    $"{workers} workers, client → sender → server",
+                    "DHMP direct-slot processing ceiling",
+                    $"{workers} workers, client validation → direct receive slot → server",
                     packetBytes,
                     dhmp.PacketRate,
                     dhmp.LogicalPayloadGigabytesPerSecond,
                     100_000L * workers,
                     false,
-                    "Measured by this Full Report run. This is a software-path ceiling, not physical wire throughput."));
+                    "Measured by this Full Report run. Transport byte movement is excluded because the real fixed-slot receiver writes directly into Ring-3. This is a logical software-processing ceiling, not physical wire or memory throughput."));
         }
 
         try
@@ -800,7 +817,7 @@ internal sealed class DhmpFullReportLab
                 static _ => { };
 
             var sender =
-                new ReportSender(
+                new DirectReceiveReportSender(
                     server,
                     publish);
 
@@ -1162,7 +1179,7 @@ internal sealed class DhmpFullReportLab
                 static _ => { };
 
             var sender =
-                new ReportSender(
+                new DirectReceiveReportSender(
                     server,
                     publish);
 
@@ -1183,8 +1200,8 @@ internal sealed class DhmpFullReportLab
 
             double serverBytes =
                 MeasureAllocatedBytesPerCall(
-                    () => server.ProcessNegotiatedRecord(
-                        packet,
+                    () => ProcessDirectReceive(
+                        server,
                         publish));
 
             double fullPathBytes =
@@ -1230,11 +1247,16 @@ internal sealed class DhmpFullReportLab
 
             int published = 0;
 
-            server.ProcessNegotiatedRecord(
-                new byte[packetBytes],
+            Memory<byte> receiveSlot =
+                server.BeginNegotiatedReceiveSlot();
+
+            receiveSlot.Span.Clear();
+            receiveSlot.Span[0] = 0x5A;
+
+            server.CommitNegotiatedReceiveSlot(
                 span =>
                     published +=
-                        span.Length / RecordSize);
+                        span.Length / packetBytes);
 
             const int expected = 1;
 
@@ -1333,6 +1355,27 @@ internal sealed class DhmpFullReportLab
             bestScaling.PacketBytes,
             allocations.Max(row => row.FullPathBytesPerCall),
             checks.All(check => check.Passed));
+    }
+
+    private static void ProcessDirectReceive(
+        DhmpServer server,
+        Action<ReadOnlySpan<byte>> publish)
+    {
+        // In the real plaintext fixed-slot path the socket writes directly
+        // into this Ring-3 Memory. The timed benchmark therefore measures
+        // only DHMP begin/commit/publication bookkeeping after byte movement.
+        _ = server.BeginNegotiatedReceiveSlot();
+
+        try
+        {
+            server.CommitNegotiatedReceiveSlot(
+                publish);
+        }
+        catch
+        {
+            server.CancelNegotiatedReceiveSlot();
+            throw;
+        }
     }
 
     private static double MeasureNanosecondsPerCall(
@@ -1435,6 +1478,44 @@ internal sealed class DhmpFullReportLab
             BitConverter.TryWriteBytes(
                 packet.AsSpan(offset + 8, 8),
                 ~(long)(offset / RecordSize));
+        }
+    }
+
+    private sealed class DirectReceiveReportSender :
+        IDhmpPacketSender
+    {
+        private readonly DhmpServer _server;
+        private readonly Action<ReadOnlySpan<byte>> _publish;
+
+        public DirectReceiveReportSender(
+            DhmpServer server,
+            Action<ReadOnlySpan<byte>> publish)
+        {
+            _server = server;
+            _publish = publish;
+        }
+
+        public int MaximumPayloadBytes =>
+            DhmpFullReportLab.MaximumPayloadBytes;
+
+        public ValueTask SendPacketAsync(
+            ReadOnlyMemory<byte> payload,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (payload.Length !=
+                _server.WireContract.RecordSize)
+            {
+                throw new DhmpProtocolException(
+                    "Direct-slot benchmark sender requires exactly one negotiated record.");
+            }
+
+            ProcessDirectReceive(
+                _server,
+                _publish);
+
+            return ValueTask.CompletedTask;
         }
     }
 
@@ -1617,6 +1698,7 @@ internal sealed record DhmpPathBenchmark(
     bool NativeSmoothing,
     DhmpSampleStats ProcessorNanoseconds,
     DhmpSampleStats ServerNanoseconds,
+    DhmpSampleStats PrebufferedServerNanoseconds,
     DhmpSampleStats ClientNanoseconds,
     double PacketRate,
     double LogicalRecordsPerSecond,
