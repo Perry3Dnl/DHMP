@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using DHMP.AfXdp;
+using DHMP.Client;
 using DHMP.Protocol;
 using DHMP.RawIpv6;
 
@@ -329,11 +330,12 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                                 return RunRawIpv6Transmit(
                                     worker,
                                     payloadBytes,
-                                    packetsPerWorker);
+                                    packetsPerWorker,
+                                    cancellationToken);
                             },
                             cancellationToken,
                             TaskCreationOptions.LongRunning,
-                            TaskScheduler.Default))
+                            TaskScheduler.Default).Unwrap())
                 .ToArray();
 
         long started = Stopwatch.GetTimestamp();
@@ -417,10 +419,11 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
             mode);
     }
 
-    private WorkerResult RunRawIpv6Transmit(
+    private async Task<WorkerResult> RunRawIpv6Transmit(
         int worker,
         int payloadBytes,
-        long packets)
+        long packets,
+        CancellationToken cancellationToken)
     {
         string interfaceName =
             InterfaceName(worker);
@@ -453,17 +456,18 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         multicast.ScopeId =
             ipv6.Index;
 
-        using Socket sender =
-            DhmpLinuxRawIpv6Socket.Open(
-                DhmpProtocol.ExperimentalIpv6DataNextHeader);
-
-        sender.Bind(
-            new IPEndPoint(
+        using var sender = new DhmpRawIpv6PacketSender(
+            new DhmpRawIpv6Options(
                 RawLocalAddress(worker),
-                0));
-
-        sender.SendBufferSize =
-            16 * 1024 * 1024;
+                multicast,
+                payloadBytes,
+                socketBufferBytes: 16 * 1024 * 1024,
+                enableExperimentalProtocolNumbers: true,
+                allowUnprotectedPayloads: true));
+        var client = new DhmpClient(
+            sender,
+            new DhmpWireContract(payloadBytes),
+            new DhmpSendPolicy(long.MaxValue, payloadBytes, DhmpRatePolicy.Unlimited));
 
         byte[] payload =
             GC.AllocateUninitializedArray<byte>(
@@ -476,11 +480,6 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
         contract.ValidateRecord(
             payload.Length);
 
-        EndPoint target =
-            new IPEndPoint(
-                multicast,
-                0);
-
         for (long packet = 0;
              packet < packets;
              packet++)
@@ -489,10 +488,7 @@ internal sealed class DhmpAfXdpLiveLab : BackgroundService
                 payload.AsSpan(0, 8),
                 packet);
 
-            sender.SendTo(
-                payload,
-                SocketFlags.None,
-                target);
+            await client.SendAsync(payload, cancellationToken).ConfigureAwait(false);
         }
 
         return new WorkerResult(
@@ -558,3 +554,4 @@ internal sealed record DhmpAfXdpComparisonSample(
     double AfXdpPacketRate,
     double AfXdpPayloadGigabytesPerSecond,
     string Mode);
+

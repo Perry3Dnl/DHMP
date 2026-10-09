@@ -4,6 +4,39 @@ using DHMP.Protocol;
 using DHMP.Server;
 
 var assembly = Assembly.Load("DHMP.FramebufferDemo");
+if (args.Contains("--raw-sender"))
+{
+    var type = assembly.GetType("DhmpAfXdpLiveLab", throwOnError: true)!;
+    object instance = Activator.CreateInstance(type)!;
+    var transmit = type.GetMethod("RunRawIpv6Transmit", BindingFlags.NonPublic | BindingFlags.Instance)!;
+    foreach (int bytes in new[] { 16, 1408 })
+    {
+        var task = (Task)transmit.Invoke(instance, new object[] { 0, bytes, 128L, CancellationToken.None })!;
+        await task;
+        object result = task.GetType().GetProperty("Result")!.GetValue(task)!;
+        if ((long)result.GetType().GetProperty("PacketsCompleted")!.GetValue(result)! != 128L ||
+            (long)result.GetType().GetProperty("PayloadBytesCompleted")!.GetValue(result)! != 128L * bytes)
+            throw new InvalidOperationException("Production sender benchmark counts changed.");
+    }
+    using var cancelled = new CancellationTokenSource();
+    cancelled.Cancel();
+    var blocked = (Task)transmit.Invoke(instance, new object[] { 0, 16, 128L, cancelled.Token })!;
+    try
+    {
+        await blocked;
+        throw new InvalidOperationException("Cancelled production sender benchmark completed.");
+    }
+    catch (OperationCanceledException) { }
+    Console.WriteLine("Production raw sender benchmark smoke passed: scoped multicast, two sizes, counts and cancellation. No receiver/delivery measurement.");
+    return;
+}
+if (args.Contains("--investigate"))
+{
+    var investigation = assembly.GetType("DhmpUnsafeLatestInvestigation", throwOnError: true)!;
+    investigation.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!.Invoke(null,
+        new object[] { args.Contains("--disasm-only") });
+    return;
+}
 var lab = assembly.GetType("DhmpFullReportLab", throwOnError: true)!;
 var run = lab.GetMethod("RunAggregateTimingBenchmark", BindingFlags.NonPublic | BindingFlags.Static)!;
 var confirmationType = run.GetParameters()[4].ParameterType;
