@@ -18,6 +18,8 @@ public sealed class DhmpClient
     private readonly IDhmpDynamicPacketSender? _dynamicSender;
     private readonly DhmpWireContract _wireContract;
     private readonly DhmpSendPolicy _sendPolicy;
+    private readonly int _recordSize;
+    private readonly int _maximumPayloadBytes;
     private readonly DhmpPmaxBudget? _budget;
     private readonly DhmpPacingSchedule? _pacer;
     private readonly DhmpAdaptiveRateController? _adaptiveRateController;
@@ -57,6 +59,9 @@ public sealed class DhmpClient
         _dynamicSender = sender as IDhmpDynamicPacketSender;
         _wireContract = wireContract;
         _sendPolicy = sendPolicy;
+        _recordSize = wireContract.RecordSize;
+        _maximumPayloadBytes =
+            sendPolicy.MaximumPayloadBytes;
         _adaptiveRateController =
             adaptiveRateController;
 
@@ -100,26 +105,25 @@ public sealed class DhmpClient
     {
         get
         {
-            int senderMaximum =
-                _sender.MaximumPayloadBytes;
-
-            if (_sender is IDhmpDynamicPacketSender dynamicSender)
-            {
-                senderMaximum =
-                    Math.Min(
-                        senderMaximum,
-                        dynamicSender.CurrentMaximumPayloadBytes);
-            }
-
             int rawMaximum =
-                Math.Min(
-                    _sendPolicy.MaximumPayloadBytes,
-                    senderMaximum);
+                _maximumPayloadBytes;
+
+            IDhmpDynamicPacketSender? dynamicSender =
+                _dynamicSender;
+
+            if (dynamicSender is not null)
+            {
+                int liveMaximum =
+                    dynamicSender.CurrentMaximumPayloadBytes;
+
+                if (liveMaximum < rawMaximum)
+                    rawMaximum = liveMaximum;
+            }
 
             return
                 rawMaximum /
-                _wireContract.RecordSize *
-                _wireContract.RecordSize;
+                _recordSize *
+                _recordSize;
         }
     }
 
@@ -127,29 +131,41 @@ public sealed class DhmpClient
         ReadOnlyMemory<byte> record,
         CancellationToken cancellationToken = default)
     {
-        if (_sendPolicy.RatePolicy != DhmpRatePolicy.Unlimited)
-            return SendWithRatePolicyAsync(record, cancellationToken);
+        // Use the async builder only as a synchronous execution-context boundary.
+        // The operation itself stays non-suspending unless pacing or backend I/O
+        // actually returns incomplete.
+        var operation =
+            new SendOperation(
+                this,
+                record,
+                cancellationToken);
 
-        // Preserve the original async boundary's ExecutionContext and
-        // SynchronizationContext restoration without a resumable await state.
-        var operation = new UnlimitedSendOperation(this, record, cancellationToken);
-        var boundary = AsyncValueTaskMethodBuilder.Create();
-        boundary.Start(ref operation);
+        var boundary =
+            AsyncValueTaskMethodBuilder.Create();
+
+        boundary.Start(
+            ref operation);
+
         return operation.Result;
     }
 
-    private struct UnlimitedSendOperation : IAsyncStateMachine
+    private struct SendOperation : IAsyncStateMachine
     {
         private readonly DhmpClient _client;
         private readonly ReadOnlyMemory<byte> _record;
         private readonly CancellationToken _cancellationToken;
+
         internal ValueTask Result;
 
-        internal UnlimitedSendOperation(DhmpClient client, ReadOnlyMemory<byte> record, CancellationToken cancellationToken)
+        internal SendOperation(
+            DhmpClient client,
+            ReadOnlyMemory<byte> record,
+            CancellationToken cancellationToken)
         {
             _client = client;
             _record = record;
-            _cancellationToken = cancellationToken;
+            _cancellationToken =
+                cancellationToken;
             Result = default;
         }
 
@@ -157,109 +173,196 @@ public sealed class DhmpClient
         {
             try
             {
-                _cancellationToken.ThrowIfCancellationRequested();
+                _client.ValidateSingleRecord(
+                    _record,
+                    _cancellationToken);
 
-                int recordSize = _client._wireContract.RecordSize;
-
-                if (_record.Length != recordSize)
-                    throw new DhmpProtocolException(
-                        $"Expected one {recordSize}-byte DHMP record; received {_record.Length} bytes.");
-
-                int senderMaximum = _client._sender.MaximumPayloadBytes;
-
-                IDhmpDynamicPacketSender? dynamicSender = _client._dynamicSender;
-                if (dynamicSender is not null)
+                switch (_client._sendPolicy.RatePolicy)
                 {
-                    int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
-                    if (liveMaximum < senderMaximum)
-                        senderMaximum = liveMaximum;
+                    case DhmpRatePolicy.RejectWindow:
+                        if (!_client._budget!.TryConsume(1))
+                            throw new DhmpProtocolException(
+                                "Configured local DHMP send budget exhausted.");
+                        break;
+
+                    case DhmpRatePolicy.SmoothPacing:
+                        if (!_client.TryPaceSynchronously(
+                                1,
+                                _cancellationToken,
+                                out TimeSpan delay))
+                        {
+                            Result =
+                                _client.PaceThenSendAsync(
+                                    _record,
+                                    1,
+                                    delay,
+                                    _cancellationToken);
+                            return;
+                        }
+                        break;
+
+                    case DhmpRatePolicy.Unlimited:
+                        break;
+
+                    default:
+                        throw new InvalidOperationException(
+                            "Unsupported DHMP send rate policy.");
                 }
 
-                if (_client._sendPolicy.MaximumPayloadBytes < senderMaximum)
-                    senderMaximum = _client._sendPolicy.MaximumPayloadBytes;
+                ValueTask pending =
+                    _client._sender.SendPacketAsync(
+                        _record,
+                        _cancellationToken);
 
-                if (senderMaximum < recordSize)
-                    throw new DhmpProtocolException(
-                        "Current DHMP path budget cannot fit one complete record.");
-
-                ValueTask pending = _client._sender.SendPacketAsync(_record, _cancellationToken);
                 if (!pending.IsCompletedSuccessfully)
                 {
-                    Result = AwaitSendAsync(pending);
+                    Result =
+                        AwaitSendAsync(
+                            pending);
                     return;
                 }
 
                 // Consume completed IValueTaskSource-backed sends exactly once,
-                // as the original async method did before returning to the caller.
-                pending.GetAwaiter().GetResult();
-                Result = ValueTask.CompletedTask;
+                // matching normal await semantics without creating a resumable
+                // state machine for the common completed-send path.
+                pending.GetAwaiter()
+                    .GetResult();
+
+                Result =
+                    ValueTask.CompletedTask;
             }
             catch (Exception error)
             {
-                // Preserve deferred exceptions and async cancellation classification.
-                Result = CaptureSendFailureAsync(error);
+                // Preserve deferred exceptions and async cancellation
+                // classification rather than throwing from SendAsync itself.
+                Result =
+                    CaptureSendFailureAsync(
+                        error);
             }
         }
 
-        public void SetStateMachine(IAsyncStateMachine stateMachine) =>
-            throw new NotSupportedException("The synchronous send boundary cannot be suspended.");
+        public void SetStateMachine(
+            IAsyncStateMachine stateMachine) =>
+            throw new NotSupportedException(
+                "The synchronous send boundary cannot be suspended.");
     }
 
-    private static async ValueTask AwaitSendAsync(ValueTask pending) =>
-        await pending.ConfigureAwait(false);
-
-    private static async ValueTask CaptureSendFailureAsync(Exception error)
-    {
-        await Task.CompletedTask.ConfigureAwait(false);
-        System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error).Throw();
-    }
-
-    private async ValueTask SendWithRatePolicyAsync(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void ValidateSingleRecord(
         ReadOnlyMemory<byte> record,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        cancellationToken
+            .ThrowIfCancellationRequested();
 
-        int recordSize = _wireContract.RecordSize;
+        int recordSize =
+            _recordSize;
 
         if (record.Length != recordSize)
             throw new DhmpProtocolException(
                 $"Expected one {recordSize}-byte DHMP record; received {record.Length} bytes.");
 
-        int senderMaximum = _sender.MaximumPayloadBytes;
+        IDhmpDynamicPacketSender? dynamicSender =
+            _dynamicSender;
 
-        if (_sender is IDhmpDynamicPacketSender dynamicSender)
-        {
-            int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
-            if (liveMaximum < senderMaximum)
-                senderMaximum = liveMaximum;
-        }
-
-        if (_sendPolicy.MaximumPayloadBytes < senderMaximum)
-            senderMaximum = _sendPolicy.MaximumPayloadBytes;
-
-        if (senderMaximum < recordSize)
+        if (dynamicSender is not null &&
+            dynamicSender.CurrentMaximumPayloadBytes <
+                recordSize)
             throw new DhmpProtocolException(
                 "Current DHMP path budget cannot fit one complete record.");
+    }
 
-        if (_sendPolicy.RatePolicy == DhmpRatePolicy.SmoothPacing)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool TryPaceSynchronously(
+        int messages,
+        CancellationToken cancellationToken,
+        out TimeSpan delay)
+    {
+        DhmpPacingSchedule pacer =
+            _pacer!;
+
+        DhmpAdaptiveRateController? controller =
+            _adaptiveRateController;
+
+        if (controller is not null)
         {
-            await PaceAsync(
-                1,
-                cancellationToken)
-            .ConfigureAwait(false);
+            pacer.UpdateRate(
+                controller.CurrentMessagesPerSecond);
         }
-        else if (_sendPolicy.RatePolicy == DhmpRatePolicy.RejectWindow &&
-                 !_budget!.TryConsume(1))
+
+        long now =
+            Stopwatch.GetTimestamp();
+
+        delay =
+            pacer.GetDelay(
+                messages,
+                now);
+
+        if (delay > TimeSpan.Zero)
+            return false;
+
+        cancellationToken
+            .ThrowIfCancellationRequested();
+
+        if (controller is not null)
         {
-            throw new DhmpProtocolException(
-                "Configured local DHMP send budget exhausted.");
+            pacer.UpdateRate(
+                controller.CurrentMessagesPerSecond);
         }
+
+        pacer.Commit(
+            messages,
+            Stopwatch.GetTimestamp());
+
+        return true;
+    }
+
+    private async ValueTask PaceThenSendAsync(
+        ReadOnlyMemory<byte> record,
+        int messages,
+        TimeSpan delay,
+        CancellationToken cancellationToken)
+    {
+        await Task.Delay(
+            delay,
+            cancellationToken)
+        .ConfigureAwait(false);
+
+        cancellationToken
+            .ThrowIfCancellationRequested();
+
+        DhmpAdaptiveRateController? controller =
+            _adaptiveRateController;
+
+        if (controller is not null)
+        {
+            _pacer!.UpdateRate(
+                controller.CurrentMessagesPerSecond);
+        }
+
+        _pacer!.Commit(
+            messages,
+            Stopwatch.GetTimestamp());
 
         await _sender.SendPacketAsync(
             record,
             cancellationToken)
         .ConfigureAwait(false);
+    }
+
+    private static async ValueTask AwaitSendAsync(
+        ValueTask pending) =>
+        await pending.ConfigureAwait(false);
+
+    private static async ValueTask CaptureSendFailureAsync(
+        Exception error)
+    {
+        await Task.CompletedTask
+            .ConfigureAwait(false);
+
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo
+            .Capture(error)
+            .Throw();
     }
 
     public async ValueTask SendBatchAsync(
@@ -321,14 +424,23 @@ public sealed class DhmpClient
         int messages,
         CancellationToken cancellationToken)
     {
-        _pacer!.UpdateRate(
-            CurrentMessagesPerSecond);
+        DhmpPacingSchedule pacer =
+            _pacer!;
+
+        DhmpAdaptiveRateController? controller =
+            _adaptiveRateController;
+
+        if (controller is not null)
+        {
+            pacer.UpdateRate(
+                controller.CurrentMessagesPerSecond);
+        }
 
         long now =
             Stopwatch.GetTimestamp();
 
         TimeSpan delay =
-            _pacer.GetDelay(
+            pacer.GetDelay(
                 messages,
                 now);
 
@@ -343,10 +455,13 @@ public sealed class DhmpClient
         cancellationToken
             .ThrowIfCancellationRequested();
 
-        _pacer.UpdateRate(
-            CurrentMessagesPerSecond);
+        if (controller is not null)
+        {
+            pacer.UpdateRate(
+                controller.CurrentMessagesPerSecond);
+        }
 
-        _pacer.Commit(
+        pacer.Commit(
             messages,
             Stopwatch.GetTimestamp());
     }
