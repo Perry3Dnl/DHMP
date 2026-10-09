@@ -1,4 +1,4 @@
-name: Unlimited send performance check
+name: Send policy fast-path performance check
 on:
   pull_request:
     paths:
@@ -16,5 +16,5 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Compare production fast path with historical async path
+      - name: Compare all production send policies with historical async path
         run: dotnet run --project tests/DHMP.UnlimitedSendCheck/DHMP.UnlimitedSendCheck.csproj --configuration Release
