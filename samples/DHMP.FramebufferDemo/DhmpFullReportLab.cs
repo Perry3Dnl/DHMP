@@ -237,7 +237,7 @@ internal sealed class DhmpFullReportLab
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
                     "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
-                    "aggregateTiming repeats complete passes of at least 10,000,000 logical payload bytes under one outer Stopwatch until at least 100 ms has elapsed, then divides actual elapsed nanoseconds by total packet count. This reduces per-sample timer noise and is reported for every canonical receive mode/option.",
+                    "aggregateTiming repeats complete passes of at least 10,000,000 logical payload bytes under one outer Stopwatch until at least 100 ms has elapsed, then divides actual elapsed nanoseconds by total packet count. A calibration pass groups enough 10 MB passes to target roughly 5 ms between clock reads, preventing Stopwatch polling from dominating very fast large-record modes.",
                     "Sequential, UnsafeSequential, Latest and UnsafeLatest all receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
@@ -564,6 +564,44 @@ internal sealed class DhmpFullReportLab
                     Stopwatch.Frequency *
                     AggregateMinimumSeconds));
 
+        // Calibrate how many complete 10 MB passes should run between
+        // Stopwatch reads. Large records can make a 10 MB pass extremely
+        // short; checking the clock after every such pass would itself become
+        // measurable noise. Aim for roughly 5 ms of work per clock check.
+        long calibrationStarted =
+            Stopwatch.GetTimestamp();
+
+        for (long packet = 0;
+             packet < packetsPerPass;
+             packet++)
+        {
+            action();
+        }
+
+        long calibrationTicks =
+            Math.Max(
+                1L,
+                Stopwatch.GetTimestamp() -
+                calibrationStarted);
+
+        long targetCheckTicks =
+            Math.Max(
+                1L,
+                Stopwatch.Frequency /
+                200L);
+
+        long passesPerClockCheck =
+            Math.Max(
+                1L,
+                (targetCheckTicks +
+                 calibrationTicks - 1L) /
+                calibrationTicks);
+
+        long packetsPerClockCheck =
+            checked(
+                packetsPerPass *
+                passesPerClockCheck);
+
         long totalPackets = 0;
 
         long started =
@@ -573,15 +611,20 @@ internal sealed class DhmpFullReportLab
 
         do
         {
-            for (long packet = 0;
-                 packet < packetsPerPass;
-                 packet++)
+            for (long pass = 0;
+                 pass < passesPerClockCheck;
+                 pass++)
             {
-                action();
+                for (long packet = 0;
+                     packet < packetsPerPass;
+                     packet++)
+                {
+                    action();
+                }
             }
 
             totalPackets +=
-                packetsPerPass;
+                packetsPerClockCheck;
 
             elapsed =
                 Stopwatch.GetTimestamp() -
@@ -613,6 +656,7 @@ internal sealed class DhmpFullReportLab
         return new DhmpAggregateTimingSample(
             totalPackets,
             totalLogicalBytes,
+            passesPerClockCheck,
             elapsedSeconds * 1_000d,
             nanosecondsPerPacket,
             packetRate,
@@ -1953,6 +1997,7 @@ internal sealed record DhmpAggregateTimingBenchmark(
 internal sealed record DhmpAggregateTimingSample(
     long TotalPackets,
     long TotalLogicalBytes,
+    long PassesPerClockCheck,
     double ElapsedMilliseconds,
     double NanosecondsPerPacket,
     double PacketRate,
