@@ -63,7 +63,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
 
         if (receiveMode is not DhmpProcessingMode.Sequential and
             not DhmpProcessingMode.UnsafeSequential and
-            not DhmpProcessingMode.Latest)
+            not DhmpProcessingMode.Latest and
+            not DhmpProcessingMode.UnsafeLatest)
             throw new ArgumentOutOfRangeException(nameof(receiveMode));
 
         if (ratePolicy is not DhmpRatePolicy.RejectWindow and
@@ -746,7 +747,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
     {
         // Matches the plaintext fixed-slot transport contract: network I/O
         // writes directly into mode-owned receive memory (Ring-3 for normal
-        // Sequential/Latest, FIFO tail for UnsafeSequential), then DHMP commits.
+        // Sequential/Latest, FIFO tail for UnsafeSequential, one reusable
+        // slot for UnsafeLatest), then DHMP commits.
         _ = server.BeginNegotiatedReceiveSlot();
 
         try
