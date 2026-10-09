@@ -82,7 +82,7 @@ Latest publishes the received record immediately as the newest state.
 
 Experimental UnsafeLatest is the minimal newest-state policy: plaintext fixed-slot transports receive into one reusable server-owned record slot and publish that borrowed span synchronously. The next receive may overwrite the same slot after the callback returns. It has no Ring-3 history, independent Latest grabber or Native Smoothing window.
 
-Neither policy changes the V1 wire bytes.
+None of these local policies changes the V1 wire bytes.
 
 ## Fragmentation
 
