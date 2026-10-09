@@ -842,6 +842,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         private readonly WorkerMetrics _metrics;
         private readonly Action<ReadOnlySpan<byte>> _publishBatch;
         private readonly Action<ReadOnlySpan<byte>> _confirmBatch;
+        private readonly Action _directReceive;
         private int _publishedRecordsCurrent;
         private int _confirmationExpectedBytes;
         private ReadOnlyMemory<byte> _fullEchoExpected;
@@ -864,6 +865,27 @@ internal sealed class DhmpThroughputLab : BackgroundService
             _metrics = metrics;
             _publishBatch = PublishBatch;
             _confirmBatch = ConfirmBatch;
+
+            if (server.ReceivePolicy.Mode ==
+                DhmpProcessingMode.UnsafeLatest)
+            {
+                // Match the real single-slot Raw IPv6 hot path: resolve the
+                // reusable receive memory once, then publish unchecked.
+                _ = server
+                    .GetUnsafeLatestReceiveMemoryUnchecked();
+
+                _directReceive =
+                    () => server
+                        .PublishUnsafeLatestReceiveUnchecked(
+                            _publishBatch);
+            }
+            else
+            {
+                _directReceive =
+                    () => ProcessDirectReceive(
+                        server,
+                        _publishBatch);
+            }
         }
 
         public int MaximumPayloadBytes =>
@@ -886,9 +908,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
                     "Canonical throughput sender requires exactly one negotiated record.");
             }
 
-            ProcessDirectReceive(
-                _server,
-                _publishBatch);
+            _directReceive();
 
             int publishedRecords =
                 _publishedRecordsCurrent;
