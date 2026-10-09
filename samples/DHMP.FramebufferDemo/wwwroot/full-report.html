@@ -119,7 +119,7 @@
     <section class="report-section">
       <p class="eyebrow">CANONICAL WIRE PATH</p>
       <h2>One negotiated record = one DHMP packet</h2>
-      <p class="muted">These rows measure the canonical DHMP data-plane invariant directly: exactly one negotiated fixed-size record per packet. For the direct-slot measurements, transport byte movement is intentionally outside the timer because the plaintext fixed-slot receiver writes straight into Ring-3. The timed DHMP work is slot begin/commit/publication. A separate pre-buffered column shows the cost when bytes already stored elsewhere must be copied into Ring-3.</p>
+      <p class="muted">These rows measure exactly one negotiated fixed-size record per packet. Normal Sequential and Latest receive into Ring-3; experimental UnsafeSequential reserves the FIFO tail directly and bypasses Ring-3. Transport byte movement is outside the timer. The pre-buffered column separately shows what happens when bytes already exist elsewhere and must be copied into the selected owned storage.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
           <h3>Direct-slot logical packet-processing ceiling</h3>
@@ -133,12 +133,12 @@
         </article>
         <article class="chart-card">
           <h3>Direct receive bookkeeping</h3>
-          <p class="muted">Median ns for Ring-3 begin → commit → publication after the transport has written the record directly into the slot.</p>
+          <p class="muted">Median ns for receive-slot reserve → commit → publication after transport byte movement. UnsafeSequential uses a FIFO tail slot instead of Ring-3.</p>
           <canvas id="directReceiveTimingModeChart"></canvas>
         </article>
         <article class="chart-card">
           <h3>Pre-buffered compatibility cost</h3>
-          <p class="muted">Median ns when the same already-buffered record must be copied into Ring-3. This is intentionally not the canonical direct receive path.</p>
+          <p class="muted">Median ns when the same already-buffered record must be copied into owned receive storage. For normal Sequential that includes Ring-3 → FIFO; for UnsafeSequential it copies straight into FIFO.</p>
           <canvas id="prebufferedTimingModeChart"></canvas>
         </article>
         <article class="chart-card">
@@ -305,6 +305,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261009-direct-slots"></script>
+<script src="/full-report.js?v=20261009-unsafe-sequential"></script>
 </body>
 </html>
