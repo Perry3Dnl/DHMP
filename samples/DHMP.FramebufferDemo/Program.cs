@@ -205,6 +205,7 @@ app.MapPost(
                 ignoreCase: true,
                 out var receiveMode) ||
             receiveMode is not DHMP.Protocol.DhmpProcessingMode.Sequential and
+                not DHMP.Protocol.DhmpProcessingMode.UnsafeSequential and
                 not DHMP.Protocol.DhmpProcessingMode.Latest)
         {
             return Results.BadRequest(
