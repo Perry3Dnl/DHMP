@@ -4,6 +4,13 @@ using DHMP.Protocol;
 using DHMP.Server;
 
 var assembly = Assembly.Load("DHMP.FramebufferDemo");
+if (args.Contains("--investigate"))
+{
+    var investigation = assembly.GetType("DhmpUnsafeLatestInvestigation", throwOnError: true)!;
+    investigation.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)!.Invoke(null,
+        new object[] { args.Contains("--disasm-only") });
+    return;
+}
 var lab = assembly.GetType("DhmpFullReportLab", throwOnError: true)!;
 var run = lab.GetMethod("RunAggregateTimingBenchmark", BindingFlags.NonPublic | BindingFlags.Static)!;
 var confirmationType = run.GetParameters()[4].ParameterType;

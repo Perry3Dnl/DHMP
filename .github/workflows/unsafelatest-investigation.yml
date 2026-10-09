@@ -1,0 +1,32 @@
+name: UnsafeLatest isolated investigation
+on:
+  pull_request:
+    paths:
+      - 'samples/DHMP.FramebufferDemo/DhmpUnsafeLatestInvestigation.cs'
+      - '.github/workflows/unsafelatest-investigation.yml'
+permissions:
+  contents: read
+jobs:
+  investigate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build isolated runner
+        run: dotnet build tests/DHMP.FullReport.Smoke/DHMP.FullReport.Smoke.csproj -c Release
+      - name: CPU context
+        run: lscpu
+      - name: Measure default runtime
+        run: dotnet tests/DHMP.FullReport.Smoke/bin/Release/net10.0/DHMP.FullReport.Smoke.dll --investigate
+      - name: Measure fully optimized code without tier transitions
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: dotnet tests/DHMP.FullReport.Smoke/bin/Release/net10.0/DHMP.FullReport.Smoke.dll --investigate
+      - name: Capture generated machine code separately from timing
+        env:
+          DOTNET_TieredCompilation: '0'
+          DOTNET_JitDisasm: 'DHMP.Client.DhmpClient:* DHMP.Client.DhmpClient+<SendAsync>d__*:MoveNext PublishUnsafeLatestReceiveUnchecked UnlimitedCandidate'
+        run: dotnet tests/DHMP.FullReport.Smoke/bin/Release/net10.0/DHMP.FullReport.Smoke.dll --investigate --disasm-only
