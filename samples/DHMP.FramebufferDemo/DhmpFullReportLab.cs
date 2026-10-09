@@ -534,7 +534,7 @@ internal sealed class DhmpFullReportLab
                 recordBytes,
                 packetsPerPass);
 
-        DhmpAggregateTimingSample client =
+        DhmpAggregateTimingSample fullClientSample =
             MeasureAggregateTiming(
                 fullClient,
                 recordBytes,
@@ -549,7 +549,7 @@ internal sealed class DhmpFullReportLab
             AggregateTargetBytesPerPass,
             packetsPerPass,
             direct,
-            client);
+            fullClientSample);
     }
 
     private static DhmpAggregateTimingSample MeasureAggregateTiming(
