@@ -20,7 +20,7 @@
     <header class="hero">
       <p class="eyebrow">DHMP VIRTUAL GAME LOBBY</p>
       <h1>How many realtime players can the data path support?</h1>
-      <p class="lead">Model a data-only game server where each player sends state to the server and receives the newest state for a selected set of other players. The page actively measures the live DHMP processing ceiling with the selected state size as the negotiated record size, so one state update is one DHMP record in one packet.</p>
+      <p class="lead">Model a data-only game server where each player sends state to the server and receives the newest state for a selected set of other players. The page actively measures the live DHMP direct-slot processing ceiling with the selected state size as the negotiated record size, so one state update is one DHMP record in one packet. Transport/NIC byte movement is modeled separately as required wire rate.</p>
     </header>
 
     <section class="status">
@@ -135,11 +135,11 @@
         </div>
         <div>
           <strong>Processing is not bandwidth</strong>
-          <p>The live DHMP ceiling is an in-process canonical one-record-per-packet processing result for the selected state size and receive mode. The required wire rate shows the separate NIC/network problem.</p>
+          <p>The live DHMP ceiling is an in-process canonical one-record-per-packet direct-slot processing result. Latest and Native Smoothing do not add an intermediate payload copy; Sequential still includes its required Ring-3 → FIFO ownership transfer. The required wire rate shows the separate NIC/network problem.</p>
         </div>
       </div>
 
-      <p class="telemetry-note">This page is a capacity model, not proof that this many real Internet clients have been tested. Its reference ceiling is measured live with the selected state size as the negotiated DHMP record size and exactly one record per packet. It intentionally separates DHMP processing capacity from physical NIC, kernel, encryption, game simulation, connection-management and database limits.</p>
+      <p class="telemetry-note">This page is a capacity model, not proof that this many real Internet clients have been tested. Its reference ceiling measures DHMP processing after a fixed-slot transport has placed the record directly in Ring-3; physical byte movement is not counted as DHMP processing work. It intentionally separates protocol processing capacity from NIC, kernel, encryption, game simulation, connection-management and database limits.</p>
     </section>
 
     <footer>
@@ -147,6 +147,6 @@
       <a href="https://github.com/Perry3Dnl/DHMP">View DHMP on GitHub</a>
     </footer>
   </main>
-  <script src="/game-lobby.js?v=20261007-canonical-records"></script>
+  <script src="/game-lobby.js?v=20261009-direct-slots"></script>
 </body>
 </html>

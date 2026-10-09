@@ -119,28 +119,38 @@
     <section class="report-section">
       <p class="eyebrow">CANONICAL WIRE PATH</p>
       <h2>One negotiated record = one DHMP packet</h2>
-      <p class="muted">These rows measure the canonical DHMP data-plane invariant directly: exactly one negotiated fixed-size record per packet. The negotiated record size varies across the rows, so a 1,408-byte row is one 1,408-byte record in one DHMP packet — never 88 smaller records disguised as one packet.</p>
+      <p class="muted">These rows measure the canonical DHMP data-plane invariant directly: exactly one negotiated fixed-size record per packet. For the direct-slot measurements, transport byte movement is intentionally outside the timer because the plaintext fixed-slot receiver writes straight into Ring-3. The timed DHMP work is slot begin/commit/publication. A separate pre-buffered column shows the cost when bytes already stored elsewhere must be copied into Ring-3.</p>
       <div class="chart-grid">
         <article class="chart-card chart-wide">
-          <h3>Canonical packet rate by receive mode</h3>
-          <p class="muted">Exact one-record DHMP packet transactions per second across negotiated record sizes.</p>
+          <h3>Direct-slot logical packet-processing ceiling</h3>
+          <p class="muted">One-record DHMP transactions/s with transport byte movement excluded. This is a processing ceiling, not physical NIC or RAM throughput.</p>
           <canvas id="packetRateModeChart"></canvas>
         </article>
         <article class="chart-card">
           <h3>Core processing time</h3>
-          <p class="muted">Median ns per one-record packet by receive mode and negotiated record size.</p>
+          <p class="muted">Median ns per one-record packet with no payload copy.</p>
           <canvas id="coreTimingModeChart"></canvas>
         </article>
         <article class="chart-card">
-          <h3>End-to-end canonical path</h3>
-          <p class="muted">Median ns per one-record packet through client → sender → server.</p>
+          <h3>Direct receive bookkeeping</h3>
+          <p class="muted">Median ns for Ring-3 begin → commit → publication after the transport has written the record directly into the slot.</p>
+          <canvas id="directReceiveTimingModeChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Pre-buffered compatibility cost</h3>
+          <p class="muted">Median ns when the same already-buffered record must be copied into Ring-3. This is intentionally not the canonical direct receive path.</p>
+          <canvas id="prebufferedTimingModeChart"></canvas>
+        </article>
+        <article class="chart-card">
+          <h3>Direct-slot software path</h3>
+          <p class="muted">Median ns through client validation → synthetic transport handoff → direct Ring-3 commit. Network byte movement is excluded.</p>
           <canvas id="clientTimingModeChart"></canvas>
         </article>
       </div>
       <div class="report-table-wrap">
         <table class="report-table">
           <thead><tr>
-            <th>Configuration</th><th>Bytes</th><th>Records</th><th>Core ns</th><th>Core CV</th><th>Server ns</th><th>Client ns</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th>
+            <th>Configuration</th><th>Bytes</th><th>Records</th><th>Core ns</th><th>Core CV</th><th>Direct receive ns</th><th>Pre-buffered copy ns</th><th>Direct software ns</th><th>Packets/s</th><th>Logical records/s</th><th>Logical GB/s</th>
           </tr></thead>
           <tbody id="matrixBody"></tbody>
         </table>
@@ -295,6 +305,6 @@
     </section>
   </section>
 </main>
-<script src="/full-report.js?v=20261007-poke-v1"></script>
+<script src="/full-report.js?v=20261009-direct-slots"></script>
 </body>
 </html>

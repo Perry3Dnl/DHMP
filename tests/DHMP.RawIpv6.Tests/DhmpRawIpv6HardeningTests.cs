@@ -7,6 +7,31 @@ namespace DHMP.RawIpv6.Tests;
 
 public sealed class DhmpRawIpv6HardeningTests
 {
+
+    [Fact]
+    public void HappyFlow_PlaintextNativeSmoothingUsesDirectRingReceive()
+    {
+        var smoothingServer =
+            new DhmpServer(
+                new DhmpWireContract(1408),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: 1408,
+                    nativeSmoothing: true));
+
+        Assert.True(
+            DhmpRawIpv6Receiver.UsesDirectRingReceive(
+                smoothingServer,
+                decoder: null));
+
+        Assert.False(
+            DhmpRawIpv6Receiver.UsesDirectRingReceive(
+                smoothingServer,
+                new FixedDecoder(
+                    overheadBytes: 24,
+                    plaintextBytes: 1408)));
+    }
+
     [Fact]
     public void HappyFlow_PeerBinding_ReportsPlainAndProtectedNetworkCeilings()
     {

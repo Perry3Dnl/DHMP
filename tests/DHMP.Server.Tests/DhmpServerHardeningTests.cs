@@ -8,6 +8,39 @@ namespace DHMP.Server.Tests;
 
 public sealed class DhmpServerHardeningTests
 {
+
+    [Fact]
+    public void HappyFlow_DirectNegotiatedReceivePublishesRingSlotWithSmoothingEnabled()
+    {
+        const int RecordSize = 32;
+
+        var server =
+            new DhmpServer(
+                new DhmpWireContract(RecordSize),
+                new DhmpReceivePolicy(
+                    DhmpProcessingMode.Latest,
+                    maximumPayloadBytes: RecordSize,
+                    nativeSmoothing: true));
+
+        byte[]? published = null;
+
+        Memory<byte> slot =
+            server.BeginNegotiatedReceiveSlot();
+
+        slot.Span.Clear();
+        slot.Span[0] = 0x2A;
+        slot.Span[^1] = 0x7E;
+
+        server.CommitNegotiatedReceiveSlot(
+            span => published = span.ToArray());
+
+        Assert.NotNull(published);
+        Assert.Equal(RecordSize, published!.Length);
+        Assert.Equal((byte)0x2A, published[0]);
+        Assert.Equal((byte)0x7E, published[^1]);
+        Assert.Equal(1, server.ReceiveSweepRecordsObserved);
+    }
+
     [Fact]
     public void HappyFlow_ReceiveRegion_LifecycleReturnsToPool()
     {
