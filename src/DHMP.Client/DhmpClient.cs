@@ -136,52 +136,6 @@ public sealed class DhmpClient
         return operation.Result;
     }
 
-    private ValueTask SendUnlimitedCore(
-        ReadOnlyMemory<byte> record,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int recordSize = _wireContract.RecordSize;
-
-            if (record.Length != recordSize)
-                throw new DhmpProtocolException(
-                    $"Expected one {recordSize}-byte DHMP record; received {record.Length} bytes.");
-
-            int senderMaximum = _sender.MaximumPayloadBytes;
-
-            if (_sender is IDhmpDynamicPacketSender dynamicSender)
-            {
-                int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
-                if (liveMaximum < senderMaximum)
-                    senderMaximum = liveMaximum;
-            }
-
-            if (_sendPolicy.MaximumPayloadBytes < senderMaximum)
-                senderMaximum = _sendPolicy.MaximumPayloadBytes;
-
-            if (senderMaximum < recordSize)
-                throw new DhmpProtocolException(
-                    "Current DHMP path budget cannot fit one complete record.");
-
-            ValueTask pending = _sender.SendPacketAsync(record, cancellationToken);
-            if (!pending.IsCompletedSuccessfully)
-                return AwaitSendAsync(pending);
-
-            // Consume completed IValueTaskSource-backed sends exactly once,
-            // as the original async method did before returning to the caller.
-            pending.GetAwaiter().GetResult();
-            return ValueTask.CompletedTask;
-        }
-        catch (Exception error)
-        {
-            // Preserve deferred exceptions and async cancellation classification.
-            return CaptureSendFailureAsync(error);
-        }
-    }
-
     private struct UnlimitedSendOperation : IAsyncStateMachine
     {
         private readonly DhmpClient _client;
@@ -197,8 +151,52 @@ public sealed class DhmpClient
             Result = default;
         }
 
-        public void MoveNext() =>
-            Result = _client.SendUnlimitedCore(_record, _cancellationToken);
+        public void MoveNext()
+        {
+            try
+            {
+                _cancellationToken.ThrowIfCancellationRequested();
+
+                int recordSize = _client._wireContract.RecordSize;
+
+                if (_record.Length != recordSize)
+                    throw new DhmpProtocolException(
+                        $"Expected one {recordSize}-byte DHMP record; received {_record.Length} bytes.");
+
+                int senderMaximum = _client._sender.MaximumPayloadBytes;
+
+                if (_client._sender is IDhmpDynamicPacketSender dynamicSender)
+                {
+                    int liveMaximum = dynamicSender.CurrentMaximumPayloadBytes;
+                    if (liveMaximum < senderMaximum)
+                        senderMaximum = liveMaximum;
+                }
+
+                if (_client._sendPolicy.MaximumPayloadBytes < senderMaximum)
+                    senderMaximum = _client._sendPolicy.MaximumPayloadBytes;
+
+                if (senderMaximum < recordSize)
+                    throw new DhmpProtocolException(
+                        "Current DHMP path budget cannot fit one complete record.");
+
+                ValueTask pending = _client._sender.SendPacketAsync(_record, _cancellationToken);
+                if (!pending.IsCompletedSuccessfully)
+                {
+                    Result = AwaitSendAsync(pending);
+                    return;
+                }
+
+                // Consume completed IValueTaskSource-backed sends exactly once,
+                // as the original async method did before returning to the caller.
+                pending.GetAwaiter().GetResult();
+                Result = ValueTask.CompletedTask;
+            }
+            catch (Exception error)
+            {
+                // Preserve deferred exceptions and async cancellation classification.
+                Result = CaptureSendFailureAsync(error);
+            }
+        }
 
         public void SetStateMachine(IAsyncStateMachine stateMachine) =>
             throw new NotSupportedException("The synchronous send boundary cannot be suspended.");

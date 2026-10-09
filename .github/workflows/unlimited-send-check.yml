@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - 'src/DHMP.Client/**'
-      - 'benchmarks/unlimited-send-check/**'
+      - 'tests/DHMP.UnlimitedSendCheck/**'
       - '.github/workflows/unlimited-send-check.yml'
 permissions:
   contents: read
@@ -17,4 +17,4 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - name: Compare production fast path with historical async path
-        run: dotnet run --project benchmarks/unlimited-send-check/DHMP.UnlimitedSendCheck.csproj --configuration Release
+        run: dotnet run --project tests/DHMP.UnlimitedSendCheck/DHMP.UnlimitedSendCheck.csproj --configuration Release

@@ -22,9 +22,9 @@ public sealed class DhmpUnlimitedSendTests
         await send;
         Assert.Equal((ReadOnlyMemory<byte>)record, sender.LastRecord);
         Assert.Equal(cancellation.Token, sender.LastToken);
-        for (int i = 0; i < 20_000; i++) client.SendAsync(record).GetAwaiter().GetResult();
+        for (int i = 0; i < 20_000; i++) await client.SendAsync(record, TestContext.Current.CancellationToken);
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 20_000; i++) client.SendAsync(record).GetAwaiter().GetResult();
+        for (int i = 0; i < 20_000; i++) await client.SendAsync(record, TestContext.Current.CancellationToken);
         Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
     }
 
@@ -34,7 +34,7 @@ public sealed class DhmpUnlimitedSendTests
         var sender = new Sender();
         var client = Create(sender);
         // A synchronous throw here fails this test before the assertion on the returned operation.
-        ValueTask send = client.SendAsync(new byte[15]);
+        ValueTask send = client.SendAsync(new byte[15], TestContext.Current.CancellationToken);
         Assert.True(send.IsFaulted);
         await Assert.ThrowsAsync<DhmpProtocolException>(() => send.AsTask());
         Assert.Equal(0, sender.Calls);
@@ -46,14 +46,14 @@ public sealed class DhmpUnlimitedSendTests
         var sender = new Sender();
         var client = Create(sender);
         byte[] record = new byte[16];
-        await client.SendAsync(record);
+        await client.SendAsync(record, TestContext.Current.CancellationToken);
         sender.CurrentMaximumPayloadBytes = 15;
-        ValueTask blocked = client.SendAsync(record);
+        ValueTask blocked = client.SendAsync(record, TestContext.Current.CancellationToken);
         Assert.True(blocked.IsFaulted);
         await Assert.ThrowsAsync<DhmpProtocolException>(() => blocked.AsTask());
         Assert.Equal(1, sender.Calls);
         sender.CurrentMaximumPayloadBytes = 16;
-        await client.SendAsync(record);
+        await client.SendAsync(record, TestContext.Current.CancellationToken);
         Assert.Equal(2, sender.Calls);
     }
 
@@ -64,7 +64,7 @@ public sealed class DhmpUnlimitedSendTests
     {
         var expected = new IOException("sender failed");
         var sender = new Sender { Send = () => synchronousThrow ? throw expected : ValueTask.FromException(expected) };
-        ValueTask send = Create(sender).SendAsync(new byte[16]);
+        ValueTask send = Create(sender).SendAsync(new byte[16], TestContext.Current.CancellationToken);
         Assert.True(send.IsFaulted);
         Assert.Same(expected, await Assert.ThrowsAsync<IOException>(() => send.AsTask()));
         Assert.Equal(1, sender.Calls);
@@ -92,7 +92,7 @@ public sealed class DhmpUnlimitedSendTests
         if (tokenCanceled) cancellation.Cancel();
         var expected = new OperationCanceledException(cancellation.Token);
         var sender = new Sender { Send = () => throw expected };
-        ValueTask send = Create(sender).SendAsync(new byte[16]);
+        ValueTask send = Create(sender).SendAsync(new byte[16], TestContext.Current.CancellationToken);
         Assert.True(send.IsCanceled);
         var actual = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => send.AsTask());
         Assert.Equal(cancellation.Token, actual.CancellationToken);
@@ -106,7 +106,7 @@ public sealed class DhmpUnlimitedSendTests
     {
         var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sender = new Sender { Send = () => new ValueTask(pending.Task) };
-        Task send = Create(sender).SendAsync(new byte[16]).AsTask();
+        Task send = Create(sender).SendAsync(new byte[16], TestContext.Current.CancellationToken).AsTask();
         Assert.False(send.IsCompleted);
         var expected = new IOException("delayed failure");
         using var cancellation = new CancellationTokenSource();
@@ -133,7 +133,7 @@ public sealed class DhmpUnlimitedSendTests
         var source = new Source();
         if (alreadyCompleted) source.Complete();
         var sender = new Sender { Send = () => source.Operation };
-        ValueTask operation = Create(sender).SendAsync(new byte[16]);
+        ValueTask operation = Create(sender).SendAsync(new byte[16], TestContext.Current.CancellationToken);
         if (alreadyCompleted) Assert.Equal(1, source.GetResultCalls);
         else { Assert.Equal(0, source.GetResultCalls); source.Complete(); }
         await operation;
@@ -150,7 +150,7 @@ public sealed class DhmpUnlimitedSendTests
         var source = new Source();
         if (alreadyCompleted) source.Fail(expected);
         var sender = new Sender { Send = () => source.Operation };
-        ValueTask operation = Create(sender).SendAsync(new byte[16]);
+        ValueTask operation = Create(sender).SendAsync(new byte[16], TestContext.Current.CancellationToken);
         if (!alreadyCompleted) source.Fail(expected);
         Assert.Same(expected, await Assert.ThrowsAsync<IOException>(() => operation.AsTask()));
         Assert.Equal(1, source.GetResultCalls);
@@ -166,7 +166,7 @@ public sealed class DhmpUnlimitedSendTests
             SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
             return ValueTask.CompletedTask;
         } };
-        ValueTask send = Create(sender).SendAsync(new byte[16]);
+        ValueTask send = Create(sender).SendAsync(new byte[16], TestContext.Current.CancellationToken);
         Assert.Equal("caller", ambient.Value);
         Assert.Same(originalContext, SynchronizationContext.Current);
         await send;
