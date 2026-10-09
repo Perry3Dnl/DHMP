@@ -254,7 +254,9 @@ internal sealed class DhmpFullReportLab
                     "Normal Sequential direct receive still transfers each completed Ring-3 record into its FIFO because Sequential owns records beyond the three-slot arrival window; that ownership copy remains in the measured Sequential cost.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
                     "Canonical Full Report Sequential rows use a 64-record local FIFO. Local multi-record batch rows size that synthetic FIFO to at least one complete batch so synchronous batch publication cannot self-backpressure before its grabber runs."
-                });
+                },
+                Environment.GetEnvironmentVariable("DHMP_BUILD_SHA") ??
+                Environment.GetEnvironmentVariable("GITHUB_SHA"));
 
             lock (_gate)
             {
@@ -1983,7 +1985,8 @@ internal sealed record DhmpFullReport(
     DhmpRing3ConsumerBenchmark Ring3Consumer,
     DhmpAllocationBenchmark[] Allocations,
     DhmpCorrectnessCheck[] CorrectnessChecks,
-    string[] InterpretationNotes);
+    string[] InterpretationNotes,
+    string? BuildRevision = null);
 
 internal sealed record DhmpReportEnvironment(
     string MachineName,
