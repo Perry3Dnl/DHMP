@@ -1,0 +1,6 @@
+{
+  "name": "DHMP.Unity.Demo",
+  "rootNamespace": "DHMP.Unity.Demo",
+  "references": ["DHMP.Unity.Core", "DHMP.Unity", "Unity.InputSystem"],
+  "autoReferenced": true
+}

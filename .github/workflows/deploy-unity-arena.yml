@@ -1,0 +1,163 @@
+name: Deploy Unity arena connection lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to start the restricted plaintext connection lab'
+        required: true
+        type: string
+      server_ipv6:
+        description: 'Native global IPv6 assigned to the existing server'
+        required: true
+        type: string
+      client_ipv6:
+        description: 'Native global source IPv6 of the permitted Unity test machine'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dhmp-unity-arena-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PASSWORD: ${{ secrets.DEPLOY_PASSWORD }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || '22' }}
+      EXPECTED_SSH_ED25519_FINGERPRINT: ${{ vars.DEPLOY_HOST_KEY_FINGERPRINT || 'SHA256:Vq5Cic1/9iZsNAXfG9GQlnOjciecd6V9BPLGV5X2ExE' }}
+      CONFIRM_DEPLOY: ${{ inputs.confirm }}
+      ARENA_SERVER_IPV6: ${{ inputs.server_ipv6 }}
+      ARENA_CLIENT_IPV6: ${{ inputs.client_ipv6 }}
+      DEPLOY_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate explicit deployment target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$CONFIRM_DEPLOY" = DEPLOY
+          : "${DEPLOY_HOST:?Missing deployment host}"
+          : "${DEPLOY_USER:?Missing deployment account}"
+          : "${DEPLOY_PASSWORD:?Missing deployment credential}"
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$DEPLOY_SHA" =~ ^[0-9a-f]{40}$ ]]
+          python3 - <<'PY'
+          import ipaddress, os
+          for key in ['ARENA_SERVER_IPV6', 'ARENA_CLIENT_IPV6']:
+              value = os.environ[key]
+              address = ipaddress.ip_address(value)
+              if '%' in value or address.version != 6 or not address.is_global or address.is_multicast or address.ipv4_mapped:
+                  raise SystemExit(key + ' must be an explicit native global unicast IPv6 address')
+          PY
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build and verify this host before deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build samples/DHMP.UnityArenaHost/DHMP.UnityArenaHost.csproj -c Debug
+          sudo python3 tools/test_unity_host.py "$(command -v dotnet)"
+      - name: Pin the existing server's SSH host key
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends sshpass rsync >/dev/null
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keyscan -T 15 -t ed25519 -p "$DEPLOY_PORT" "$DEPLOY_HOST" > "$HOME/.ssh/known_hosts" 2>/dev/null
+          test -s "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          actual="$(ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | awk 'NR==1 {print $2}')"
+          test "$actual" = "$EXPECTED_SSH_ED25519_FINGERPRINT" || { echo 'SSH host fingerprint changed; refusing deployment.' >&2; exit 1; }
+      - name: Copy the bundled package to an isolated release directory
+        shell: bash
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          opts="-p $DEPLOY_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          sshpass -e ssh $opts "$remote" "mkdir -p /opt/dhmp-unity-arena/releases/$DEPLOY_SHA/package"
+          rsync -az --exclude '**/bin/' --exclude '**/obj/' -e "sshpass -e ssh $opts" ./Packages/com.dhmp.networking/ "$remote:/opt/dhmp-unity-arena/releases/$DEPLOY_SHA/package/"
+      - name: Build, preflight and start the restricted arena
+        shell: bash
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          remote="$DEPLOY_USER@$DEPLOY_HOST"
+          opts="-p $DEPLOY_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts"
+          sshpass -e ssh $opts "$remote" "bash -s -- '$DEPLOY_SHA' '$ARENA_SERVER_IPV6' '$ARENA_CLIENT_IPV6'" <<'REMOTE'
+          set -euo pipefail
+          sha="$1"
+          bind="$2"
+          client="$3"
+          active=dhmp-unity-arena
+          image="dhmp-unity-arena:$sha"
+          previous="dhmp-unity-arena-previous-$(date +%s)"
+          cd "/opt/dhmp-unity-arena/releases/$sha/package"
+          command -v docker >/dev/null
+          docker build --build-arg CONFIGURATION=Debug -t "$image" -f 'Samples~/DemoArena/Hosting/DHMP.UnityArenaHost~/Dockerfile' .
+          # Local bind/privilege check, before disturbing any existing arena process.
+          docker run --rm --network host --cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges --read-only --tmpfs /tmp "$image" check-host --bind "$bind" --experimental-plaintext --development
+          had_previous=false
+          previous_renamed=false
+          attempted_start=false
+          rollback() {
+              status=$?
+              if [ "$status" -ne 0 ]; then
+                  if [ "$attempted_start" = true ] && [ "$(docker inspect -f '{{index .Config.Labels "com.dhmp.deploy-sha"}}' "$active" 2>/dev/null || true)" = "$sha" ]; then
+                      docker logs --tail 30 "$active" 2>/dev/null || true
+                      docker rm -f "$active" >/dev/null 2>&1 || true
+                  fi
+                  if [ "$previous_renamed" = true ]; then
+                      docker rename "$previous" "$active"
+                      docker start "$active"
+                  elif [ "$had_previous" = true ]; then
+                      docker start "$active"
+                  fi
+              fi
+              exit "$status"
+          }
+          trap rollback EXIT
+          if docker inspect "$active" >/dev/null 2>&1; then
+              role="$(docker inspect -f '{{index .Config.Labels "com.dhmp.role"}}' "$active")"
+              test "$role" = unity-arena || { echo 'Refusing to replace a container not owned by this workflow.' >&2; exit 1; }
+              had_previous=true
+              docker stop -t 10 "$active"
+              docker rename "$active" "$previous"
+              previous_renamed=true
+          fi
+          attempted_start=true
+          docker run -d --name "$active" --restart unless-stopped --network host --cap-drop ALL --cap-add NET_RAW --security-opt no-new-privileges --read-only --tmpfs /tmp --label com.dhmp.role=unity-arena --label "com.dhmp.deploy-sha=$sha" "$image" serve --bind "$bind" --allow-client "$client" --max-players 16 --experimental-plaintext --development
+          ready=false
+          for attempt in $(seq 1 20); do
+              if [ "$(docker inspect -f '{{.State.Running}}' "$active")" = true ] && docker logs "$active" 2>&1 | grep -q '"kind":"ready"'; then
+                  ready=true
+                  break
+              fi
+              sleep 1
+          done
+          test "$ready" = true
+          trap - EXIT
+          echo 'Arena process started and local IPv6 sockets verified. Run the client connection test to verify the external path.'
+          REMOTE
+      - name: Explain the remaining external connection check
+        shell: bash
+        run: |
+          {
+            echo '### Arena process started'
+            echo 'The standalone host uses the same arena core and record schema as the Unity package.'
+            echo 'Caddy and the existing web demo were not changed. No firewall rule was added.'
+            echo 'Set the Unity settings local IPv6 to the permitted client address and connect to the selected server IPv6.'
+            echo 'This workflow proves local server socket readiness. Only an actual external client can prove the Internet path.'
+          } >> "$GITHUB_STEP_SUMMARY"

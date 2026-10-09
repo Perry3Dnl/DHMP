@@ -1,0 +1,7 @@
+{
+  "name": "DHMP.Unity.Core",
+  "rootNamespace": "DHMP.Unity",
+  "references": [],
+  "autoReferenced": true,
+  "noEngineReferences": true
+}

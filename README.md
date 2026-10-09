@@ -4,6 +4,8 @@
 
 # DHMP — Direct Headerless Message Protocol
 
+**Unity package preview:** [DHMP Networking 1](docs/UNITY_NETWORKING.md) now includes the complete Demo Arena source and scene, a walking/jumping player, synchronization, client/server build menus and self-hosting examples. It is an implementation preview; Unity runtime acceptance and the live demonstration server are still pending.
+
 **High-speed, fixed-record messaging directly over IPv6 — built for real-time systems where receiving the newest useful state can matter more than recovering every older packet.**
 
 DHMP is a standalone message protocol with an intentionally tiny data path:
