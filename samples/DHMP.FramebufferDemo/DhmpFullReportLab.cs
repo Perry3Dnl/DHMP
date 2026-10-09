@@ -13,6 +13,8 @@ internal sealed class DhmpFullReportLab
     private const int MeasuredIterations = 120_000;
     private const int Repetitions = 5;
     private const int ReferencePacketBytes = 1408;
+    private const long AggregateTargetBytesPerPass = 10_000_000;
+    private const double AggregateMinimumSeconds = 0.100;
 
     private static readonly int[] CanonicalRecordSizes =
         [16, 256, 1024, 1408, 4096, 16384, 65520];
@@ -67,7 +69,7 @@ internal sealed class DhmpFullReportLab
             _running = true;
             _phase = "Preparing isolated benchmark host";
             _completedSteps = 0;
-            _totalSteps = 63;
+            _totalSteps = 98;
             _startedUtc = DateTimeOffset.UtcNow;
             _completedUtc = null;
             _report = null;
@@ -110,6 +112,33 @@ internal sealed class DhmpFullReportLab
 
                     matrix.Add(
                         RunCanonicalPathBenchmark(
+                            recordBytes,
+                            mode,
+                            smoothing));
+
+                    CompleteStep();
+                }
+            }
+
+            var aggregateTiming =
+                new List<DhmpAggregateTimingBenchmark>();
+
+            foreach (int recordBytes in CanonicalRecordSizes)
+            {
+                foreach ((DhmpProcessingMode mode, bool smoothing) in new[]
+                         {
+                             (DhmpProcessingMode.Sequential, false),
+                             (DhmpProcessingMode.UnsafeSequential, false),
+                             (DhmpProcessingMode.UnsafeLatest, false),
+                             (DhmpProcessingMode.Latest, false),
+                             (DhmpProcessingMode.Latest, true)
+                         })
+                {
+                    SetPhase(
+                        $"{mode}{(smoothing ? " + Ring-3" : string.Empty)} aggregate 10 MB / ≥100 ms {recordBytes:N0} B");
+
+                    aggregateTiming.Add(
+                        RunAggregateTimingBenchmark(
                             recordBytes,
                             mode,
                             smoothing));
@@ -187,6 +216,7 @@ internal sealed class DhmpFullReportLab
                 environment,
                 summary,
                 matrix.ToArray(),
+                aggregateTiming.ToArray(),
                 localBatchMatrix.ToArray(),
                 scaling,
                 ratePolicies,
@@ -207,6 +237,7 @@ internal sealed class DhmpFullReportLab
                     "Canonical pathMatrix varies the negotiated record size; every row still contains exactly one record per packet.",
                     "The 1,408-byte canonical row is directly comparable to the 1,408-byte raw IPv6 / AF_XDP transport reference.",
                     "Canonical packet rate is one negotiated record transaction per second.",
+                    "aggregateTiming repeats complete passes of at least 10,000,000 logical payload bytes under one outer Stopwatch until at least 100 ms has elapsed, then divides actual elapsed nanoseconds by total packet count. This reduces per-sample timer noise and is reported for every canonical receive mode/option.",
                     "Sequential, UnsafeSequential, Latest and UnsafeLatest all receive exactly one record per canonical packet.",
                     "Latest and Latest + Native Smoothing use the exact same packet-processing path.",
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
@@ -215,6 +246,7 @@ internal sealed class DhmpFullReportLab
                     "UnsafeSequential is an experimental local receive policy: plaintext fixed-slot receive reserves the FIFO tail itself, so transport writes directly into FIFO-owned memory and Ring-3 is not touched.",
                     "UnsafeSequential preserves FIFO order for records accepted into the process, but a full FIFO stops posting the next socket receive earlier; kernel/network loss under overload is therefore easier to trigger and no reliability claim is implied.",
                     "UnsafeLatest is an experimental single-slot newest-state mode: plaintext fixed-slot receive writes into one reusable server-owned record buffer, publishes it synchronously, and may overwrite it on the next receive. It has no independent Latest grabber, no Ring-3 history, and no Native Smoothing window.",
+                    "The Raw IPv6 UnsafeLatest transport hot path resolves its reusable slot once outside the receive loop and uses an internal unchecked synchronous publish after each accepted receive; the guarded Begin/Commit API remains available for misuse detection outside that transport loop.",
                     "Protected raw receive, multi-peer routed raw receive and UDP compatibility currently require intermediate receive/decode/routing buffers before server publication; their copy costs are not presented as part of the copy-free direct-slot processing ceiling.",
                     "Normal Sequential direct receive still transfers each completed Ring-3 record into its FIFO because Sequential owns records beyond the three-slot arrival window; that ownership copy remains in the measured Sequential cost.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
