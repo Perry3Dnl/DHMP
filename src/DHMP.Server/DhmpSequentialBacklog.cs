@@ -300,11 +300,6 @@ internal sealed class DhmpSequentialBacklog
         long producer =
             _fixedProducerSequence;
 
-        bool wasEmpty =
-            producer ==
-            Volatile.Read(
-                ref _fixedConsumerSequence);
-
         AdvanceTailFixed();
 
         // Release-publish the record only after its bytes and tail cursor are
@@ -313,8 +308,11 @@ internal sealed class DhmpSequentialBacklog
             ref _fixedProducerSequence,
             producer + 1);
 
-        if (wasEmpty)
-            WakeDataConsumerIfNeeded();
+        // Do not gate this on a stale empty/non-empty snapshot. The consumer
+        // can drain the previous last item while this producer is committing
+        // the next one. WakeDataConsumerIfNeeded is a single cheap waiter read
+        // when nobody is blocked and closes that race when somebody is.
+        WakeDataConsumerIfNeeded();
     }
 
     /// <summary>
