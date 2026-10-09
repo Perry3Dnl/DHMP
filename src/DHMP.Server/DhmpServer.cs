@@ -123,7 +123,7 @@ public sealed class DhmpServer
             record.CopyTo(slot);
 
             backlog.Enqueue(
-                _receiveSweepSlots
+                GetReceiveSweepSlots()
                     .CommitSweepAndGetSlotSingleWriter());
         }
 
@@ -181,7 +181,7 @@ public sealed class DhmpServer
         }
 
         ReadOnlySpan<byte> slot =
-            _receiveSweepSlots.CommitSweepAndGetSlotSingleWriter();
+            GetReceiveSweepSlots().CommitSweepAndGetSlotSingleWriter();
 
         if (_receivePolicy.Mode == DhmpProcessingMode.Latest)
         {
@@ -229,7 +229,7 @@ public sealed class DhmpServer
         }
 
         ReadOnlySpan<byte> slot =
-            _receiveSweepSlots.CommitSweepAndGetSlotSingleWriter();
+            GetReceiveSweepSlots().CommitSweepAndGetSlotSingleWriter();
 
         backlog.Enqueue(slot);
     }
@@ -295,7 +295,7 @@ public sealed class DhmpServer
                         .CopyTo(slot);
 
                     backlog.Enqueue(
-                        _receiveSweepSlots
+                        GetReceiveSweepSlots()
                             .CommitSweepAndGetSlotSingleWriter());
                 }
                 catch
@@ -497,7 +497,7 @@ public sealed class DhmpServer
 
         GetSequentialBacklog()
             .Enqueue(
-                _receiveSweepSlots
+                GetReceiveSweepSlots()
                     .CommitSweepAndGetSlotSingleWriter());
     }
 
