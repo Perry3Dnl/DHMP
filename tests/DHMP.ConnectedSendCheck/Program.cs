@@ -52,6 +52,33 @@ async Task CheckContracts()
     int markerLength = await receiver.ReceiveAsync(buffer, SocketFlags.None, lifetime.Token);
     Require(markerLength == 16 && buffer.AsSpan(0, 16).SequenceEqual(marker), "Rejected send emitted a packet.");
 
+    // Batch entries remain separate raw packets and validation is all-or-nothing.
+    ReadOnlyMemory<byte>[] twoRecords = [
+        Enumerable.Repeat((byte)0x41, 16).ToArray(),
+        Enumerable.Repeat((byte)0x42, 16).ToArray()
+    ];
+    Require(sender.SendPacketsBatch(twoRecords, 0, 2) == 2, "Two-packet native batch was not accepted.");
+    for (int i = 0; i < 2; i++)
+    {
+        int n = await receiver.ReceiveAsync(buffer, SocketFlags.None, lifetime.Token);
+        Require(n == 16 && buffer.AsSpan(0, n).SequenceEqual(twoRecords[i].Span),
+            "sendmmsg changed packet boundaries, order, or bytes.");
+    }
+    await Expect<DhmpProtocolException>(() => Task.Run(() =>
+        sender.SendPacketsBatch([new byte[16], new byte[1409]], 0, 2)));
+    await Expect<ArgumentOutOfRangeException>(() => Task.Run(() =>
+        sender.SendPacketsBatch(twoRecords, 0, 33)));
+    using (var cancelledBatch = new CancellationTokenSource())
+    {
+        cancelledBatch.Cancel();
+        await Expect<OperationCanceledException>(() => Task.Run(() =>
+            sender.SendPacketsBatch(twoRecords, 0, 2, cancelledBatch.Token)));
+    }
+    await sender.SendPacketAsync(marker, lifetime.Token);
+    markerLength = await receiver.ReceiveAsync(buffer, SocketFlags.None, lifetime.Token);
+    Require(markerLength == 16 && buffer.AsSpan(0, 16).SequenceEqual(marker),
+        "Rejected native batch leaked packets.");
+
     using (var dynamic = DhmpRawIpv6PacketSender.ForDynamicPath(Options()))
     {
         var target = (IDhmpPathBudgetTarget)dynamic;
