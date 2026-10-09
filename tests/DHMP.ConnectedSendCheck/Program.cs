@@ -112,7 +112,22 @@ async Task CheckMtu()
     Require(error.AttemptedPayloadBytes == 1408 && error.PayloadCeilingBytes == 1408 &&
         error.InnerException is SocketException socket && socket.SocketErrorCode == SocketError.MessageSize, "PMTU exception changed.");
     await sender.SendPacketAsync(new byte[1200]);
-    Console.WriteLine("CONNECTED_PMTU=passed actual 1280-byte veth path, translated MessageSize, smaller send accepted");
+    // The connected sender must see a route/MTU change without reopening its socket.
+    await RunIp("link", "set", "dhmp-tx", "mtu", "1500");
+    await RunIp("-n", "dhmp-connected-dst", "link", "set", "dhmp-rx", "mtu", "1500");
+    await RunIp("-6", "route", "replace", "fd01::1/128", "dev", "dhmp-tx", "src", "fd01::2", "mtu", "1500");
+    await sender.SendPacketAsync(new byte[1408]);
+    Console.WriteLine("CONNECTED_PMTU=passed actual 1280-byte veth path, translated MessageSize, smaller send accepted, same connected socket recovered after route/MTU change");
+}
+
+static async Task RunIp(params string[] arguments)
+{
+    var start = new ProcessStartInfo("ip") { UseShellExecute = false };
+    foreach (string argument in arguments) start.ArgumentList.Add(argument);
+    using var process = Process.Start(start) ?? throw new IOException("Cannot start lab ip command.");
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+    await process.WaitForExitAsync(timeout.Token);
+    Require(process.ExitCode == 0, "Lab route change failed.");
 }
 
 async Task CheckPressure()
