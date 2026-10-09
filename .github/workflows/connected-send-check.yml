@@ -43,7 +43,7 @@ jobs:
           sudo ip -n dhmp-connected-src -6 addr add fd01::2/64 dev dhmp-tx nodad
           sudo ip -n dhmp-connected-dst -6 addr add fd01::1/64 dev dhmp-rx nodad
           sudo ip netns exec dhmp-connected-src ping -6 -c 1 -W 2 fd01::1
-      - name: Validate contracts and measure complete senders in three fresh processes
+      - name: Validate connected senders and experimental sendmmsg A/B in three fresh processes
         run: |
           for trial in 1 2 3; do
             sudo ip netns exec dhmp-connected-loop "$(command -v dotnet)" tests/DHMP.ConnectedSendCheck/bin/Release/net10.0/DHMP.ConnectedSendCheck.dll loopback

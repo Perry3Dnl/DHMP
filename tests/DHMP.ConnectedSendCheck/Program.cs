@@ -13,6 +13,7 @@ if (mode == "loopback")
 {
     await CheckContracts();
     Measure();
+    MeasureBatch();
 }
 else if (mode == "mtu") await CheckMtu();
 else if (mode == "pressure") await CheckPressure();
@@ -50,6 +51,33 @@ async Task CheckContracts()
     await sender.SendPacketAsync(marker, lifetime.Token);
     int markerLength = await receiver.ReceiveAsync(buffer, SocketFlags.None, lifetime.Token);
     Require(markerLength == 16 && buffer.AsSpan(0, 16).SequenceEqual(marker), "Rejected send emitted a packet.");
+
+    // Batch entries remain separate raw packets and validation is all-or-nothing.
+    ReadOnlyMemory<byte>[] twoRecords = [
+        Enumerable.Repeat((byte)0x41, 16).ToArray(),
+        Enumerable.Repeat((byte)0x42, 16).ToArray()
+    ];
+    Require(sender.SendPacketsBatch(twoRecords, 0, 2) == 2, "Two-packet native batch was not accepted.");
+    for (int i = 0; i < 2; i++)
+    {
+        int n = await receiver.ReceiveAsync(buffer, SocketFlags.None, lifetime.Token);
+        Require(n == 16 && buffer.AsSpan(0, n).SequenceEqual(twoRecords[i].Span),
+            "sendmmsg changed packet boundaries, order, or bytes.");
+    }
+    await Expect<DhmpProtocolException>(() => Task.Run(() =>
+        sender.SendPacketsBatch([new byte[16], new byte[1409]], 0, 2)));
+    await Expect<ArgumentOutOfRangeException>(() => Task.Run(() =>
+        sender.SendPacketsBatch(twoRecords, 0, 33)));
+    using (var cancelledBatch = new CancellationTokenSource())
+    {
+        cancelledBatch.Cancel();
+        await Expect<OperationCanceledException>(() => Task.Run(() =>
+            sender.SendPacketsBatch(twoRecords, 0, 2, cancelledBatch.Token)));
+    }
+    await sender.SendPacketAsync(marker, lifetime.Token);
+    markerLength = await receiver.ReceiveAsync(buffer, SocketFlags.None, lifetime.Token);
+    Require(markerLength == 16 && buffer.AsSpan(0, 16).SequenceEqual(marker),
+        "Rejected native batch leaked packets.");
 
     using (var dynamic = DhmpRawIpv6PacketSender.ForDynamicPath(Options()))
     {
@@ -274,6 +302,95 @@ void Measure()
         }
     }
     Console.WriteLine("CONNECTED_SEND_CHECK=" + JsonSerializer.Serialize(new {scope = "Linux raw IPv6 loopback, complete old/new DHMP sender wrappers; kernel acceptance timing with receiver count/content verification, not physical-NIC throughput", rows}));
+}
+
+void MeasureBatch()
+{
+    const int total = 32768;
+    const int batchSize = 16;
+    var rows = new List<object>();
+    foreach (int bytes in new[] { 16, 1408 })
+    {
+        byte[] payload = Enumerable.Repeat((byte)0x6d, bytes).ToArray();
+        ReadOnlyMemory<byte>[] packets = Enumerable.Repeat<ReadOnlyMemory<byte>>(payload, batchSize).ToArray();
+        using var receiver = DhmpLinuxRawIpv6Socket.Open(253);
+        receiver.ReceiveBufferSize = 16 * 1024 * 1024;
+        receiver.ReceiveTimeout = 200;
+        receiver.Bind(new IPEndPoint(remote, 0));
+        using var current = new DhmpRawIpv6PacketSender(Options());
+        using var stop = new CancellationTokenSource();
+        long received = 0, malformed = 0;
+        Task drain = Task.Factory.StartNew(() => {
+            byte[] buffer = new byte[2048];
+            while (!stop.IsCancellationRequested)
+            {
+                try
+                {
+                    int length = receiver.Receive(buffer);
+                    if (length != bytes || !buffer.AsSpan(0, length).SequenceEqual(payload))
+                        Interlocked.Increment(ref malformed);
+                    Interlocked.Increment(ref received);
+                }
+                catch (SocketException error)
+                    when (error.SocketErrorCode is SocketError.TimedOut or SocketError.WouldBlock) { }
+            }
+        }, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+        void Deliver(int variant)
+        {
+            for (int i = 0; i < total;)
+            {
+                if (variant == 0)
+                {
+                    Complete(current.SendPacketAsync(payload));
+                    i++;
+                }
+                else
+                {
+                    int accepted = current.SendPacketsBatch(packets, 0, Math.Min(batchSize, total - i));
+                    if (accepted == 0)
+                        throw new IOException("Batch hit EAGAIN during uncontended benchmark; retry is not implicit.");
+                    i += accepted;
+                }
+            }
+        }
+
+        void DrainTo(long expected)
+        {
+            var clock = Stopwatch.StartNew();
+            while (Interlocked.Read(ref received) < expected && clock.ElapsedMilliseconds < 5000)
+                Thread.Yield();
+            Require(Interlocked.Read(ref received) == expected, "Batch receiver count mismatch.");
+        }
+
+        Deliver(0);
+        DrainTo(total);
+        Deliver(1);
+        DrainTo(total * 2L);
+
+        var samples = new List<double>[] { new(), new() };
+        for (int round = 0; round < 5; round++)
+        for (int step = 0; step < 2; step++)
+        {
+            int variant = round % 2 == 0 ? step : 1 - step;
+            long before = Interlocked.Read(ref received);
+            var watch = Stopwatch.StartNew();
+            Deliver(variant);
+            watch.Stop();
+            DrainTo(before + total);
+            samples[variant].Add(watch.Elapsed.TotalNanoseconds / total);
+        }
+
+        // No partial records or hidden DHMP headers.
+        stop.Cancel();
+        drain.GetAwaiter().GetResult();
+        Require(malformed == 0, "Batch payload changed.");
+        rows.Add(new { bytes, batchSize, individualNs = samples[0], sendmmsgNs = samples[1] });
+    }
+    Console.WriteLine("DHMP_SENDMMSG_AB=" + JsonSerializer.Serialize(new {
+        scope = "Linux raw IPv6 loopback, current production Socket.SendAsync vs opt-in synchronous sendmmsg; sender syscall acceptance only, receiver count/content verified; not physical NIC throughput",
+        rows
+    }));
 }
 
 static void Complete(ValueTask pending)
