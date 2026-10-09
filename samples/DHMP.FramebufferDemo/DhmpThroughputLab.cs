@@ -467,7 +467,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
         {
             long started = Stopwatch.GetTimestamp();
 
-            await client.SendBatchAsync(
+            await client.SendAsync(
                 packet,
                 cancellationToken);
 
@@ -679,8 +679,8 @@ internal sealed class DhmpThroughputLab : BackgroundService
             MeasureAllocatedBytesPerCall(
                 WarmupIterations,
                 MeasuredIterations,
-                () => server.ProcessPacket(
-                    packet,
+                () => ProcessDirectReceive(
+                    server,
                     publish));
 
         var nullSender =
@@ -699,7 +699,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             MeasureAllocatedBytesPerCall(
                 WarmupIterations,
                 MeasuredIterations,
-                () => client.SendBatchAsync(
+                () => client.SendAsync(
                         packet)
                     .GetAwaiter()
                     .GetResult());
@@ -727,7 +727,7 @@ internal sealed class DhmpThroughputLab : BackgroundService
             MeasureAllocatedBytesPerCall(
                 WarmupIterations,
                 MeasuredIterations,
-                () => fullClient.SendBatchAsync(
+                () => fullClient.SendAsync(
                         packet)
                     .GetAwaiter()
                     .GetResult());
@@ -737,6 +737,26 @@ internal sealed class DhmpThroughputLab : BackgroundService
             serverBytes,
             clientBytes,
             fullPathBytes);
+    }
+
+    private static void ProcessDirectReceive(
+        DhmpServer server,
+        Action<ReadOnlySpan<byte>> publish)
+    {
+        // Matches the plaintext fixed-slot transport contract: network I/O
+        // writes the record directly into Ring-3, then DHMP commits metadata.
+        _ = server.BeginNegotiatedReceiveSlot();
+
+        try
+        {
+            server.CommitNegotiatedReceiveSlot(
+                publish);
+        }
+        catch
+        {
+            server.CancelNegotiatedReceiveSlot();
+            throw;
+        }
     }
 
     private static double MeasureAllocatedBytesPerCall(
@@ -856,8 +876,14 @@ internal sealed class DhmpThroughputLab : BackgroundService
             int confirmationBytesReturned = 0;
             long started = Stopwatch.GetTimestamp();
 
-            _server.ProcessPacket(
-                payload.Span,
+            if (payload.Length != _recordSize)
+            {
+                throw new DhmpProtocolException(
+                    "Canonical throughput sender requires exactly one negotiated record.");
+            }
+
+            ProcessDirectReceive(
+                _server,
                 _publishBatch);
 
             int publishedRecords =
