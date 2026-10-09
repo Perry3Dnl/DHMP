@@ -367,7 +367,7 @@
     if (!rows.length) return;
 
     const ioRows = rows.filter(
-      row => !String(row.protocol || '').toLowerCase().includes('in-memory'));
+      row => !String(row.protocol || '').toLowerCase().includes('processing ceiling'));
 
     const labels = ioRows.map(row => row.protocol);
 
@@ -387,7 +387,7 @@
     if (body) {
       body.innerHTML = rows.map(row => {
         const isCeiling =
-          String(row.protocol || '').toLowerCase().includes('in-memory');
+          String(row.protocol || '').toLowerCase().includes('processing ceiling');
         const classLabel = isCeiling
           ? '<span class="scope-badge ceiling">Software ceiling</span>'
           : '<span class="scope-badge">Measured I/O</span>';
@@ -451,6 +451,30 @@
         values: packetSizes.map(size => {
           const row = rowsForMode(label).find(r => Number(r.packetBytes) === size);
           return row ? Number(row.processorNanoseconds.median) : 0;
+        })
+      })),
+      value => fullDecimal(value, 2));
+
+    drawGroupedBarChart(
+      'directReceiveTimingModeChart',
+      packetSizes.map(v => fullInteger(v) + ' B'),
+      modeLabels.map(label => ({
+        label,
+        values: packetSizes.map(size => {
+          const row = rowsForMode(label).find(r => Number(r.packetBytes) === size);
+          return row ? Number(row.serverNanoseconds.median) : 0;
+        })
+      })),
+      value => fullDecimal(value, 2));
+
+    drawGroupedBarChart(
+      'prebufferedTimingModeChart',
+      packetSizes.map(v => fullInteger(v) + ' B'),
+      modeLabels.map(label => ({
+        label,
+        values: packetSizes.map(size => {
+          const row = rowsForMode(label).find(r => Number(r.packetBytes) === size);
+          return row ? Number(row.prebufferedServerNanoseconds?.median || 0) : 0;
         })
       })),
       value => fullDecimal(value, 2));
@@ -562,9 +586,9 @@
       String(row.protocol || '').toLowerCase().includes('af_xdp'));
     const rawIpv6 = protocolRows.find(row =>
       String(row.protocol || '').toLowerCase().includes('raw ipv6'));
-    const bestLocalBatchThroughput = Math.max(
+    const bestDirectSlotThroughput = Math.max(
       0,
-      ...((report.localBatchMatrix || [])
+      ...((report.pathMatrix || [])
         .map(row => Number(row.logicalPayloadGigabytesPerSecond || 0))));
     const rawToAfxdp =
       afxdp && rawIpv6 && Number(rawIpv6.packetRate || 0) > 0
@@ -583,9 +607,9 @@
       '<article class="proof-card"><span>AF_XDP vs Raw IPv6</span><strong>' +
       (rawToAfxdp > 0 ? fullDecimal(rawToAfxdp, 2) + '×' : '—') +
       '</strong><small>Same-run operation-rate multiple at a 1,408-byte application payload.</small></article>' +
-      '<article class="proof-card"><span>Software processing ceiling</span><strong>' +
-      fullDecimal(bestLocalBatchThroughput, 1) +
-      ' GB/s</strong><small>Local multi-record batch processing ceiling; explicitly not wire throughput.</small></article>' +
+      '<article class="proof-card"><span>Direct-slot logical ceiling</span><strong>' +
+      fullDecimal(bestDirectSlotThroughput, 1) +
+      ' GB/s</strong><small>Payload-equivalent rate at the copy-free DHMP processing ceiling. Transport/NIC/RAM byte movement is not timed.</small></article>' +
       '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
       fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
       ' B/call</strong><small>' +
@@ -617,9 +641,9 @@
         '<article class="proof-card"><span>Measured AF_XDP rate</span><strong>' +
         (afxdpRate > 0 ? fullInteger(afxdpRate) : '—') +
         '</strong><small>Packet operations per second on the measured kernel-bypass path.</small></article>' +
-        '<article class="proof-card"><span>Software headroom</span><strong>' +
-        fullDecimal(bestLocalBatchThroughput, 1) +
-        ' GB/s</strong><small>Local multi-record batch processing ceiling; not physical wire speed.</small></article>' +
+        '<article class="proof-card"><span>Direct-slot headroom</span><strong>' +
+        fullDecimal(bestDirectSlotThroughput, 1) +
+        ' GB/s</strong><small>Logical payload-equivalent processing ceiling after direct Ring-3 receive; not physical wire or memory bandwidth.</small></article>' +
         '<article class="proof-card"><span>Steady-state allocation</span><strong>' +
         fullDecimal(s.worstMeasuredFullPathAllocationBytesPerCall, 3) +
         ' B/call</strong><small>' +
@@ -655,6 +679,7 @@
       '<td>' + Number(row.processorNanoseconds.median).toFixed(2) + '</td>' +
       '<td>' + Number(row.processorNanoseconds.coefficientOfVariationPercent).toFixed(2) + '%</td>' +
       '<td>' + Number(row.serverNanoseconds.median).toFixed(2) + '</td>' +
+      '<td>' + Number(row.prebufferedServerNanoseconds?.median || 0).toFixed(2) + '</td>' +
       '<td>' + Number(row.clientNanoseconds.median).toFixed(2) + '</td>' +
       '<td>' + fullInteger(row.packetRate) + '</td>' +
       '<td>' + fullInteger(row.logicalRecordsPerSecond) + '</td>' +
