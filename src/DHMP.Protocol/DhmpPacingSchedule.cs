@@ -10,6 +10,7 @@ namespace DHMP.Protocol;
 public sealed class DhmpPacingSchedule
 {
     private long _messagesPerSecond;
+    private long _singleMessageIntervalTicks;
     private long _nextTimestamp;
 
     public DhmpPacingSchedule(long messagesPerSecond)
@@ -26,9 +27,33 @@ public sealed class DhmpPacingSchedule
             throw new ArgumentOutOfRangeException(
                 nameof(messagesPerSecond));
 
-        Volatile.Write(
-            ref _messagesPerSecond,
-            messagesPerSecond);
+        if (messagesPerSecond == Volatile.Read(ref _messagesPerSecond))
+            return;
+
+        // Precalculate the common one-record interval whenever the rate changes.
+        // The minimum one-tick interval matches the existing ceiling calculation.
+        long singleTicks = checked((long)Math.Ceiling(
+            (double)Stopwatch.Frequency / messagesPerSecond));
+        Volatile.Write(ref _singleMessageIntervalTicks, singleTicks);
+        Volatile.Write(ref _messagesPerSecond, messagesPerSecond);
+    }
+
+    /// <summary>
+    /// Fused single-record pacing fast path: one clock read, no per-record
+    /// floating-point division when the rate has not changed.
+    /// The caller serializes sends and awaits a positive delay before Commit.
+    /// </summary>
+    public TimeSpan TryCommitOne(long timestamp)
+    {
+        long next = _nextTimestamp;
+        if (next != 0 && timestamp < next)
+        {
+            double seconds = (double)(next - timestamp) / Stopwatch.Frequency;
+            return TimeSpan.FromSeconds(seconds);
+        }
+
+        _nextTimestamp = checked(timestamp + Volatile.Read(ref _singleMessageIntervalTicks));
+        return TimeSpan.Zero;
     }
 
     public TimeSpan GetDelay(
