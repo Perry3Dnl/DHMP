@@ -23,7 +23,8 @@ public readonly record struct DhmpReceivePolicy
     {
         if (mode is not DhmpProcessingMode.Sequential and
             not DhmpProcessingMode.UnsafeSequential and
-            not DhmpProcessingMode.Latest)
+            not DhmpProcessingMode.Latest and
+            not DhmpProcessingMode.UnsafeLatest)
         {
             throw new ArgumentOutOfRangeException(nameof(mode));
         }
@@ -95,7 +96,8 @@ public readonly record struct DhmpReceivePolicy
         wireContract.Validate();
         if (Mode is not DhmpProcessingMode.Sequential and
             not DhmpProcessingMode.UnsafeSequential and
-            not DhmpProcessingMode.Latest)
+            not DhmpProcessingMode.Latest and
+            not DhmpProcessingMode.UnsafeLatest)
         {
             throw new ArgumentException("A supported DHMP receive mode is required.");
         }
