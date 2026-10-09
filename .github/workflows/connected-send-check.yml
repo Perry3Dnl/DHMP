@@ -57,7 +57,7 @@ jobs:
           sudo ip netns exec dhmp-connected-src "$(command -v dotnet)" tests/DHMP.ConnectedSendCheck/bin/Release/net10.0/DHMP.ConnectedSendCheck.dll mtu
       - name: Force pending sends and validate cancellation and disposal
         run: |
-          sudo ip netns exec dhmp-connected-src tc qdisc add dev dhmp-tx root netem delay 15000ms limit 10000
+          sudo ip netns exec dhmp-connected-src tc qdisc add dev dhmp-tx root tbf rate 1kbit burst 1600 limit 1048576
           sudo ip netns exec dhmp-connected-src "$(command -v dotnet)" tests/DHMP.ConnectedSendCheck/bin/Release/net10.0/DHMP.ConnectedSendCheck.dll pressure
       - name: Remove namespaces
         if: always()
