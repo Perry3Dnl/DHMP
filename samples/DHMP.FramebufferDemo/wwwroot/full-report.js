@@ -491,6 +491,38 @@
       })),
       value => fullDecimal(value, 2));
 
+    const aggregateRows = Array.isArray(report.aggregateTiming)
+      ? report.aggregateTiming
+      : [];
+
+    if (aggregateRows.length) {
+      drawGroupedBarChart(
+        'aggregateDirectTimingChart',
+        packetSizes.map(v => fullInteger(v) + ' B'),
+        modeLabels.map(label => ({
+          label,
+          values: packetSizes.map(size => {
+            const row = aggregateRows.find(r =>
+              modeName(r) === label && Number(r.packetBytes) === size);
+            return row ? Number(row.directReceive?.nanosecondsPerPacket || 0) : 0;
+          })
+        })),
+        value => fullDecimal(value, 2));
+
+      drawGroupedBarChart(
+        'aggregateClientTimingChart',
+        packetSizes.map(v => fullInteger(v) + ' B'),
+        modeLabels.map(label => ({
+          label,
+          values: packetSizes.map(size => {
+            const row = aggregateRows.find(r =>
+              modeName(r) === label && Number(r.packetBytes) === size);
+            return row ? Number(row.fullClient?.nanosecondsPerPacket || 0) : 0;
+          })
+        })),
+        value => fullDecimal(value, 2));
+    }
+
     const localBatches = Array.isArray(report.localBatchMatrix)
       ? report.localBatchMatrix
       : [];
@@ -684,6 +716,26 @@
       '<td>' + fullInteger(row.packetRate) + '</td>' +
       '<td>' + fullInteger(row.logicalRecordsPerSecond) + '</td>' +
       '<td>' + Number(row.logicalPayloadGigabytesPerSecond).toFixed(2) + '</td>' +
+      '</tr>').join('');
+
+    const aggregateRowsForTable = Array.isArray(report.aggregateTiming)
+      ? report.aggregateTiming
+      : [];
+
+    $('aggregateTimingBody').innerHTML = aggregateRowsForTable.map(row =>
+      '<tr>' +
+      '<td>' + modeName(row) + '</td>' +
+      '<td>' + Number(row.packetBytes).toLocaleString() + '</td>' +
+      '<td>' + fullInteger(row.packetsPerPass) + '</td>' +
+      '<td>' + fullInteger(row.directReceive?.totalPackets || 0) + '</td>' +
+      '<td>' + fullDecimal(row.directReceive?.elapsedMilliseconds || 0, 3) + '</td>' +
+      '<td>' + fullDecimal(row.directReceive?.nanosecondsPerPacket || 0, 3) + '</td>' +
+      '<td>' + fullInteger(row.directReceive?.packetRate || 0) + '</td>' +
+      '<td>' + fullInteger(row.fullClient?.totalPackets || 0) + '</td>' +
+      '<td>' + fullDecimal(row.fullClient?.elapsedMilliseconds || 0, 3) + '</td>' +
+      '<td>' + fullDecimal(row.fullClient?.nanosecondsPerPacket || 0, 3) + '</td>' +
+      '<td>' + fullInteger(row.fullClient?.packetRate || 0) + '</td>' +
+      '<td>' + fullDecimal(row.fullClient?.logicalPayloadGigabytesPerSecond || 0, 2) + '</td>' +
       '</tr>').join('');
 
     const localBatchRows = Array.isArray(report.localBatchMatrix)
