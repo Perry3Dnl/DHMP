@@ -210,6 +210,8 @@ internal sealed class DhmpFullReportLab
                     "The Latest sweeper owns exactly three fixed slots and never waits for a grabber.",
                     "Latest grabs the slot fully published when it looks; Native Smoothing grabs exactly N-2/N-1/N after a complete three-slot sweep window exists.",
                     "Plaintext single-peer Latest and Latest + Native Smoothing both receive directly into Ring-3; Native Smoothing changes only the downstream grabber and adds no intermediate receive copy.",
+                    "Protected raw receive, multi-peer routed raw receive and UDP compatibility currently require intermediate receive/decode/routing buffers before server publication; their copy costs are not presented as part of the copy-free direct-slot processing ceiling.",
+                    "Sequential direct receive still transfers each completed Ring-3 record into its FIFO because Sequential owns records beyond the three-slot arrival window; that ownership copy is intentional and remains in the measured Sequential cost.",
                     "Poke is a pre-handshake exact-echo control primitive. Its Full Report rows measure Span-based local echo processing, not Internet RTT or sustained network throughput.",
                     "Canonical Full Report Sequential rows use a 64-record local FIFO. Local multi-record batch rows size that synthetic FIFO to at least one complete batch so synchronous batch publication cannot self-backpressure before its grabber runs."
                 });
